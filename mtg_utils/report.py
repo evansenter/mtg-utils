@@ -6,6 +6,7 @@ from collections import Counter, defaultdict
 from mtg_utils.analysis import (analyse_mana, ceiling_audit, collapse_temps,
                                 commander_lines, compare_swap, deck_base_name,
                                 replicate_playsim, verify, worst_lines)
+from mtg_utils.cards import front_name
 from mtg_utils.castability import pips_from_cost, playsim_report
 from mtg_utils.decklist import as_cmdrs, diff_multiset, flat
 from mtg_utils.profiles import build_accel_profiles, build_land_profiles
@@ -254,11 +255,10 @@ def report_ceiling(cmdr, entries, scry, cache=None, rec_cache=None, cedh=False,
     # Scryfall records were never fetched. Only the above-bar names are
     # looked up: fetching all ~250 ranked cards to price the handful above
     # the bar is a lot of round trips for rows nobody prints.
-    have = {n.split(" // ")[0].strip().lower()
-            for n in list(entries) + as_cmdrs(cmdr)}
+    have = {front_name(n).lower() for n in list(entries) + as_cmdrs(cmdr)}
     want = [r["name"] for r in rows
             if r["inclusion"] >= threshold
-            and r["name"].split(" // ")[0].strip().lower() not in have]
+            and front_name(r["name"]).lower() not in have]
     if want:
         scry, nf = scry_fetch(want, cache)
         if nf:

@@ -25,6 +25,7 @@ import re
 import subprocess
 import time
 
+from mtg_utils.cards import front_name
 from mtg_utils.sources import UA_BROWSER
 
 EDHREC_JSON = "https://json.edhrec.com/pages"
@@ -54,7 +55,7 @@ def edhrec_slug(name):
     """
     if isinstance(name, (list, tuple)):
         return "-".join(sorted(edhrec_slug(n) for n in name))
-    name = name.split(" // ")[0]
+    name = front_name(name)
     # Drop apostrophes FIRST, so they close up rather than becoming hyphens.
     # Covers the typographic apostrophe too: Scryfall uses U+2019 in some
     # names and a straight quote in others, and the slug is the same either
@@ -140,7 +141,7 @@ def parse_commander_page(data):
             # "Agadeem's Awakening // Agadeem, the Undercrypt"). Keyed on the
             # front face so it compares against a decklist that spells out
             # both halves -- the bug that reported an in-deck card missing.
-            name = (cv.get("name") or "").split(" // ")[0].strip()
+            name = front_name(cv.get("name"))
             if not name:
                 continue
             pct = 100.0 * num / pot

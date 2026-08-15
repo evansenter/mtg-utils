@@ -149,12 +149,14 @@ five points; `KNOWN_ISSUES.md` #13 records them instead.
 | `write` | Write the final 100 and assert it back |
 | `diff` | Card-multiset diff of a local list against the live Moxfield deck |
 | `audit` | verify + mana + roster + combos + own |
+| `ceiling` | EDHREC (or `--cedh` edhtop16) inclusion: what is above the bar and missing, with ownership and price |
 | `calibrate` | Re-measure every live deck into one table |
 | `selftest` | Run the test suite |
 
 Flags: `--cache` (default `scry.json`), `--sims` (8000), `--trials` (20000),
 `--reps` (3), `--seed` (17), `--out`, `--decks`, `--lands`, `--accel`,
-`--adds`, `--cuts`.
+`--adds`, `--cuts`, `--swap`, and for `ceiling`: `--rec-cache`
+(default `edhrec.json`), `--cedh`, `--bar` (50).
 
 ### Every figure carries its own noise
 

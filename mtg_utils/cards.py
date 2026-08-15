@@ -54,6 +54,31 @@ def land_face(card):
     return None
 
 
+def front_name(name):
+    """A card NAME reduced to its front face: 'A // B' -> 'A'.
+
+    `front()` takes a Scryfall card object. This takes the string, which is
+    what a decklist, a ManaBox export and every external ranking source hand
+    you, and it is the join key between them — they do not agree on the
+    convention:
+
+        decklist   "Agadeem's Awakening // Agadeem, the Undercrypt"
+        EDHREC     "Agadeem's Awakening"                    front face only
+        edhtop16   "Sink into Stupor // Soporific Springs"   full name
+
+    so a comparison written against one source is wrong against another.
+    Reducing both sides is the only thing that works, and doing it by hand at
+    each call site is how a card sitting in the deck got reported as missing.
+    That bug is the reason this lives in cards.py rather than in whichever
+    module noticed it last.
+
+    Does not lower-case: some callers key a cache, some build an API
+    identifier that wants the real capitalisation. Say `.lower()` where you
+    mean it.
+    """
+    return (name or "").split(" // ")[0].strip()
+
+
 def front(card, key, default=None):
     if card.get(key) is not None:
         return card[key]

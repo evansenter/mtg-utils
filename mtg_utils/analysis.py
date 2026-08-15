@@ -3,7 +3,8 @@ import math
 import random
 import re
 
-from mtg_utils.cards import front, has_land_back, is_front_land, land_face, enters_tapped
+from mtg_utils.cards import (enters_tapped, front, front_name, has_land_back,
+                             is_front_land, land_face)
 from mtg_utils.castability import (at_least_in_draw, castable_faces,
                                    pips_from_cost, playsim_report, probability)
 from mtg_utils.decklist import apply_swaps, as_cmdrs, flat
@@ -383,13 +384,12 @@ def ceiling_audit(cmdr, entries, rows, capped, owned, scry, threshold=50.0):
     of UNKNOWN inclusion, not 0%, and nothing here may turn one into the
     other.
     """
-    have = {n.split(" // ")[0].strip().lower()
-            for n in list(entries) + as_cmdrs(cmdr)}
+    have = {front_name(n).lower() for n in list(entries) + as_cmdrs(cmdr)}
     missing = []
     for r in rows:
         if r["inclusion"] < threshold:
             continue
-        key = r["name"].split(" // ")[0].strip().lower()
+        key = front_name(r["name"]).lower()
         if key in have:
             continue
         card = scry.get(key) or scry.get(r["name"].lower())

@@ -1,6 +1,13 @@
 # Known issues — found during the repo migration
 
-Entries marked FIXED have been dealt with since; the rest stand.
+Entries marked FIXED have been dealt with since; RESOLVED means the behaviour
+was examined and deliberately kept, with the reasoning recorded. **Nothing here
+is currently outstanding.**
+
+The file's job does not end when the list empties. It exists because a finding
+that lives only in scrollback gets rediscovered — so a decision NOT to do
+something belongs here too, not in a commit message nobody greps. #13 and #14
+are that shape.
 
 Everything here was found while moving `mana_model.py` into `mtg_utils/`, and
 every one was left exactly as it was, because **fixing any of them would change
@@ -387,3 +394,40 @@ be read at all, not because it is one-shot. Counted, correctly.
 Commander's Sphere and Mind Stone also match "sacrifice this", but theirs is a
 DRAW ability, not the mana one — a rule keyed on that phrase alone would have
 dropped two ordinary rocks.
+
+---
+
+## 14. No mulligan is modelled — RESOLVED, documented and measured
+
+`playsim` deals seven and never looks back, so every opening hand is kept,
+zero-land hands included. Real play mulligans, so **every play-simulation
+figure is a floor**, not an estimate.
+
+Measured exactly over the committed fixtures — the share of opening sevens a
+real player ships back:
+
+| deck | lands (incl. MDFC backs) | P(0 lands) | P(<=1 land) |
+|---|---|---|---|
+| mono | 36 | 3.7% | 20.1% |
+| multi | 40 | 2.3% | 14.4% |
+| colourless | 27 | 9.9% | 38.2% |
+| partner | 39 | 2.5% | 15.2% |
+
+**Cost:** understates every play-simulation figure, and unevenly. The share
+moves with land count, so a 27-land deck is penalised nearly three times as
+hard as a 40-land one — which means it skews decks *against each other*, not
+just the level of each. `calibrate` prints decks side by side in one table.
+
+**Resolved by stating it with its size rather than by modelling it.** `mana`
+now prints this deck's own figure below the play simulation, computed exactly
+with `at_least_in_draw` — the opening hand is a counting question, so it has
+an exact answer.
+
+Modelling an actual mulligan is deliberately not attempted. It needs a keep
+heuristic, and inventing one is precisely the failure #13 records: a play
+simulation once hard-coded tap probabilities of 0.25/0.30/0.05 for three
+conditional lands, and those made-up numbers moved a reported
+commander-on-curve figure by about five points. A London mulligan with a
+"keep 2-5 lands" rule is defensible and standard, but it is a modelling
+choice that would move every number in the repo, and it should arrive as its
+own commit with the snapshot diff shown.
