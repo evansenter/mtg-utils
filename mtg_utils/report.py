@@ -4,7 +4,8 @@ import time
 from collections import Counter, defaultdict
 
 from mtg_utils.analysis import (analyse_mana, collapse_temps, commander_lines,
-                                deck_base_name, verify, worst_lines)
+                                deck_base_name, replicate_playsim, verify,
+                                worst_lines)
 from mtg_utils.castability import pips_from_cost, playsim_report
 from mtg_utils.decklist import as_cmdrs, diff_multiset, flat
 from mtg_utils.profiles import build_accel_profiles, build_land_profiles
@@ -15,8 +16,14 @@ from mtg_utils.sources.moxfield import moxfield_deck, moxfield_user_decks
 from mtg_utils.sources.scryfall import scry_fetch
 from mtg_utils.sources.spellbook import spellbook
 
-def report_mana(cmdr, entries, scry, sims, trials, seed=17, lines=None):
-    a = analyse_mana(cmdr, entries, scry, sims, trials, seed, lines)
+def _reps(n):
+    """'3 reps' / '1 rep'. The provenance line is read by people copying a
+    figure into a primer, and '1 reps' reads as a bug in the tool."""
+    return f"{n} rep" + ("" if n == 1 else "s")
+
+
+def report_mana(cmdr, entries, scry, sims, trials, seed=17, lines=None, reps=3):
+    a = analyse_mana(cmdr, entries, scry, sims, trials, seed, lines, reps)
     v, accels, rows, lines, res = (a["verify"], a["accels"], a["rows"],
                                    a["lines"], a["sim"])
 
@@ -31,28 +38,38 @@ def report_mana(cmdr, entries, scry, sims, trials, seed=17, lines=None):
     print(f"  accelerants counted: {len([a for a in accels if not a.get('restricted')])}"
           f"  (restricted, excluded: {', '.join(restricted) if restricted else 'none'})")
 
-    print("\n--- sources model (colour), worst lines ---")
-    for p, turn, mv, req, cards in rows:
+    # Every figure carries the wobble of its own reported value. Without it a
+    # 0.4-point gap between two variants reads exactly like a 4-point one, and
+    # deciding which of those is real was being done by hand, outside the tool.
+    print(f"\n--- sources model (colour), worst lines "
+          f"({sims} sims over {_reps(reps)}, seed {seed}) ---")
+    for p, turn, mv, req, cards, sp in rows:
         pips = "".join("{%s}" % x for x in req)
-        print(f"  T{turn} {pips:12} {p*100:5.1f}%   {', '.join(cards[:3])}")
+        print(f"  T{turn} {pips:12} {p*100:5.1f}% ±{sp*100:3.1f}"
+              f"   {', '.join(cards[:3])}")
 
-    print(f"\n--- play simulation, {trials} trials ---")
-    print(f"  {'line':44s} {'on play':>9} {'on draw':>9} {'baseline(any N on TN)':>22}")
+    print(f"\n--- play simulation, {trials} trials over {_reps(reps)},"
+          f" seed {seed} ---")
+    print(f"  {'line':44s} {'on play':>11} {'on draw':>11}"
+          f" {'baseline(any N on TN)':>28}")
     for label, mv, pipstr in lines:
         if label not in res["play"]["lines"]:
             continue
-        a, turn = res["play"]["lines"][label]
-        b, _ = res["draw"]["lines"][label]
-        g1 = res["play"]["generic"][turn]
-        g2 = res["draw"]["generic"][turn]
-        print(f"  {label:44s} {a:8.1f}% {b:8.1f}%   {g1:7.1f}% / {g2:.1f}%")
+        a, turn, sa = res["play"]["lines"][label]
+        b, _, sb = res["draw"]["lines"][label]
+        g1, s1 = res["play"]["generic"][turn]
+        g2, s2 = res["draw"]["generic"][turn]
+        print(f"  {label:44s} {a:6.1f}±{sa:3.1f}% {b:6.1f}±{sb:3.1f}%"
+              f"   {g1:6.1f}±{s1:3.1f}% / {g2:.1f}±{s2:.1f}%")
     print("\n  Diagnosis: a line CLOSE to its baseline is a QUANTITY problem "
           "(no land swap will help).\n  A line FAR BELOW its baseline is a "
           "COLOUR problem (a filter land for that pip is the answer).")
+    print("  A gap smaller than the two ± beside it is noise, not a finding.")
     return res
 
 
-def report_variants(cmdr, entries, scry, land_deltas, accel_deltas, trials, seed=17):
+def report_variants(cmdr, entries, scry, land_deltas, accel_deltas, trials,
+                    seed=17, reps=3):
     """Sweep land count and accelerant count. Slow; opt-in."""
     names = flat(cmdr, entries)[len(as_cmdrs(cmdr)):]
     base_lands = build_land_profiles(names, scry)
@@ -74,8 +91,9 @@ def report_variants(cmdr, entries, scry, land_deltas, accel_deltas, trials, seed
     _cl = commander_lines(cmdr, scry)
     _, cmv, _cpips = _cl[0]
     creq = pips_from_cost(_cpips)
-    print(f"\n=== VARIANTS SWEEP ({trials} trials) — commander line and generic baseline ===")
-    print(f"  {'config':26s} {'cmdr on curve':>16} {'any N on turn N':>18}")
+    print(f"\n=== VARIANTS SWEEP ({trials} trials over {_reps(reps)}, seed {seed})"
+          f" — commander line and generic baseline ===")
+    print(f"  {'config':26s} {'cmdr on curve':>20} {'any N on turn N':>22}")
     for dl in land_deltas:
         for da in accel_deltas:
             if dl >= 0:
@@ -91,15 +109,19 @@ def report_variants(cmdr, entries, scry, land_deltas, accel_deltas, trials, seed
                         break
                     lands.pop(drop)
             acc = accels + [dict(generic_rock) for _ in range(da)]
-            rng = random.Random(seed)
-            r = playsim_report(lands, acc, 99,
-                               [("cmdr", cmv, "".join(f"{{{x}}}" for x in creq))],
-                               trials, rng)
-            a, turn = r["play"]["lines"]["cmdr"]
-            b, _ = r["draw"]["lines"]["cmdr"]
-            g1, g2 = r["play"]["generic"][turn], r["draw"]["generic"][turn]
+            # Comparing configs is the entire purpose of this table, so a
+            # figure without its wobble beside it cannot do the job: the
+            # question is always whether one row differs from another.
+            r = replicate_playsim(lands, acc, 99,
+                                  [("cmdr", cmv, "".join(f"{{{x}}}" for x in creq))],
+                                  trials, seed, reps)
+            a, turn, sa = r["play"]["lines"]["cmdr"]
+            b, _, sb = r["draw"]["lines"]["cmdr"]
+            g1, s1 = r["play"]["generic"][turn]
+            g2, s2 = r["draw"]["generic"][turn]
             print(f"  {len(lands)} lands, {len(acc)} accel"
-                  f"{'':<7} {a:6.1f}% / {b:5.1f}% {g1:9.1f}% / {g2:5.1f}%")
+                  f"{'':<7} {a:6.1f}±{sa:3.1f} / {b:5.1f}±{sb:3.1f}"
+                  f" {g1:8.1f}±{s1:3.1f} / {g2:5.1f}±{s2:3.1f}")
 
 
 def report_own(cmdr, entries, scry):

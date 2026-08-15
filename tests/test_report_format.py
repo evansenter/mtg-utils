@@ -237,18 +237,26 @@ def test_mana_table_columns(mm, capsys):
     mm.report_mana(cmdr, entries, scry, sims=200, trials=400)
     out = capsys.readouterr().out
 
-    assert ("  line                                           "
-            "on play   on draw  baseline(any N on TN)") in out
-    # "  {label:44s} {a:8.1f}% {b:8.1f}%   {g1:7.1f}% / {g2:.1f}%"
-    row_re = re.compile(r"^  (?P<label>.{44}) (?P<play>.{8})% (?P<draw>.{8})%"
-                        r"   (?P<base>.{7})% / \d+\.\d%$")
+    assert ("  line                                             "
+            "on play     on draw        baseline(any N on TN)") in out
+    # "  {label:44s} {a:6.1f}±{sa:3.1f}% {b:6.1f}±{sb:3.1f}%"
+    # "   {g1:6.1f}±{s1:3.1f}% / {g2:.1f}±{s2:.1f}%"
+    #
+    # Each figure is now a value±spread pair. The pairs are matched in the
+    # regex rather than skipped over, so a column that loses its bar in a
+    # later format change fails here as a layout error instead of quietly
+    # printing a bare number in a table where every neighbour is labelled.
+    row_re = re.compile(r"^  (?P<label>.{44}) (?P<play>.{6})±(?P<ps>.{3})%"
+                        r" (?P<draw>.{6})±(?P<ds>.{3})%"
+                        r"   (?P<base>.{6})±(?P<bs>.{3})% / \d+\.\d±\d+\.\d%$")
     rows = [m for m in (row_re.match(l) for l in out.splitlines()) if m]
     assert rows, out
     for m in rows:
         assert m.group("label").rstrip() == m.group("label").strip()   # left aligned
         assert m.group("play").strip().replace(".", "").isdigit()
+        assert m.group("ps").strip().replace(".", "").isdigit()
         assert m.group("base").startswith(" ")                          # right aligned
-    assert "--- play simulation, 400 trials ---" in out
+    assert "--- play simulation, 400 trials over 3 reps, seed 17 ---" in out
     assert "Diagnosis: a line CLOSE to its baseline is a QUANTITY problem" in out
 
 
