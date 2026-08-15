@@ -1,0 +1,71 @@
+name: Claude Code Review
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+# Rapid successive pushes would otherwise spawn overlapping full-model review
+# runs (duplicate verdicts, wasted tokens); only the latest HEAD gets reviewed.
+concurrency:
+  group: claude-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+env:
+  # Centralized prompt - edit in dotfiles repo, all repos pick up changes
+  PROMPT_URL: https://raw.githubusercontent.com/evansenter/dotfiles/main/home/.claude/contrib/prompts/claude-review.md
+
+jobs:
+  claude-review:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write  # Needed to post comments
+      issues: write         # Read linked issues, optionally comment if PR incomplete
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        # Pinned to v4 (Node20). A v5 bump here can't be CI-verified: the action refuses
+        # to run when this workflow file differs from the copy on the default branch (a
+        # security control — a PR that can rewrite the workflow would otherwise direct
+        # the reviewer while holding its token). Note it does NOT fail: it logs
+        # "Skipping action due to workflow validation" and exits *success*, so a green
+        # claude-review on a workflow-editing PR means the review never ran, not that it
+        # passed. Don't read it as a pass. dotfiles.yml is bumped to v5 (verified green);
+        # revisit these two once v5 is confirmed safe for the action.
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Fetch review prompt
+        id: prompt
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if curl -sfL "$PROMPT_URL" > /tmp/review-prompt.md && [ -s /tmp/review-prompt.md ]; then
+            echo "Fetched review prompt ($(wc -l < /tmp/review-prompt.md) lines)"
+            echo "use_file=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::Failed to fetch centralized prompt from $PROMPT_URL - using fallback"
+            echo "use_file=false" >> "$GITHUB_OUTPUT"
+            # Post warning comment on PR
+            gh pr comment ${{ github.event.pull_request.number }} --body "⚠️ **Claude Review Warning**: Could not fetch centralized review prompt from \`$PROMPT_URL\`. Using fallback inline prompt. This may result in less thorough reviews."
+          fi
+
+      - name: Run Claude Code Review
+        id: claude-review
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            REPO: ${{ github.repository }}
+            PR_NUMBER: ${{ github.event.pull_request.number }}
+
+            ${{ steps.prompt.outputs.use_file == 'true' && 'First, read the review instructions from /tmp/review-prompt.md using your Read tool. Then follow those instructions to review this PR.' || 'Review this PR for code quality, bugs, security issues, and adherence to project conventions (check CLAUDE.md). Check for previous "Feedback Addressed" comments to avoid re-raising resolved issues. Be strict: REQUEST_CHANGES for any issues found, only APPROVE if genuinely ready to merge. Submit your review using gh api repos/$REPO/pulls/$PR_NUMBER/reviews with inline comments on specific files/lines and event set to APPROVE or REQUEST_CHANGES. Start the review body with: > **Prompt:** Fallback (centralized prompt fetch failed)' }}
+
+            Use the REPO and PR_NUMBER variables provided above.
+          # Tools required by the centralized prompt (see contrib/prompts/claude-review.md).
+          # Model: opus (Claude Opus 5) — matches the interactive Claude Code default in
+          # home/.claude/settings.json, at roughly half Fable's price. Bump to --model
+          # fable if review depth on a given repo turns out to need it.
+          claude_args: '--model opus --allowed-tools "Read,Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr comment:*),Bash(gh pr review:*),Bash(gh issue view:*),Bash(gh issue comment:*),Bash(gh api:*)"'
