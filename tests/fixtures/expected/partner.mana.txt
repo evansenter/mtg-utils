@@ -1,0 +1,29 @@
+
+=== MANA BASE (38 front-face lands + 1 MDFC land-backs, 0 truly tapped) ===
+  conditional, not counted: Breeding Pool   [you may pay 2 life]
+  conditional, not counted: Godless Shrine   [you may pay 2 life]
+  conditional, not counted: Hallowed Fountain   [you may pay 2 life]
+  conditional, not counted: Overgrown Tomb   [you may pay 2 life]
+  conditional, not counted: Temple Garden   [you may pay 2 life]
+  conditional, not counted: Watery Grave   [you may pay 2 life]
+  accelerants counted: 16  (restricted, excluded: none)
+
+--- sources model (colour), worst lines ---
+  T2 {U}{U}        75.1%   Counterspell, Mana Drain
+  T1 {U}           80.0%   An Offer You Can't Refuse, Brainstorm, Mystic Remora
+  T1 {G}           80.6%   Birds of Paradise, Elvish Mystic, Llanowar Elves
+  T1 {W}           81.0%   Enlightened Tutor, Esper Sentinel, Path to Exile
+  T3 {G}{G}        81.5%   Eternal Witness
+
+--- play simulation, 20000 trials ---
+  line                                           on play   on draw  baseline(any N on TN)
+  Counterspell T2                                  67.0%     73.3%      95.5% / 97.5%
+  An Offer You Can't Refuse T1                     79.2%     83.2%      97.9% / 98.9%
+  Birds of Paradise T1                             78.7%     82.6%      97.9% / 98.9%
+  Enlightened Tutor T1                             79.0%     82.6%      97.9% / 98.9%
+  Eternal Witness T3                               77.3%     83.0%      94.5% / 97.0%
+  Tymna the Weaver on curve                        87.5%     91.2%      94.5% / 97.0%
+  Thrasios, Triton Hero on curve                   74.5%     79.9%      95.5% / 97.5%
+
+  Diagnosis: a line CLOSE to its baseline is a QUANTITY problem (no land swap will help).
+  A line FAR BELOW its baseline is a COLOUR problem (a filter land for that pip is the answer).

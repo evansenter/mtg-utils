@@ -27,7 +27,7 @@ REFERENCE = os.path.join(REPO, "reference", "mana_model_v0.py")
 if REPO not in sys.path:
     sys.path.insert(0, REPO)
 
-DECKS = ("mono", "multi", "colourless")
+DECKS = ("mono", "multi", "colourless", "partner")
 
 
 def pytest_addoption(parser):
