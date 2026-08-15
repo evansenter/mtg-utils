@@ -8,6 +8,7 @@ from mtg_utils.cards import (enters_tapped, front, front_name, has_land_back,
 from mtg_utils.castability import (at_least_in_draw, castable_faces,
                                    pips_from_cost, playsim_report, probability)
 from mtg_utils.decklist import apply_swaps, as_cmdrs, flat
+from mtg_utils.primer import parse_primer_links, unclosed_openers
 from mtg_utils.profiles import build_accel_profiles, build_land_profiles
 
 # ============================================================ verify
@@ -523,3 +524,47 @@ def collapse_temps(use):
             continue
         out[name] = cards
     return out
+
+
+def primer_audit(text, cmdr, entries, scry):
+    """Every `[[Card]]` in a primer, checked against Scryfall and the decklist.
+
+    Pure compute; report_primer only formats it.
+
+    Three findings, in the order they cost you something:
+
+    `wrapped`   -- the link does not render at all. Nothing downstream sees a
+                   card here, so this is the only finding that is invisible in
+                   the rendered page rather than merely wrong in it.
+    `not_found` -- Scryfall does not know the name. A typo in a link renders as
+                   a dead link, and the primer still reads as if the card is in
+                   the deck.
+    `not_in_deck` -- a real card that is no longer in the list. THE failure a
+                   primer accumulates on its own: editing a decklist touches
+                   nothing in the prose that argues for the cards.
+
+    A wrapped link is NOT also reported as not-found or not-in-deck even when
+    its normalised name would qualify. One broken link is one problem, and
+    listing it three times buries the other two.
+    """
+    links = parse_primer_links(text)
+    have = {front_name(n).lower() for n in list(entries) + as_cmdrs(cmdr)}
+    wrapped, not_found, not_in_deck = [], [], []
+    for l in links:
+        key = front_name(l["name"]).lower()
+        if l["wrapped"]:
+            wrapped.append(l)
+            continue
+        if not scry.get(key) and not scry.get(l["name"].lower()):
+            not_found.append(l)
+            continue
+        if key not in have:
+            not_in_deck.append(l)
+    return {"links": links,
+            "distinct": len({front_name(l["name"]).lower() for l in links}),
+            "wrapped": wrapped,
+            "unclosed": unclosed_openers(text, links),
+            "not_found": not_found,
+            "not_in_deck": not_in_deck,
+            "ok": not (wrapped or not_found or not_in_deck
+                       or unclosed_openers(text, links))}

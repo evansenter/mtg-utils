@@ -2,8 +2,9 @@ usage: mana_model.py [-h] [--cache CACHE] [--sims SIMS] [--trials TRIALS]
                      [--reps REPS] [--seed SEED] [--out OUT] [--decks DECKS]
                      [--lands LANDS] [--accel ACCEL] [--adds ADDS]
                      [--cuts CUTS] [--rec-cache REC_CACHE] [--cedh]
-                     [--bar BAR] [--sort {inclusion,synergy}] [--swap SWAP]
-                     {fetch,verify,mana,variants,combos,own,contention,moxfield,write,audit,roster,diff,selftest,calibrate,ceiling,skeleton}
+                     [--bar BAR] [--sort {inclusion,synergy}]
+                     [--primer PRIMER] [--swap SWAP]
+                     {fetch,verify,mana,variants,combos,own,contention,moxfield,write,audit,roster,diff,selftest,calibrate,ceiling,skeleton,primer}
                      [target]
 
 mana_model.py — deck validation and castability for Commander decks.
@@ -38,6 +39,7 @@ Subcommands
   moxfield    fetch a live deck into decklist format
   write       write the final 100 and assert it back
   diff        card-multiset diff of a local list against the LIVE Moxfield deck
+  primer      check every [[Card]] link in a primer against the decklist
   audit       verify + mana + roster + combos + own  (full pass, no variants)
   selftest    offline regression tests; run after ANY edit to this file
   calibrate   re-measure every live deck into one table (never store the rows)
@@ -46,7 +48,7 @@ Decklist format: first non-blank line is the commander, then one entry per
 line as "N Card Name" or bare "Card Name".
 
 positional arguments:
-  {fetch,verify,mana,variants,combos,own,contention,moxfield,write,audit,roster,diff,selftest,calibrate,ceiling,skeleton}
+  {fetch,verify,mana,variants,combos,own,contention,moxfield,write,audit,roster,diff,selftest,calibrate,ceiling,skeleton,primer}
   target                decklist path, or deck id for `moxfield`; unused by
                         `selftest`
 
@@ -73,5 +75,6 @@ options:
   --sort {inclusion,synergy}
                         ceiling: order the reported rows; the bar stays on
                         inclusion either way
+  --primer PRIMER       primer: path to the primer markdown to check
   --swap SWAP           variants: measure named swaps, 'Cut->Add,Cut2->Add2'
                         (use ';' between pairs if a name contains a comma)

@@ -5,11 +5,12 @@ from collections import Counter, defaultdict
 
 from mtg_utils.analysis import (CURVE_TOP, analyse_mana, ceiling_audit,
                                 collapse_temps, commander_lines, compare_swap,
-                                deck_base_name, deck_skeleton, replicate_playsim,
-                                verify, worst_lines)
+                                deck_base_name, deck_skeleton, primer_audit,
+                                replicate_playsim, verify, worst_lines)
 from mtg_utils.cards import front_name
 from mtg_utils.castability import pips_from_cost, playsim_report
 from mtg_utils.decklist import as_cmdrs, diff_multiset, flat
+from mtg_utils.primer import parse_primer_links
 from mtg_utils.profiles import build_accel_profiles, build_land_profiles
 from mtg_utils.roster import (ANY_COLOUR, PAIR_CYCLES, TRIPLE_CYCLES, WUBRG,
                               identity_pairs, roster_names, roster_status)
@@ -606,3 +607,55 @@ def report_roster(cmdr, entries, scry, cache_path=None):
         print(f"    {pk} {slot:18s} {name:30s} {st}")
     print("  Ownership routes the purchase; it never decides the slot.")
     return empty
+
+
+def report_primer(cmdr, entries, scry, primer_path, cache=None):
+    """Check every `[[Card]]` in a primer against Scryfall and the decklist.
+
+    NETWORK on a cache miss, like `ceiling` and `roster`: a link naming a card
+    that is NOT in the list is precisely the interesting case, and its Scryfall
+    record was therefore never fetched by the decklist pass. Looking up only
+    the unknown names keeps the usual run to zero round trips.
+
+    Returns the audit dict. The exit status is the caller's to set -- this is
+    a check, and a check that cannot fail a script is a check nobody runs.
+    """
+    with open(primer_path, encoding="utf-8") as f:
+        text = f.read()
+    links = parse_primer_links(text)
+    # Wrapped links are excluded from the fetch. Their normalised name is a
+    # guess at what the author meant, and asking Scryfall about a guess turns
+    # one clear "this link is broken" into a second, contradictory
+    # "...and this card does not exist".
+    want = [l["name"] for l in links if not l["wrapped"]]
+    if want:
+        scry, nf = scry_fetch(want, cache)
+        if nf:
+            print("  SCRYFALL NOT FOUND (primer link, front-face names "
+                  "only!):", nf)
+    a = primer_audit(text, cmdr, entries, scry)
+    print(f"\n=== PRIMER: {primer_path} ===")
+    print(f"  {len(a['links'])} links, {a['distinct']} distinct cards")
+    if a["unclosed"]:
+        print(f"\n  UNCLOSED '[[' ({len(a['unclosed'])}) -- no closing ']]', so "
+              f"the card named here is checked by nothing:")
+        for line in a["unclosed"]:
+            print(f"    line {line}")
+    if a["wrapped"]:
+        print(f"\n  BROKEN ACROSS LINES ({len(a['wrapped'])}) -- these render as "
+              f"literal text, brackets and all:")
+        for l in a["wrapped"]:
+            print(f"    line {l['line']}: {l['name']}")
+    if a["not_found"]:
+        print(f"\n  NOT A CARD ({len(a['not_found'])}) -- Scryfall does not know "
+              f"this name:")
+        for l in a["not_found"]:
+            print(f"    line {l['line']}: {l['name']}")
+    if a["not_in_deck"]:
+        print(f"\n  NO LONGER IN THE DECK ({len(a['not_in_deck'])}) -- the primer "
+              f"still argues for these:")
+        for l in a["not_in_deck"]:
+            print(f"    line {l['line']}: {l['name']}")
+    if a["ok"]:
+        print("  every link renders, names a real card, and is in the list.")
+    return a

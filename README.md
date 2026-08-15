@@ -258,6 +258,41 @@ Two rules the column follows:
   missing figure rendered as zero is a specific, plausible, wrong claim. Every
   `--cedh` row is unknown: edhtop16 does not carry the statistic.
 
+### `primer` — every `[[Card]]` link, checked
+
+```
+python3 mana_model.py primer deck.txt --primer primer.md
+```
+
+Exits non-zero on a finding, so it works as a pre-commit or CI check. A primer
+is prose, so nothing else here checks it, and it goes wrong in two ways that
+are invisible in the source text:
+
+- **A link broken across a line does not render.** Hard-wrapping a paragraph
+  puts a newline inside the brackets, and the link shows up as literal text,
+  brackets and all. The words still read correctly in the markdown, so
+  proofreading the prose does not catch it. This is also why the link pattern
+  is written with `re.S`: *without* DOTALL a wrapped link does not match at
+  all, and the check walks past the one link on the page that is broken and
+  reports the primer clean.
+- **A link outlives the card.** Cut a card and the primer still argues for it.
+  Editing a decklist touches nothing in the prose that discusses it, which is
+  the single most common way a primer goes quietly wrong.
+
+Also reported: a name Scryfall does not know (a typo renders as a dead link),
+and an opening `[[` with no closer — which the link pattern cannot match by
+construction, so without an explicit check it is not merely unreported but
+invisible.
+
+`|SET` codes are stripped before lookup, DFCs match on the front face whichever
+side spells out both halves, and a broken link is reported **once** rather than
+also as not-a-card and not-in-deck — one broken link is one problem, and
+listing it three times buries the other findings.
+
+**Network** on a cache miss, like `ceiling` and `roster`: a link naming a card
+that is not in the list is exactly the interesting case, so its Scryfall record
+was never fetched by the decklist pass.
+
 ### Measuring a named swap
 
 ```

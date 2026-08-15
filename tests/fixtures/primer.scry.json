@@ -1,0 +1,30 @@
+{
+ "ashnod's altar": {
+  "name": "Ashnod's Altar",
+  "type_line": "Artifact"
+ },
+ "commit": {
+  "name": "Commit // Memory",
+  "type_line": "Instant // Sorcery"
+ },
+ "commit // memory": {
+  "name": "Commit // Memory",
+  "type_line": "Instant // Sorcery"
+ },
+ "eternal witness": {
+  "name": "Eternal Witness",
+  "type_line": "Creature \u2014 Human Shaman"
+ },
+ "force of will": {
+  "name": "Force of Will",
+  "type_line": "Instant"
+ },
+ "muldrotha, the gravetide": {
+  "name": "Muldrotha, the Gravetide",
+  "type_line": "Legendary Creature \u2014 Elemental Avatar"
+ },
+ "sol ring": {
+  "name": "Sol Ring",
+  "type_line": "Artifact"
+ }
+}
