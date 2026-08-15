@@ -79,8 +79,10 @@ Getting these confused is the most consequential mistake available here.
   play and on the draw separately, because you are on the draw three turns in
   four at a four-player table.
 
-Any figure quoted anywhere must say which model produced it. `hypergeometric()`
-exists as a fast sanity check and must never be reported.
+Any figure quoted anywhere must say which model produced it.
+`at_least_in_draw()` (renamed from `hypergeometric()`, which is not aliased and
+raises) counts cards in the draw and is **not** a castability figure — it is
+used for the opening-hand land count and nothing else.
 
 Mana sources are lands **plus** accelerants of mana value ≤ 3 plus MDFC land
 backs — lands-only understates castability badly. Restricted mana ("spend this

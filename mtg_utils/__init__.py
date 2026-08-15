@@ -50,9 +50,9 @@ from mtg_utils.cards import (BASIC_TYPE_COLOUR, COLOURS, CONDITIONAL_TAP_MARKERS
                              has_land_back, is_front_land, land_face, mana_amount)
 from mtg_utils.profiles import (FILTER_LANDS, OMNI_TYPE, build_accel_profiles,
                                 build_land_profiles)
-from mtg_utils.castability import (_match, castable, castable_faces, hypergeometric,
-                                   pips_from_cost, playable_set, playsim,
-                                   playsim_report, probability)
+from mtg_utils.castability import (_match, at_least_in_draw, castable,
+                                   castable_faces, pips_from_cost, playable_set,
+                                   playsim, playsim_report, probability)
 from mtg_utils.decklist import (apply_swaps, as_cmdrs, diff_multiset, flat,
                                 parse_swaps, read_decklist, write_deck)
 from mtg_utils.roster import (ANY_COLOUR, PAIR_CYCLES, TRIPLE_CYCLES, WUBRG,
@@ -75,3 +75,20 @@ from mtg_utils.report import (report_calibrate, report_combos, report_contention
                               report_ceiling, report_diff, report_mana,
                               report_own, report_roster, report_swap,
                               report_variants)
+
+
+# `hypergeometric` was renamed to `at_least_in_draw`. Everything here is
+# re-exported so `import mana_model` keeps working as a library import, so a
+# bare rename would give a caller a plain AttributeError several frames from
+# the cause. This fails by name and says what to do instead -- and it
+# deliberately does NOT alias the old name, because the whole point of the
+# rename is that `hypergeometric` reads like a figure worth quoting.
+def __getattr__(name):
+    if name == "hypergeometric":
+        raise AttributeError(
+            "hypergeometric() is now at_least_in_draw(k, sources, cards_seen, "
+            "deck). The name was changed because it described the maths rather "
+            "than the question, and it is NOT a castability figure -- use "
+            "probability() for the sources model or playsim() for the play "
+            "simulation.")
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

@@ -170,8 +170,25 @@ def probability(lands, accels, deck_size, req, mv, turn, sims, rng,
     return hits / sims
 
 
-def hypergeometric(k, sources, cards_seen, deck=99):
-    """Fast sanity check ONLY. Never quote this in a primer."""
+def at_least_in_draw(k, sources, cards_seen, deck=99):
+    """P(at least `k` of `sources` among the first `cards_seen` cards).
+
+    Renamed from `hypergeometric`. That name described the MATHS and said
+    nothing about the question, so its only documented property was "never
+    quote this" -- a trap with a docstring, and one short enough to paste
+    into a primer as a castability number. This name states the question it
+    answers, which is a counting question about the opening draw.
+
+    It is NOT a castability figure and must never be reported as one: it
+    counts cards, and knows nothing about pip payment, filter-land pairing,
+    sequencing, or the cost of deploying an accelerant. `probability` (the
+    sources model) and `playsim` (the play simulation) answer that, and
+    every reported figure has to say which of those two produced it.
+
+    What it is legitimately for is a question purely about the draw --
+    "how often does an opening seven hold at most one land", which is the
+    mulligan rate a real player faces and which neither model measures.
+    """
     if sources < k:
         return 0.0
     return sum(math.comb(sources, i) * math.comb(deck - sources, cards_seen - i)
