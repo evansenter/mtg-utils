@@ -80,7 +80,12 @@ def castable(sources, req, mv):
     omni = set(p["omni"] for p in sources if p.get("omni")) - {None}
 
     def cols(p):
-        return set(p["colours"]) | omni
+        # Urborg makes every LAND a Swamp; Yavimaya every land a Forest.
+        # Neither says anything about a mana rock, and applying the omni
+        # colour to every source had a colourless rock producing black.
+        if omni and p.get("kind", "land") == "land":
+            return set(p["colours"]) | omni
+        return set(p["colours"])
 
     filters = [p for p in sources if p.get("filter")]
     others = [p for p in sources if not p.get("filter")]

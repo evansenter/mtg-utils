@@ -212,7 +212,7 @@ library was already 99.
 
 ---
 
-## 6. Omni-typing is applied to every source, not only to lands
+## 6. Omni-typing is applied to every source, not only to lands — FIXED
 
 `castable`:
 
@@ -231,6 +231,13 @@ colourless rock + Urborg pays {B}{B}: True
 
 **Cost:** overstates coloured availability in any deck running Urborg or
 Yavimaya alongside colourless accelerants.
+
+**Fixed.** The omni colour is applied to sources of kind `land` only.
+
+No fixture output moved — at 8000 sims and 20000 trials the four committed
+decks show no measurable difference, so this one is asserted directly rather
+than through a snapshot. A real bug the golden suite happens not to exercise is
+precisely the case that needs its own test, and it is mutation-checked.
 
 ---
 

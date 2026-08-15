@@ -220,3 +220,37 @@ def test_playsim_still_chains_when_each_rock_pays_for_the_next(mm):
     rounds = mm.playsim(lands, accels, 99, 1, False, 500, random.Random(17))
     totals = [sum(p.get("amount", 1) for p in s) for s in rounds[1]]
     assert max(totals) == 5, max(totals)
+
+
+# --- omni-typing is a LAND effect --------------------------------------
+def test_omni_does_not_reach_a_mana_rock(mm):
+    """castable/omni does not colour a rock
+
+    Urborg, Tomb of Yawgmoth makes every LAND a Swamp. It says nothing about
+    Sol Ring. Applying the omni colour to every source let a colourless rock
+    pay a black pip.
+
+    Not visible in any fixture's output -- the four committed decks show no
+    measurable difference at 8000 sims -- so it is asserted directly. A real
+    bug that the golden suite happens not to exercise is exactly the case
+    that needs its own test.
+    """
+    urborg = src("B", omni="B")
+    rock = src("", kind="accel")            # colourless: Sol Ring, Mind Stone
+    swamp = src("B")
+    # the rock cannot be the second black source
+    assert mm.castable([urborg, rock], ["B", "B"], 2) is False
+    # a real land can
+    assert mm.castable([urborg, swamp], ["B", "B"], 2) is True
+
+
+def test_omni_still_reaches_every_land(mm):
+    """castable/omni reaches all lands
+
+    The other direction: Urborg genuinely turns a Mountain into a black
+    source, and narrowing it to lands must not narrow it to the omni land
+    itself.
+    """
+    assert mm.castable([src("R"), src("G", omni="G")], ["G", "G"], 2) is True
+    assert mm.castable([src("R"), src("R"), src("B", omni="B")],
+                       ["B", "B", "B"], 3) is True
