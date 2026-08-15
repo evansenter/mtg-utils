@@ -3,7 +3,7 @@ import itertools
 import math
 import re
 
-from mtg_utils.cards import COLOURS, front
+from mtg_utils.cards import COLOURS, MANA_SYMBOLS, front
 
 # ============================================================ pip solving
 def pips_from_cost(cost):
@@ -49,73 +49,220 @@ def castable_faces(card):
             front(card, "cmc", card.get("cmc", 0)) or 0)
 
 
-def _match(units, req):
-    matched = [-1] * len(units)
+# ------------------------------------------------------------ colour masks
+#
+# A colour is one bit of a six-bit universe (WUBRG plus C). Every question
+# below -- "does this source make a pip this cost wants", "do these two lands
+# share a colour" -- is then a single `&` instead of building and intersecting
+# two sets, and the Monte Carlo loops ask it tens of millions of times.
+#
+# _mask is the ONLY place a colour string becomes a number, so the mapping
+# cannot drift between the solver and the profiles it reads.
+_BIT = {c: 1 << i for i, c in enumerate(MANA_SYMBOLS)}
+_C_BIT = _BIT["C"]
 
-    def try_assign(i, seen):
-        for j, u in enumerate(units):
-            if j in seen or not (set(req[i]) & u):
-                continue
-            seen.add(j)
-            if matched[j] == -1 or try_assign(matched[j], seen):
-                matched[j] = i
-                return True
+
+def _mask(cols):
+    """Bitmask of an iterable of colour letters. Unknown letters contribute
+    nothing, which is what `set(x) & u` did with them."""
+    m = 0
+    for c in cols:
+        b = _BIT.get(c)
+        if b:
+            m |= b
+    return m
+
+
+def _hall(units, subsets, nreq):
+    """Can every pip be paid by a distinct unit?
+
+    `units` is {colour mask: how many units carry it}; `subsets` is the
+    precomputed Hall constraints for the pips (see _req_constraints).
+
+    This replaces an augmenting-path search with Hall's marriage condition:
+    a perfect matching of the pips into distinct units exists exactly when
+    no set of pips outruns the units that can pay any of them. Pips of the
+    SAME colour mask are interchangeable, so only whole groups need testing
+    -- taking half a group leaves the same units reachable while asking for
+    less -- which is why the constraint list is 2^(distinct masks) and not
+    2^(pips), and in practice that is four or eight entries.
+    """
+    have = 0
+    for c in units.values():
+        have += c
+    if nreq > have:
         return False
-
-    for i in range(len(req)):
-        if not try_assign(i, set()):
+    for m, need in subsets:
+        got = 0
+        for um, uc in units.items():
+            if um & m:
+                got += uc
+        if need > got:
             return False
     return True
+
+
+def _req_constraints(req_masks):
+    """(union mask, pips demanded) for every subset of the distinct pip masks.
+
+    Precomputed once per solve because the pips do not change while the
+    filter-land search below tries one pairing after another.
+    """
+    groups = {}
+    for m in req_masks:
+        groups[m] = groups.get(m, 0) + 1
+    items = list(groups.items())
+    n = len(items)
+    out = []
+    for sub in range(1, 1 << n):
+        um = need = 0
+        for i in range(n):
+            if sub >> i & 1:
+                m, c = items[i]
+                um |= m
+                need += c
+        out.append((um, need))
+    return out
+
+
+def _match(units, req):
+    """Public name, kept: `units` is a list of colour SETS, `req` a list of
+    pip strings. Now a thin front for the masked solver -- one implementation,
+    so the exported entry point cannot answer differently from the one the
+    models use."""
+    req_masks = [_mask(r) for r in req]
+    counts = {}
+    for u in units:
+        m = _mask(u)
+        counts[m] = counts.get(m, 0) + 1
+    return _hall(counts, _req_constraints(req_masks), len(req_masks))
+
+
+# ------------------------------------------------------------ memo plumbing
+#
+# `castable` is a pure function of the source profiles and the pips, and the
+# Monte Carlo loops ask it the same question over and over: a 99-card deck
+# holds maybe two dozen DISTINCT source profiles, so twenty thousand trials
+# keep drawing the same handful of hands out of them. Twenty Mountains are
+# twenty separate dicts with identical contents and the solver cannot see
+# that. Interning each profile down to a small int makes it visible, and the
+# memo then answers four calls in five without solving anything.
+#
+# Keyed on CONTENT, not on id(): profile dicts are built once and never
+# mutated, but keying on identity would make that an unstated requirement a
+# future caller could break silently, and a stale answer here moves numbers.
+_SIG_IDS = {}
+# Parallel to _SIG_IDS by value: everything the solver reads, pre-masked.
+#   (colour mask, filter mask, is a filter, amount, omni mask, is a land)
+_SIG_DATA = []
+
+
+def _sig_id(p):
+    """Intern the fields `castable` actually reads, as a small int.
+
+    Everything the solver consults is here and nothing else is: `tapped` is
+    resolved by `playable_set` before we are called, and `mv` has already
+    done its only job by the time the key is built.
+    """
+    cols = p["colours"]
+    filt = p.get("filter")
+    sig = (cols if type(cols) is frozenset else frozenset(cols),
+           filt, p.get("amount", 1), p.get("omni"), p.get("kind", "land"))
+    sid = _SIG_IDS.get(sig)
+    if sid is None:
+        sid = _SIG_IDS[sig] = len(_SIG_DATA)
+        _SIG_DATA.append((_mask(sig[0]), _mask(filt) if filt else 0, bool(filt),
+                          sig[2], _mask(sig[3]) if sig[3] else 0,
+                          sig[4] == "land"))
+    return sid
+
+
+_CASTABLE_MEMO = {}
+
+
+def _ask(sids, req, req_key):
+    """Memoised feasibility for an already-interned, already-sorted hand."""
+    key = (sids, req_key)
+    hit = _CASTABLE_MEMO.get(key)
+    if hit is None:
+        hit = _CASTABLE_MEMO[key] = _solve(sids, req)
+    return hit
 
 
 def castable(sources, req, mv):
     """sources: profiles in play and available. Multi-mana sources count their
     full amount toward mv and contribute that many coloured units."""
-    total = sum(p.get("amount", 1) for p in sources)
+    total = 0
+    for p in sources:
+        total += p.get("amount", 1)
     if total < mv:
         return False
     if not req:
         return True
+    # `mv` is deliberately absent from the key. It is spent entirely on the
+    # total check above and is never consulted again -- leaving it in would
+    # split the memo into buckets that always agree.
+    #
+    # `req` is sorted because the answer is a bipartite matching, which does
+    # not care what order the pips arrive in. {W}{U} and {U}{W} are the same
+    # question and now share an entry.
+    return _ask(tuple(sorted([_sig_id(p) for p in sources])), req,
+                tuple(sorted(req)))
 
-    omni = set(p["omni"] for p in sources if p.get("omni")) - {None}
 
-    def cols(p):
-        # Urborg makes every LAND a Swamp; Yavimaya every land a Forest.
-        # Neither says anything about a mana rock, and applying the omni
-        # colour to every source had a colourless rock producing black.
-        if omni and p.get("kind", "land") == "land":
-            return set(p["colours"]) | omni
-        return set(p["colours"])
+def _solve(sids, req):
+    """Feasibility for a hand given as interned signature ids.
 
-    filters = [p for p in sources if p.get("filter")]
-    others = [p for p in sources if not p.get("filter")]
+    Same search as before -- try each filter land unpaired, then paired with
+    each source that shares one of its colours -- with the units carried as
+    bitmasks rather than sets. The pairing search is exponential in the
+    number of filter lands in hand, which is why it sits behind the memo.
+    """
+    data = [_SIG_DATA[s] for s in sids]
+    omni = 0
+    for d in data:
+        omni |= d[4]
+    others, filters = [], []
+    for d in data:
+        (filters if d[2] else others).append(d)
+    # Urborg makes every LAND a Swamp; Yavimaya every land a Forest. Neither
+    # says anything about a mana rock, and applying the omni colour to every
+    # source had a colourless rock producing black.
+    if omni:
+        ocols = [(d[0] | omni) if d[5] else d[0] for d in others]
+    else:
+        ocols = [d[0] for d in others]
+    oamt = [d[3] for d in others]
+    fpair = [d[1] for d in filters]
+    nf, no = len(filters), len(others)
+    subsets = _req_constraints([_mask(r) for r in req])
+    nreq = len(req)
     activated = set()
 
     def recurse(idx, used):
-        if idx == len(filters):
-            units = []
-            for j, p in enumerate(others):
+        if idx == nf:
+            units = {}
+            for j in range(no):
                 if j in used:
                     continue
-                for _ in range(p.get("amount", 1)):
-                    units.append(cols(p))
-            for k, f in enumerate(filters):
-                pair = set(f["filter"])
+                m = ocols[j]
+                units[m] = units.get(m, 0) + oamt[j]
+            for k in range(nf):
                 if k in activated:
-                    units.append(pair); units.append(pair)
+                    m = fpair[k]
+                    units[m] = units.get(m, 0) + 2
                 else:
                     # Unaided a filter land reads "{T}: Add {C}" as a separate
                     # first ability -- a lone Mystic Gate casts Sol Ring on
                     # turn one. It makes no coloured pip, but it does make {C}.
-                    units.append({"C"})
-            return _match(units, req)
-        f = filters[idx]
-        pair = set(f["filter"])
+                    units[_C_BIT] = units.get(_C_BIT, 0) + 1
+            return _hall(units, subsets, nreq)
+        pair = fpair[idx]
         activated.discard(idx)
         if recurse(idx + 1, used):
             return True
-        for j, p in enumerate(others):
-            if j in used or not (cols(p) & pair):
+        for j in range(no):
+            if j in used or not (ocols[j] & pair):
                 continue
             activated.add(idx)
             if recurse(idx + 1, used | {j}):
@@ -134,6 +281,79 @@ def playable_set(chosen):
     return chosen
 
 
+# ------------------------------------------------------------ drawing cards
+#
+# `random.sample` and `random.shuffle` are reimplemented below, bit for bit,
+# because every figure this tool prints is a Monte Carlo mean and the exact
+# stream of random bits IS the answer: draw one bit differently and every
+# snapshot in tests/fixtures/expected/ moves. What the copies buy is the
+# freedom to skip work the stdlib cannot know is dead -- the 85 cards of a
+# 99-card shuffle that are never looked at, the sample result list that is
+# thrown away a line later -- while consuming the identical bits.
+#
+# `tests/test_rng_equivalence.py` asserts, against the stdlib, that they do.
+# That test is the whole licence for this section: if a future interpreter
+# changes either algorithm it fails there, naming the cause, instead of
+# quietly moving four decks' worth of probabilities.
+def _sample_hits(getrandbits, n, k, limit):
+    """The values `random.sample(range(n), k)` would return, keeping only
+    those below `limit`, in order.
+
+    The stdlib picks one of two strategies by size and consumes different bits
+    for each, so both are reproduced. The rejection loop is fused: the stdlib
+    calls `_randbelow(n)` (which redraws while r >= n) and then redraws while
+    the result is already selected, which is the same sequence of draws as one
+    loop that redraws on either condition.
+    """
+    out = []
+    setsize = 21
+    if k > 5:
+        setsize += 4 ** math.ceil(math.log(k * 3, 4))
+    if n <= setsize:
+        pool = list(range(n))
+        for i in range(k):
+            m = n - i
+            b = m.bit_length()
+            j = getrandbits(b)
+            while j >= m:
+                j = getrandbits(b)
+            v = pool[j]
+            if v < limit:
+                out.append(v)
+            pool[j] = pool[m - 1]
+    else:
+        selected = set()
+        add = selected.add
+        b = n.bit_length()
+        for _ in range(k):
+            j = getrandbits(b)
+            while j >= n or j in selected:
+                j = getrandbits(b)
+            add(j)
+            if j < limit:
+                out.append(j)
+    return out
+
+
+def _shuffle_plan(n, m):
+    """Split a Fisher-Yates shuffle of `n` cards into the part that decides
+    the top `m` and the part that only advances the generator.
+
+    `random.shuffle` walks i from n-1 down to 1 swapping x[i] with a random
+    x[j <= i], and `list.pop()` takes from the end, so the first m steps fix
+    exactly the m cards that get drawn -- nothing later can touch an index
+    above the current i. The remaining steps still have to draw their bits,
+    or every trial after this one would see a different generator, but they
+    do not have to move any cards.
+
+    Returns (head, tail): head is [(i, i+1, bits)], tail is [(i+1, bits)].
+    """
+    stop = max(0, n - 1 - m)
+    head = [(i, i + 1, (i + 1).bit_length()) for i in range(n - 1, stop, -1)]
+    tail = [(i + 1, (i + 1).bit_length()) for i in range(stop, 0, -1)]
+    return head, tail
+
+
 # ============================================================ sources model
 def probability(lands, accels, deck_size, req, mv, turn, sims, rng,
                 max_combos=250, count_restricted=False):
@@ -143,28 +363,53 @@ def probability(lands, accels, deck_size, req, mv, turn, sims, rng,
     """
     accels = [a for a in accels if count_restricted or not a.get("restricted")]
     lands = [l for l in lands if count_restricted or not l.get("restricted")]
-    pool_idx = list(range(len(lands) + len(accels)))
     allp = lands + accels
-    pool = pool_idx + [None] * (deck_size - len(pool_idx))
+    nsrc = len(allp)
+    # The pool is the sources followed by one entry per other card; only the
+    # sources are ever looked at, so the draw below reports which of them came
+    # up and the filler is never built.
+    pool_n = nsrc + max(0, deck_size - nsrc)
+    # Everything the inner loop asks of a profile, resolved once.
+    sids = [_sig_id(p) for p in allp]
+    amts = [p.get("amount", 1) for p in allp]
+    isle = [p["kind"] == "land" for p in allp]
+    tapd = [p["tapped"] for p in allp]
+    req_key = tuple(sorted(req))
+    memo = _CASTABLE_MEMO
+    getrandbits = rng.getrandbits
     seen = 7 + turn - 1
     hits = 0
     for _ in range(sims):
-        draw = rng.sample(pool, seen)
-        got = [allp[i] for i in draw if i is not None]
-        if not any(p["kind"] == "land" for p in got):
-            continue
+        got = _sample_hits(getrandbits, pool_n, seen, nsrc)
         if len(got) < turn:
             continue
+        if not any(isle[i] for i in got):
+            continue
         if len(got) == turn:
-            combos = [got]
+            combos = (tuple(got),)
         else:
             allc = list(itertools.combinations(got, turn))
             combos = allc if len(allc) <= max_combos else rng.sample(allc, max_combos)
         for c in combos:
-            c = list(c)
-            if not any(p["kind"] == "land" for p in c):
+            if not any(isle[i] for i in c):
                 continue
-            if castable(playable_set(c), req, mv):
+            # playable_set: you sequence tapped lands onto earlier turns, so
+            # one is only stuck if every source in hand is tapped.
+            if all(tapd[i] for i in c):
+                c = c[1:]
+            total = 0
+            for i in c:
+                total += amts[i]
+            if total < mv:
+                continue
+            if not req_key:
+                hits += 1
+                break
+            key = (tuple(sorted([sids[i] for i in c])), req_key)
+            r = memo.get(key)
+            if r is None:
+                r = memo[key] = _solve(key[0], req)
+            if r:
                 hits += 1
                 break
     return hits / sims
@@ -203,43 +448,95 @@ def playsim(lands, accels, deck_size, turns, on_draw, trials, rng,
     mana. Returns per-turn lists of (available source profiles, total mana)."""
     accels = [a for a in accels if count_restricted or not a.get("restricted")]
     lands = [l for l in lands if count_restricted or not l.get("restricted")]
-    entries = ([{"t": "land", "p": p} for p in lands] +
-               [{"t": "accel", "p": a} for a in accels])
-    deck = entries + [{"t": "spell"}] * (deck_size - len(entries))
+    nL, nA = len(lands), len(accels)
+    # Codes: 0..nL-1 a land, nL..nL+nA-1 an accelerant, -1 anything else. A
+    # shuffle permutes POSITIONS and never looks at what it is moving, so
+    # standing ints in for the card dicts changes nothing about which card
+    # comes up -- it just makes dealing one cheap.
+    deck = list(range(nL + nA)) + [-1] * (deck_size - nL - nA)
     assert len(deck) == deck_size, (len(deck), deck_size)
 
+    l_tap = [p["tapped"] for p in lands]
+    l_amt = [p.get("amount", 1) for p in lands]
+    # The land played is the first minimum of this key, which is exactly what
+    # `sort()` then `[0]` chose: untapped first, then most colours, then most
+    # mana, ties going to whichever was drawn first.
+    l_key = [(p["tapped"], -len(p["colours"]), -p.get("amount", 1))
+             for p in lands]
+    a_cost = [p["cost"] for p in accels]
+    a_amt = [p.get("amount", 1) for p in accels]
+    # An untapped non-creature rock is online the turn it enters; anything
+    # else waits a turn. This is `online()`'s `entered == t` test, decided
+    # once per profile instead of once per pass.
+    a_late = [bool(p["tapped"] or p.get("creature")) for p in accels]
+
     out = [[] for _ in range(turns + 1)]
+    if not trials:
+        return out
+    # Seven, plus one on the draw, plus one a turn after the first.
+    drawn = 7 + (1 if on_draw else 0) + max(0, turns - 1)
+    if drawn > deck_size:
+        # `lib.pop()` off an empty library, raised before the first trial
+        # rather than partway through it.
+        raise IndexError("pop from empty list")
+    head, tail = _shuffle_plan(deck_size, drawn)
+    getrandbits = rng.getrandbits
+    opening = 7 + (1 if on_draw else 0)
+    x = deck[:]
     for _ in range(trials):
-        lib = deck[:]
-        rng.shuffle(lib)
-        hand = [lib.pop() for _ in range(7)]
-        if on_draw:
-            hand.append(lib.pop())
-        bf_lands, rocks = [], []
+        x[:] = deck
+        for i, k, b in head:
+            j = getrandbits(b)
+            while j >= k:
+                j = getrandbits(b)
+            x[i], x[j] = x[j], x[i]
+        for k, b in tail:
+            j = getrandbits(b)
+            while j >= k:
+                j = getrandbits(b)
+        pos = deck_size - 1
+        hand_l, hand_a = [], []
+        for _ in range(opening):
+            c = x[pos]
+            pos -= 1
+            if c >= 0:
+                if c < nL:
+                    hand_l.append(c)
+                else:
+                    hand_a.append(c - nL)
+        online_l = []                 # land profiles online, in play order
+        rk_p, rk_ready = [], []       # rocks in deploy order, and from when
+        online_total = 0              # mana available right now
+        pend_total = 0                # mana that comes online next turn
+        pend_land = None              # at most one: you play one land a turn
         for t in range(1, turns + 1):
             if t > 1:
-                hand.append(lib.pop())
-            avail_lands = [c for c in hand if c["t"] == "land"]
-            if avail_lands:
-                avail_lands.sort(key=lambda c: (c["p"]["tapped"],
-                                                -len(c["p"]["colours"]),
-                                                -c["p"].get("amount", 1)))
-                pick = avail_lands[0]
-                hand.remove(pick)
-                bf_lands.append({"p": pick["p"], "entered": t})
-
-            def online():
-                srcs = []
-                for L in bf_lands:
-                    if L["entered"] == t and L["p"]["tapped"]:
-                        continue
-                    srcs.append(L["p"])
-                for R in rocks:
-                    p = R["p"]
-                    if R["entered"] == t and (p["tapped"] or p.get("creature")):
-                        continue
-                    srcs.append(p)
-                return srcs
+                c = x[pos]
+                pos -= 1
+                if c >= 0:
+                    if c < nL:
+                        hand_l.append(c)
+                    else:
+                        hand_a.append(c - nL)
+                if pend_land is not None:
+                    online_l.append(pend_land)
+                    pend_land = None
+                online_total += pend_total
+                pend_total = 0
+            if hand_l:
+                best = 0
+                bk = l_key[hand_l[0]]
+                for idx in range(1, len(hand_l)):
+                    k2 = l_key[hand_l[idx]]
+                    if k2 < bk:
+                        best, bk = idx, k2
+                code = hand_l.pop(best)
+                if l_tap[code]:
+                    pend_land = lands[code]
+                    pend_total += l_amt[code]
+                else:
+                    online_l.append(lands[code])
+                    online_total += l_amt[code]
 
             # Deploying an accelerant COSTS the mana it costs. Without
             # `spent`, each pass re-read the full total and two lands could
@@ -252,38 +549,115 @@ def playsim(lands, accels, deck_size, turns, on_draw, trials, rng,
             # a turn-two Sol Ring off two lands correctly leaves 1 + 2 = 3.
             spent = 0
             for _pass in range(4):
-                srcs = online()
-                available = sum(p.get("amount", 1) for p in srcs) - spent
-                cands = [c for c in hand
-                         if c["t"] == "accel" and c["p"]["cost"] <= available]
-                if not cands:
+                avail = online_total - spent
+                best, bc = -1, 0
+                for idx in range(len(hand_a)):
+                    cost = a_cost[hand_a[idx]]
+                    if cost <= avail and (best < 0 or cost < bc):
+                        best, bc = idx, cost
+                if best < 0:
                     break
-                cands.sort(key=lambda c: c["p"]["cost"])
-                c = cands[0]
-                hand.remove(c)
-                spent += c["p"]["cost"]
-                rocks.append({"p": c["p"], "entered": t})
-            srcs = online()
-            out[t].append(srcs)
+                code = hand_a.pop(best)
+                spent += bc
+                rk_p.append(accels[code])
+                if a_late[code]:
+                    rk_ready.append(t + 1)
+                    pend_total += a_amt[code]
+                else:
+                    rk_ready.append(t)
+                    online_total += a_amt[code]
+
+            if rk_p:
+                out[t].append(online_l + [p for p, r in zip(rk_p, rk_ready)
+                                          if r <= t])
+            else:
+                out[t].append(online_l[:])
     return out
 
 
 def playsim_report(lands, accels, deck_size, lines, trials, rng, turns=7):
     """lines: list of (label, mana_value, pip_string like '{R}{R}')."""
+    # Intern every profile ONCE per call, by identity. The map is built here
+    # out of the very lists playsim deals from, so it cannot outlive the
+    # objects it describes or watch one change underneath it -- which is what
+    # makes an identity key safe here and not in `castable`, whose sources
+    # arrive from anywhere.
+    meta = {}
+    for p in lands:
+        meta[id(p)] = (_sig_id(p), p.get("amount", 1))
+    for p in accels:
+        meta[id(p)] = (_sig_id(p), p.get("amount", 1))
+    specs = []
+    for label, mv, pipstr in lines:
+        req = pips_from_cost(pipstr)
+        turn = max(mv, len(req), 1)
+        if turn > turns:
+            continue
+        specs.append((label, mv, req, tuple(sorted(req)), turn))
+    # Turns any line actually asks a colour question about. Reducing a trial
+    # to its memo key is only worth doing where something reads the key.
+    keyed = {s[4] for s in specs if s[2]}
+
     res = {}
+    memo = _CASTABLE_MEMO
     for on_draw in (False, True):
         rounds = playsim(lands, accels, deck_size, turns, on_draw, trials, rng)
-        key = "draw" if on_draw else "play"
-        res[key] = {"generic": {}, "lines": {}}
+        side = "draw" if on_draw else "play"
+        generic, labelled = {}, {}
+        # One pass per turn. Total mana and the memo key are the only two
+        # things anything below asks of a trial, and several lines can share a
+        # turn -- which used to mean sorting the same hand once per line.
+        digest = {}
         for t in range(1, turns + 1):
-            hits = sum(1 for s in rounds[t]
-                       if sum(p.get("amount", 1) for p in s) >= t)
-            res[key]["generic"][t] = 100.0 * hits / trials
-        for label, mv, pipstr in lines:
-            req = pips_from_cost(pipstr)
-            turn = max(mv, len(req), 1)
-            if turn > turns:
-                continue
-            hits = sum(1 for s in rounds[turn] if castable(s, req, mv))
-            res[key]["lines"][label] = (100.0 * hits / trials, turn)
+            hits = 0
+            if t in keyed:
+                rows = []
+                for s in rounds[t]:
+                    total = 0
+                    sids = []
+                    for p in s:
+                        sid, amt = meta[id(p)]
+                        total += amt
+                        sids.append(sid)
+                    if total >= t:
+                        hits += 1
+                    sids.sort()
+                    rows.append((total, tuple(sids)))
+                digest[t] = rows
+            else:
+                totals = []
+                for s in rounds[t]:
+                    total = 0
+                    for p in s:
+                        total += meta[id(p)][1]
+                    if total >= t:
+                        hits += 1
+                    totals.append(total)
+                digest[t] = totals
+            generic[t] = 100.0 * hits / trials
+        for label, mv, req, req_key, turn in specs:
+            rows = digest[turn]
+            hits = 0
+            if req:
+                for total, sids in rows:
+                    if total < mv:
+                        continue
+                    k = (sids, req_key)
+                    r = memo.get(k)
+                    if r is None:
+                        r = memo[k] = _solve(sids, req)
+                    if r:
+                        hits += 1
+            elif turn in keyed:
+                # A colourless commander asks only "is there enough mana", on
+                # a turn some other line does ask a colour question about.
+                for total, _sids in rows:
+                    if total >= mv:
+                        hits += 1
+            else:
+                for total in rows:
+                    if total >= mv:
+                        hits += 1
+            labelled[label] = (100.0 * hits / trials, turn)
+        res[side] = {"generic": generic, "lines": labelled}
     return res
