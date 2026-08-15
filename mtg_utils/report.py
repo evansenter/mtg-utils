@@ -4,8 +4,8 @@ import time
 from collections import Counter, defaultdict
 
 from mtg_utils.analysis import (analyse_mana, collapse_temps, commander_lines,
-                                deck_base_name, replicate_playsim, verify,
-                                worst_lines)
+                                compare_swap, deck_base_name, replicate_playsim,
+                                verify, worst_lines)
 from mtg_utils.castability import pips_from_cost, playsim_report
 from mtg_utils.decklist import as_cmdrs, diff_multiset, flat
 from mtg_utils.profiles import build_accel_profiles, build_land_profiles
@@ -122,6 +122,57 @@ def report_variants(cmdr, entries, scry, land_deltas, accel_deltas, trials,
             print(f"  {len(lands)} lands, {len(acc)} accel"
                   f"{'':<7} {a:6.1f}±{sa:3.1f} / {b:5.1f}±{sb:3.1f}"
                   f" {g1:8.1f}±{s1:3.1f} / {g2:5.1f}±{s2:3.1f}")
+
+
+def _swap_row(r):
+    """One before/after line. 44 wide to match report_mana's label column --
+    'Thrasios, Triton Hero on curve (on play)' is 40 characters and a
+    narrower field pushes every number on that row out of its column."""
+    verdict = "MOVES" if r["beyond_noise"] else "within noise"
+    return (f"  {r['label']:44s} {r['before']:6.1f}% -> {r['after']:6.1f}%"
+            f"   {r['delta']:+6.1f} ±{r['noise']:4.1f}   {verdict}")
+
+
+def report_swap(cmdr, entries, scry, swaps, sims, trials, seed=17, reps=3):
+    """Print a named swap measured before and after. compare_swap computes it."""
+    c = compare_swap(cmdr, entries, scry, swaps, sims, trials, seed, reps)
+    print(f"\n=== NAMED SWAP ({trials} trials over {_reps(reps)}, seed {seed}) ===")
+    for cut, add in swaps:
+        print(f"  cut {cut}  ->  add {add}")
+    # The count sweep answers a different question and is not run. Said out
+    # loud: a silently skipped sweep reads as a sweep that found nothing.
+    print("  (count sweep not run -- --swap measures a named swap, not a count)")
+
+    print("\n--- sources model (colour): before -> after ---")
+    for r in c["sources"]:
+        print(_swap_row(r) + f"   {', '.join(r['cards'][:2])}")
+    for key in c["sources_only_before"]:
+        print(f"  line only in the BASE deck, not compared: {key}")
+    for key in c["sources_only_after"]:
+        print(f"  line only in the SWAPPED deck, not compared: {key}")
+
+    print("\n--- play simulation: before -> after ---")
+    for r in c["play"]:
+        print(_swap_row(r))
+
+    rows = c["sources"] + c["play"]
+    moved = [r for r in rows if r["beyond_noise"]]
+    if moved:
+        print(f"\n  {len(moved)} of {len(rows)} lines moved beyond their noise "
+              f"at 95%.")
+        # Each row is its own 95% test, so about one row in twenty reads MOVES
+        # on noise alone. A single MOVES in a long table is not a finding; a
+        # cluster pointing the same way is.
+        print(f"  Each line is a separate 95% test, so roughly "
+              f"{len(rows) / 20:.0f} of {len(rows)} will read MOVES by chance.")
+    else:
+        # This is a real answer, not an absence of one -- a swap that changes
+        # nothing because the deck has no unmet pip is exactly the finding
+        # that used to take an afternoon of regex substitution to reach.
+        print("\n  NOTHING MOVED beyond its noise. On this deck the swap is "
+              "not\n  measurable -- which is a result, not a failure to "
+              "measure.")
+    return c
 
 
 def report_own(cmdr, entries, scry):

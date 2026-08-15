@@ -6,7 +6,7 @@ import re
 from mtg_utils.cards import front, has_land_back, is_front_land, land_face, enters_tapped
 from mtg_utils.castability import (castable_faces, pips_from_cost, playsim_report,
                                    probability)
-from mtg_utils.decklist import as_cmdrs, flat
+from mtg_utils.decklist import apply_swaps, as_cmdrs, flat
 from mtg_utils.profiles import build_accel_profiles, build_land_profiles
 
 # ============================================================ verify
@@ -226,6 +226,115 @@ def analyse_mana(cmdr, entries, scry, sims, trials, seed=17, lines=None, reps=3)
     return {"verify": v, "lands": lands, "accels": accels,
             "rows": rows, "lines": lines, "sim": res,
             "sims": sims, "trials": trials, "seed": seed, "reps": reps}
+
+
+# Two-sided 95% Student-t multipliers by degrees of freedom. With three
+# replicates the spread is itself estimated from three numbers, so the
+# familiar 1.96 is far too tight -- the difference of two three-replicate
+# means has df=4, which wants 2.78. Using 2.0 would call a comparison
+# "MOVES" on noise noticeably often, and a false MOVES is the expensive
+# direction: it sends someone to rebuild a manabase over nothing.
+_T95 = {1: 12.706, 2: 4.303, 3: 3.182, 4: 2.776, 5: 2.571, 6: 2.447,
+        7: 2.365, 8: 2.306, 10: 2.228, 15: 2.131, 20: 2.086, 30: 2.042}
+
+
+def t95(df):
+    """Two-sided 95% t multiplier for `df` degrees of freedom."""
+    for k in sorted(_T95):
+        if df <= k:
+            return _T95[k]
+    return 1.96
+
+
+def compare_swap(cmdr, entries, scry, swaps, sims, trials, seed=17, reps=3):
+    """Measure a named swap: the same deck before and after, as data.
+
+    `variants` sweeps COUNTS. It could not answer "what does swapping these
+    three checklands for these three filter lands do", which is the question
+    nearly every time a manabase is questioned -- so it was being answered by
+    regex substitution against the raw .txt, outside the package and with no
+    assertions.
+
+    Both sides run through analyse_mana at the same seed, and the lines are
+    chosen from the BASE deck and passed to the swapped deck explicitly.
+    Letting each side pick its own worst five would compare different
+    questions and could show a "change" that is only a change of subject.
+
+    Each row carries the error of the DIFFERENCE, not of either side: the two
+    measurements are independent, so the noise on the delta is the two
+    spreads added in quadrature. `beyond_noise` compares the delta against
+    that noise times the 95% t multiplier for df = 2*(reps-1) -- not against
+    a flat 2 sigma, because with three replicates the noise estimate is
+    itself built from three numbers and a flat multiplier over-calls.
+
+    At reps=1 there is no spread to test against and nothing is ever
+    reported as moving: one replicate cannot establish that anything changed,
+    and saying so is better than dividing by a zero error bar.
+    """
+    # A swap target the cache cannot resolve builds no land profile and no
+    # accelerant profile, so it is modelled as a card that produces nothing.
+    # That reads as a catastrophic result -- "this swap cost you 12 points" --
+    # rather than as the typo it is. Checked here rather than in the CLI so
+    # it is reachable without a decklist or a network call.
+    missing = sorted({add for _cut, add in swaps if not scry.get(add.lower())})
+    if missing:
+        raise SystemExit(
+            f"--swap: no Scryfall entry for {missing}. An unresolved swap "
+            f"target would be modelled as producing no mana, which reads as a "
+            f"catastrophic result rather than as a misspelling.")
+    base = analyse_mana(cmdr, entries, scry, sims, trials, seed, reps=reps)
+    after_entries = apply_swaps(cmdr, entries, swaps)
+    after = analyse_mana(cmdr, after_entries, scry, sims, trials, seed,
+                         lines=base["lines"], reps=reps)
+
+    crit = t95(2 * (reps - 1)) if reps > 1 else None
+
+    def row(label, before_t, after_t):
+        b, sb = before_t
+        a, sa = after_t
+        noise = math.sqrt(sb ** 2 + sa ** 2)
+        moved = False if crit is None else abs(a - b) > crit * noise
+        return {"label": label, "before": b, "after": a, "delta": a - b,
+                "noise": noise, "beyond_noise": moved}
+
+    # Sources model, matched by (turn, mv, req) rather than by row position:
+    # the table is sorted, so comparing positionally compares different cards.
+    #
+    # Scaled to percent here, because the play-simulation rows below are
+    # already percentages and both end up in the same column of the same
+    # report. Two adjacent numbers in different units is the bug this repo
+    # already had once, with tapped-land counts against land counts.
+    base_rows = {(t, mv, req): (p * 100, sp * 100)
+                 for p, t, mv, req, _c, sp in base["rows"]}
+    after_rows = {(t, mv, req): (p * 100, sp * 100)
+                  for p, t, mv, req, _c, sp in after["rows"]}
+    cards = {(t, mv, req): c for p, t, mv, req, c, sp in base["rows"]}
+    sources = []
+    for key in sorted(base_rows.keys() & after_rows.keys(),
+                      key=lambda k: base_rows[k][0]):
+        turn, mv, req = key
+        label = f"T{turn} " + "".join("{%s}" % x for x in req)
+        r = row(label, base_rows[key], after_rows[key])
+        r["cards"] = cards[key]
+        sources.append(r)
+
+    play = []
+    for label, mv, pipstr in base["lines"]:
+        if label not in base["sim"]["play"]["lines"]:
+            continue
+        for side in ("play", "draw"):
+            b, turn, sb = base["sim"][side]["lines"][label]
+            a, _, sa = after["sim"][side]["lines"][label]
+            play.append(dict(row(f"{label} (on {side})", (b, sb), (a, sa)),
+                             side=side, turn=turn))
+    return {"swaps": swaps, "base": base, "after": after,
+            "entries_after": after_entries,
+            "sources": sources, "play": play,
+            # A key present on one side only means the swap changed which
+            # spells exist, not just how well they cast. Reported, never
+            # silently dropped.
+            "sources_only_before": sorted(base_rows.keys() - after_rows.keys()),
+            "sources_only_after": sorted(after_rows.keys() - base_rows.keys())}
 
 
 def deck_base_name(name):

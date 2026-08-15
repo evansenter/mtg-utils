@@ -1,7 +1,7 @@
 usage: mana_model.py [-h] [--cache CACHE] [--sims SIMS] [--trials TRIALS]
                      [--reps REPS] [--seed SEED] [--out OUT] [--decks DECKS]
                      [--lands LANDS] [--accel ACCEL] [--adds ADDS]
-                     [--cuts CUTS]
+                     [--cuts CUTS] [--swap SWAP]
                      {fetch,verify,mana,variants,combos,own,contention,moxfield,write,audit,roster,diff,selftest,calibrate}
                      [target]
 
@@ -60,3 +60,5 @@ options:
   --accel ACCEL         accelerant count deltas
   --adds ADDS
   --cuts CUTS
+  --swap SWAP           variants: measure named swaps, 'Cut->Add,Cut2->Add2'
+                        (use ';' between pairs if a name contains a comma)

@@ -143,6 +143,26 @@ work it always did and its mean is exactly as precise as it was; the error bar
 comes out of re-slicing that budget. `--reps=1` reproduces the pre-replicate
 numbers exactly at the same seed, and prints `±0.0`.
 
+### Measuring a named swap
+
+```
+python3 mana_model.py variants deck.txt --swap="Clifftop Retreat->Rugged Prairie,Rootbound Crag->Fire-Lit Thicket"
+```
+
+`variants` sweeps counts. `--swap` measures a *named* change: the same deck
+before and after, at the same seed, on the same lines, with the delta and the
+noise on that delta beside each other. The count sweep is not run — it answers
+a different question, and the output says so.
+
+Each cut must be in the deck and each add must not be, or the command
+**raises**. That is deliberate: a silent no-op prints "nothing moved", which
+is exactly what a correct run prints when a swap genuinely changes nothing —
+so the failure would be indistinguishable from the finding. And "this swap
+changes nothing, because the deck has no unmet pip" is a real, useful answer.
+
+A name containing a comma needs `;` between pairs, since `,` is the default
+pair separator: `--swap="Muldrotha, the Gravetide->X;Island->Swamp"`.
+
 `audit` deliberately does **not** run `variants` — the sweep is the expensive
 part and is wasted work on a settled base. Run it explicitly when a manabase is
 being designed or a land count is questioned.

@@ -6,10 +6,11 @@ import time
 
 from mtg_utils import __doc__ as _BANNER
 from mtg_utils.analysis import verify
-from mtg_utils.decklist import as_cmdrs, flat, read_decklist, write_deck
+from mtg_utils.decklist import (as_cmdrs, flat, parse_swaps, read_decklist,
+                                write_deck)
 from mtg_utils.report import (report_calibrate, report_combos, report_contention,
                               report_diff, report_mana, report_own, report_roster,
-                              report_variants)
+                              report_swap, report_variants)
 from mtg_utils.sources.moxfield import moxfield_deck
 from mtg_utils.sources.scryfall import scry_fetch
 
@@ -71,6 +72,9 @@ def main():
     ap.add_argument("--accel", default="0,2", help="accelerant count deltas")
     ap.add_argument("--adds", default="")
     ap.add_argument("--cuts", default="")
+    ap.add_argument("--swap", default="",
+                    help="variants: measure named swaps, 'Cut->Add,Cut2->Add2' "
+                         "(use ';' between pairs if a name contains a comma)")
     a = ap.parse_args()
 
     if a.cmd == "selftest":
@@ -109,7 +113,12 @@ def main():
         if len(ids) != 1:
             ap.error("`diff` needs exactly one --decks <publicId>")
         sys.exit(0 if report_diff(cmdr, entries, ids[0]) else 2)
-    scry, nf = scry_fetch(flat(cmdr, entries), a.cache)
+    # Parsed before the fetch so the cards a swap ADDS are looked up too --
+    # they are not in the decklist, and measuring a swap against a card the
+    # cache has never seen would silently model it as producing nothing.
+    swaps = parse_swaps(a.swap)
+    scry, nf = scry_fetch(flat(cmdr, entries) + [add for _cut, add in swaps],
+                          a.cache)
     if nf:
         print("SCRYFALL NOT FOUND (front-face names only!):", nf)
 
@@ -137,10 +146,14 @@ def main():
     if a.cmd in ("roster", "audit"):
         report_roster(cmdr, entries, scry, a.cache)
     if a.cmd == "variants":
-        report_variants(cmdr, entries, scry,
-                        [int(x) for x in a.lands.split(",")],
-                        [int(x) for x in a.accel.split(",")], a.trials,
+        if swaps:
+            report_swap(cmdr, entries, scry, swaps, a.sims, a.trials,
                         a.seed, a.reps)
+        else:
+            report_variants(cmdr, entries, scry,
+                            [int(x) for x in a.lands.split(",")],
+                            [int(x) for x in a.accel.split(",")], a.trials,
+                            a.seed, a.reps)
     if a.cmd in ("combos", "audit"):
         report_combos(cmdr, entries)
     if a.cmd in ("own", "audit"):

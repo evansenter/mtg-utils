@@ -78,6 +78,85 @@ def write_deck(cmdr, entries, out_path, expect_adds=(), expect_cuts=()):
     return total
 
 
+# ============================================================ named swaps
+def parse_swaps(spec):
+    """'A->B,C->D' -> [('A', 'B'), ('C', 'D')]. Empty spec -> [].
+
+    Card names contain commas -- 'Muldrotha, the Gravetide', 'Yawgmoth, Thran
+    Physician' -- so a comma is not a safe pair separator in general. A
+    semicolon is accepted too and WINS when present, which is the escape
+    hatch for a name with a comma in it.
+
+    A segment that does not hold exactly one '->' is rejected by name rather
+    than mis-split quietly. A mis-split swap would cut a card nobody asked to
+    cut and report the result as a measurement, which is worse than not
+    running: the number would look like an answer.
+    """
+    spec = (spec or "").strip()
+    if not spec:
+        return []
+    sep = ";" if ";" in spec else ","
+    swaps = []
+    for seg in spec.split(sep):
+        seg = seg.strip()
+        if not seg:
+            continue
+        if seg.count("->") != 1:
+            raise SystemExit(
+                f"--swap: cannot read {seg!r} as one 'cut->add' pair. Pairs are "
+                f"separated by '{sep}'; if a card name contains a comma, "
+                f"separate the pairs with ';' instead.")
+        cut, add = (x.strip() for x in seg.split("->"))
+        if not cut or not add:
+            raise SystemExit(f"--swap: {seg!r} has an empty side")
+        swaps.append((cut, add))
+    return swaps
+
+
+def apply_swaps(cmdr, entries, swaps):
+    """Apply cut->add pairs to `entries`, returning a NEW Counter.
+
+    The same contract write_deck asserts after the fact, enforced up front:
+    every cut is present beforehand, every add is absent beforehand, and the
+    total is unchanged. A swap naming a card the deck does not have RAISES --
+    silently no-opping would report "this change moves nothing", which is
+    indistinguishable from the genuine finding that a swap moves nothing
+    because the deck has no unmet pip. That is the one answer this command
+    exists to give, so it must not also be its failure mode.
+
+    Matching is case-insensitive; the deck's own spelling is preserved.
+    """
+    out = Counter(entries)
+    by_lower = {n.lower(): n for n in out}
+    cmdr_lower = {c.lower(): c for c in as_cmdrs(cmdr)}
+    for cut, add in swaps:
+        cl, al = cut.lower(), add.lower()
+        if cl == al:
+            raise SystemExit(f"--swap: {cut!r} swapped for itself")
+        if cl in cmdr_lower or al in cmdr_lower:
+            raise SystemExit(
+                f"--swap: {cut}->{add} touches a commander. The commander is "
+                f"not part of the 99 and swapping it changes the deck's colour "
+                f"identity, which is a different question than this measures.")
+        if cl not in by_lower:
+            raise SystemExit(
+                f"--swap: cannot cut {cut!r} -- it is not in the deck.")
+        if al in by_lower:
+            raise SystemExit(
+                f"--swap: cannot add {add!r} -- the deck already has it, and "
+                f"Commander is singleton.")
+        real_cut = by_lower[cl]
+        out[real_cut] -= 1
+        if out[real_cut] == 0:
+            del out[real_cut]
+            del by_lower[cl]
+        out[add] += 1
+        by_lower[al] = add
+    before, after = sum(entries.values()), sum(out.values())
+    assert before == after, f"swap changed the deck size: {before} -> {after}"
+    return out
+
+
 def diff_multiset(local_cmdrs, local_entries, live_cmdrs, live_main):
     """Card-multiset diff. Pure compute.
 

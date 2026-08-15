@@ -51,13 +51,14 @@ from mtg_utils.profiles import (FILTER_LANDS, OMNI_TYPE, build_accel_profiles,
 from mtg_utils.castability import (_match, castable, castable_faces, hypergeometric,
                                    pips_from_cost, playable_set, playsim,
                                    playsim_report, probability)
-from mtg_utils.decklist import (as_cmdrs, diff_multiset, flat, read_decklist,
-                                write_deck)
+from mtg_utils.decklist import (apply_swaps, as_cmdrs, diff_multiset, flat,
+                                parse_swaps, read_decklist, write_deck)
 from mtg_utils.roster import (ANY_COLOUR, PAIR_CYCLES, TRIPLE_CYCLES, WUBRG,
                               identity_pairs, pair_key, roster_names, roster_status)
 from mtg_utils.analysis import (analyse_mana, collapse_temps, commander_lines,
-                                deck_base_name, mean_spread, replicate_playsim,
-                                split_budget, verify, worst_lines)
+                                compare_swap, deck_base_name, mean_spread,
+                                replicate_playsim, split_budget, t95, verify,
+                                worst_lines)
 from mtg_utils.sources import UA_BROWSER, UA_TOOL
 from mtg_utils.sources.collection import COLLECTION, load_collection
 from mtg_utils.sources.moxfield import (moxfield_deck, moxfield_user_decks,
@@ -66,4 +67,4 @@ from mtg_utils.sources.scryfall import scry_fetch
 from mtg_utils.sources.spellbook import spellbook
 from mtg_utils.report import (report_calibrate, report_combos, report_contention,
                               report_diff, report_mana, report_own, report_roster,
-                              report_variants)
+                              report_swap, report_variants)
