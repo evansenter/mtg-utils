@@ -33,7 +33,7 @@ from conftest import DECKS, EXPECTED, deck_args, run_cli
 # the network and are covered by unit tests over their pure parse functions
 # instead; `own` additionally prints a buy list that is just load_collection
 # plus the same cache, and is covered by report tests.
-CMDS = ("verify", "mana", "roster")
+CMDS = ("verify", "mana", "roster", "skeleton")
 
 _MEMO = {}
 

@@ -1,0 +1,26 @@
+
+=== SKELETON: Magda, Brazen Outlaw ===
+  100 = 1 commander + 35 lands + 64 non-land   [checked]
+  manabase levers: 35 lands (+1 MDFC land backs)   19 accelerants at MV<=3
+  average non-land MV 2.36   Game Changers 7
+
+--- curve (64 non-land cards) ---
+    0   6  ######
+    1  13  #############
+    2  16  ################
+    3  18  ##################
+    4   8  ########
+    5   1  #
+    6   1  #
+   7+   1  #
+
+--- slots by type (99 non-commander cards) ---
+  Artifact        37
+  Land            35
+  Creature        10
+  Instant          9
+  Sorcery          7
+  Enchantment      1
+
+  Types, not functional roles: ramp/draw/interaction are not inferred.
+  The one measured functional count is the accelerants above.

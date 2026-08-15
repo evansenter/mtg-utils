@@ -10,8 +10,8 @@ from mtg_utils.decklist import (as_cmdrs, flat, parse_swaps, read_decklist,
                                 write_deck)
 from mtg_utils.report import (report_calibrate, report_combos, report_contention,
                               report_ceiling, report_diff, report_mana,
-                              report_own, report_roster, report_swap,
-                              report_variants)
+                              report_own, report_roster, report_skeleton,
+                              report_swap, report_variants)
 from mtg_utils.sources.moxfield import moxfield_deck
 from mtg_utils.sources.scryfall import scry_fetch
 
@@ -49,7 +49,8 @@ def main():
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("cmd", choices=["fetch", "verify", "mana", "variants", "combos",
                                     "own", "contention", "moxfield", "write", "audit",
-                                    "roster", "diff", "selftest", "calibrate", "ceiling"])
+                                    "roster", "diff", "selftest", "calibrate", "ceiling",
+                                    "skeleton"])
     ap.add_argument("target", nargs="?", default=None,
                     help="decklist path, or deck id for `moxfield`; unused by `selftest`")
     ap.add_argument("--cache", default="scry.json")
@@ -154,6 +155,8 @@ def main():
             print(f"  *** DECK IS {v['total']} CARDS, COMMANDER IS 100 ***")
     if a.cmd in ("mana", "audit"):
         report_mana(cmdr, entries, scry, a.sims, a.trials, a.seed, reps=a.reps)
+    if a.cmd == "skeleton":
+        report_skeleton(cmdr, entries, scry)
     if a.cmd == "ceiling":
         report_ceiling(cmdr, entries, scry, a.cache, a.rec_cache, a.cedh,
                        a.bar, a.sort)

@@ -421,6 +421,89 @@ def ceiling_audit(cmdr, entries, rows, capped, owned, scry, threshold=50.0,
                              if m["price"] and not m["owned"])}
 
 
+# Skeleton buckets are NOT report_own's buckets, and the two must not be
+# "deduplicated" into one list. `own` groups for SHOPPING -- it splits
+# Equipment out because that is how a buy list reads, and it skips basics
+# because ManaBox does not track them. A skeleton groups for SLOT BUDGETING,
+# where Instants and Sorceries are different decisions (interaction versus
+# value) and basics are most of the manabase. Same words, different job.
+SKELETON_TYPES = ("Land", "Creature", "Artifact", "Enchantment", "Instant",
+                  "Sorcery", "Planeswalker", "Battle")
+
+CURVE_TOP = 7          # everything at or above this is one "7+" bucket
+
+
+def type_bucket(type_line):
+    """First matching type on the FRONT face, in SKELETON_TYPES order.
+
+    Front face only: an MDFC whose front is a spell is a spell slot, and its
+    land back is already counted separately by verify. Order matters --
+    'Artifact Creature' is a creature slot, because that is the slot you
+    are budgeting when you write down "10 creatures".
+    """
+    front = (type_line or "").split("//")[0]
+    for t in SKELETON_TYPES:
+        if t in front:
+            return t
+    return "Other"
+
+
+def deck_skeleton(cmdr, entries, scry):
+    """The slot budget: 100 = commanders + lands + non-land, plus the curve.
+
+    Deciding land count, non-land count and the per-category budget BEFORE
+    selecting cards is what prevents repeated rebuilds, and nothing printed
+    it -- so every skeleton was hand arithmetic. Hand arithmetic has already
+    shipped a header block reading "24 lands plus 75 non-land" for a
+    100-card deck: the commander was missing from the sum and nothing caught
+    it.
+
+    So the identity is ASSERTED here, not printed for a reader to check. An
+    inconsistent total raises, and names the cards that did not land in any
+    bucket -- which in practice means a name Scryfall could not resolve,
+    since `verify` skips those and they then belong to no category at all.
+
+    Roles are TYPE-LINE categories, deliberately. Functional roles -- ramp,
+    draw, interaction -- are what a skeleton really wants, and they are not
+    inferrable without a heuristic this repo would have to invent. The one
+    functional count here is measured rather than guessed: accelerants come
+    from build_accel_profiles, the same gate the mana models use.
+    """
+    cmdrs = as_cmdrs(cmdr)
+    v = verify(cmdr, entries, scry)
+    parts = len(cmdrs) + v["lands"] + v["nonland"]
+    if parts != v["total"]:
+        missing = [n for n, why in v["illegal"] if why == "NOT FOUND"]
+        raise SystemExit(
+            f"skeleton: {v['total']} cards but "
+            f"{len(cmdrs)} commander(s) + {v['lands']} lands + "
+            f"{v['nonland']} non-land = {parts}. "
+            f"{len(missing)} card(s) resolved to nothing and are in no "
+            f"category: {missing or 'none -- and that is the surprising part'}")
+
+    curve, types = {}, {}
+    for n, q in entries.items():
+        c = scry.get(n.lower())
+        if not c:
+            continue
+        types[type_bucket(c["type_line"])] = \
+            types.get(type_bucket(c["type_line"]), 0) + q
+        if is_front_land(c):
+            continue
+        mv = int(float(front(c, "cmc", 0) or 0))
+        key = CURVE_TOP if mv >= CURVE_TOP else mv
+        curve[key] = curve.get(key, 0) + q
+
+    names = flat(cmdr, entries)[len(cmdrs):]
+    accels = [a for a in build_accel_profiles(names, scry)
+              if not a.get("restricted")]
+    return {"commanders": len(cmdrs), "lands": v["lands"],
+            "mdfc_land_backs": v["mdfc_land_backs"], "nonland": v["nonland"],
+            "total": v["total"], "avg_mv": v["avg_mv"],
+            "curve": curve, "types": types, "accelerants": len(accels),
+            "game_changers": len(v["game_changers"])}
+
+
 def deck_base_name(name):
     """Strip a trailing bracketed tag: 'Muldrotha [Bracket 3 Temp]' -> 'muldrotha'."""
     return re.sub(r"[\[\(][^\]\)]*[\]\)]", "", name or "").strip().lower()
