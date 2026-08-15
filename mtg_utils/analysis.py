@@ -369,7 +369,7 @@ def compare_swap(cmdr, entries, scry, swaps, sims, trials, seed=17, reps=3):
 
 
 def ceiling_audit(cmdr, entries, rows, capped, owned, scry, threshold=50.0,
-                  sort="inclusion"):
+                  sort="inclusion", completions=None):
     """Which cards above the inclusion bar for this commander are missing.
 
     Pure compute; report_ceiling only formats it.
@@ -404,7 +404,8 @@ def ceiling_audit(cmdr, entries, rows, capped, owned, scry, threshold=50.0,
         price = (card or {}).get("prices", {}).get("usd")
         missing.append(dict(r, owned=owned.get(key, 0),
                             price=float(price) if price else None,
-                            type_line=(card or {}).get("type_line", "")))
+                            type_line=(card or {}).get("type_line", ""),
+                            combos=(completions or {}).get(key, [])))
     # A card with no synergy figure sorts LAST under --sort=synergy rather
     # than at zero. Unknown is not "no synergy": every --cedh row is unknown,
     # and floating them through the middle of the table on a 0.0 they were
@@ -416,6 +417,7 @@ def ceiling_audit(cmdr, entries, rows, capped, owned, scry, threshold=50.0,
         missing.sort(key=lambda r: -r["inclusion"])
     return {"missing": missing, "threshold": threshold, "capped": capped,
             "sort": sort,
+            "combo_rows": sum(1 for m in missing if m["combos"]),
             "considered": len(rows),
             "owned_count": sum(1 for m in missing if m["owned"] > 0),
             "buy_total": sum(m["price"] for m in missing
@@ -568,3 +570,45 @@ def primer_audit(text, cmdr, entries, scry):
             "not_in_deck": not_in_deck,
             "ok": not (wrapped or not_found or not_in_deck
                        or unclosed_openers(text, links))}
+
+def combo_completions(results, cmdr, entries):
+    """Which cards NOT in the deck would complete a combo it already half-holds.
+
+    Pure compute over a Commander Spellbook find-my-combos payload; the caller
+    joins it onto whatever card list it is ranking.
+
+    Keyed on the FRONT FACE, lowercased, because that is the key every ranking
+    source here is already reduced to. Spellbook returns full names, so the
+    third naming convention in this codebase joins to the other two only if it
+    is normalised the same way.
+
+    `also_missing` is not decoration. Spellbook's "almost included" means the
+    deck is missing at least one piece, not exactly one, so a row annotated
+    COMBO that in fact needs two more cards would be overstating a case the
+    reader cannot check from the table. Sorted so the combos this one card
+    finishes on its own come first.
+    """
+    have = {front_name(n).lower() for n in flat(cmdr, entries)}
+    out = {}
+    for v in (results or {}).get("almostIncluded", []):
+        uses = [u["card"]["name"] for u in v.get("uses", []) if u.get("card")]
+        templates = [t["template"]["name"] for t in v.get("requires", [])
+                     if t.get("template")]
+        missing = [u for u in uses if front_name(u).lower() not in have]
+        present = [u for u in uses if front_name(u).lower() in have]
+        produces = [f["feature"]["name"] for f in v.get("produces", [])
+                    if f.get("feature")]
+        for m in missing:
+            out.setdefault(front_name(m).lower(), []).append({
+                "with": present,
+                "also_missing": [x for x in missing if x != m],
+                "templates": templates,
+                "produces": produces,
+                # A template ("Permanent Castable for {C}") is a real piece
+                # the deck has to supply. Left out of the count, a three-piece
+                # line reads as a two-card combo.
+                "pieces": len(uses) + len(templates),
+            })
+    for combos in out.values():
+        combos.sort(key=lambda c: (len(c["also_missing"]), c["pieces"]))
+    return out

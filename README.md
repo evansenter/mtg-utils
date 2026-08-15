@@ -234,6 +234,38 @@ With `--cedh`, the tournament entry count is printed beside every percentage,
 and below five entries **no percentage is quoted at all** — at four entries
 every card is 25%, 50%, 75% or 100%.
 
+#### The Commander Spellbook cross-check
+
+A ceiling row is ranked on how often *other people* play the card. That says
+nothing about what it does with **this** list. Every row is therefore checked
+against Commander Spellbook's `find-my-combos` and annotated inline when it
+would complete a combo the deck already half-holds:
+
+```
+  Hullbreaker Horror                    6.8%  +0.041     767/11360    0  $6.38
+      COMBO with Sol Ring, Permanent Castable for {C} (template) -> Infinite colorless mana, Infinite storm count
+```
+
+**On by default**, because the rows this catches are the ones you would never
+have looked up. On the deck that prompted it, both interacting rows sat at 7.9%
+and 6.8% inclusion — below any default bar, reachable only by *lowering* it,
+which is exactly the moment nobody thinks to add a flag. `--no-combos` skips it.
+
+Three rules:
+
+- **A combo is a fact, not a recommendation.** The interaction that prompted
+  this was a card forming a *forced draw* with two cards already in the deck.
+  Whether an interaction argues for or against a card is not Spellbook's to
+  say, and the report does not pretend otherwise.
+- **"Also needs X" is printed.** Spellbook's *almost included* means at least
+  one piece is missing, not exactly one, so a combo needing two more cards must
+  not read like one this card finishes on its own. Templates
+  (`Permanent Castable for {C}`) count as pieces.
+- **An outage is announced, never silently clean.** If Spellbook fails, the
+  report says the cross-check did not run and that the rows are *not* known to
+  be free of combos — an unrun check and a clean result are otherwise the same
+  empty column. `ceiling` still prints its table.
+
 #### `--sort=synergy`
 
 Inclusion alone cannot tell a commander-specific card from generic goodstuff:

@@ -81,6 +81,9 @@ def main():
                     help="ceiling: use edhtop16 tournament data instead of EDHREC")
     ap.add_argument("--bar", type=float, default=50.0,
                     help="ceiling: inclusion %% above which a missing card is reported")
+    ap.add_argument("--no-combos", action="store_true",
+                    help="ceiling: skip the Commander Spellbook cross-check "
+                         "(on by default)")
     ap.add_argument("--sort", choices=["inclusion", "synergy"],
                     default="inclusion",
                     help="ceiling: order the reported rows; the bar stays on "
@@ -170,7 +173,7 @@ def main():
                                     a.cache)["ok"] else 2)
     if a.cmd == "ceiling":
         report_ceiling(cmdr, entries, scry, a.cache, a.rec_cache, a.cedh,
-                       a.bar, a.sort)
+                       a.bar, a.sort, not a.no_combos)
     if a.cmd in ("roster", "audit"):
         report_roster(cmdr, entries, scry, a.cache)
     if a.cmd == "variants":
