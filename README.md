@@ -19,6 +19,10 @@ python3 mana_model.py audit deck.txt --cache scry.json
 
 Standard library only. `pytest` is the sole dev dependency.
 
+Compute lives in `analysis.py` and below; `report/` only formats what it is
+given, which is what lets the tests assert on numbers instead of scraping
+stdout.
+
 ## The two models, and why they are not interchangeable
 
 This is the single most important thing to get right when reading the output.

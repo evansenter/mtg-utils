@@ -109,7 +109,7 @@ excluded from generic totals.
 
 `verify`, `analyse_mana`, `worst_lines`, `commander_lines`, `parse_moxfield`,
 `diff_multiset` and `collapse_temps` return data. The `report_*` wrappers in
-`report.py` only format it. This is what lets tests assert on numbers instead of
+`report/` only format it. This is what lets tests assert on numbers instead of
 scraping stdout — preserve it. New logic goes in `analysis.py` or below, never
 inside a printer.
 
@@ -131,8 +131,23 @@ front-face matching is exactly the logic that needs an offline test.
 
 ### Module map
 
-`cards.py` → `profiles.py` → `castability.py` → `analysis.py` → `report.py` →
-`cli.py`, with `decklist.py`, `roster.py` and `sources/` alongside. Constants
+`cards.py` → `profiles.py` → `castability.py` → `analysis.py` → `report/` →
+`cli.py`, with `decklist.py`, `roster.py`, `primer.py` and `sources/`
+alongside.
+
+`report/` is a package, split by the QUESTION each printer answers:
+
+| file | printers |
+|---|---|
+| `report/mana.py` | `mana`, `variants`, the named swap — everything Monte Carlo |
+| `report/deck.py` | `skeleton`, `roster`, `combos`, `primer` — what is in the 100 |
+| `report/own.py` | `own`, `contention`, `ceiling` — ownership and acquisition |
+| `report/live.py` | `diff`, `calibrate` — the live Moxfield account |
+
+`report/__init__.py` re-exports every printer, so `from mtg_utils.report
+import report_mana` does not depend on which file it was filed under. A new
+printer must be added to `__all__` there or it is invisible to the CLI; a test
+enforces that. Constants
 live with their consumer rather than in a shared constants module.
 
 `mana_model.py` at the root is the entry point and a compatibility shim:
@@ -190,6 +205,15 @@ Three traps the harness already handles, which any new test must too.
 `scry_fetch` rewrites its cache file on every run (copy to tmp first), and
 `load_collection(path=COLLECTION)` binds its default at import, so patch the
 function, not the constant.
+
+**Patch a dependency by NAME, not on the module you think owns it.** A
+module-level function resolves in the globals of the module that DEFINES it,
+so `monkeypatch.setattr(mtg_utils.report, "spellbook", fake)` binds a name on
+the package that `report_combos` never reads. The patch "succeeds", the
+assertions run, and the real networked function is called — a test that
+quietly starts making requests and passes anyway. `patch_everywhere` in
+`tests/conftest.py` patches across `sys.modules` and asserts it matched
+something; use it, and never encode which file a printer currently lives in.
 
 The third is newer and cost a green-but-meaningless test: **a cache key that
 does not match what the code asks for sends the suite to the network, and
