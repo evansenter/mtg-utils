@@ -261,6 +261,56 @@ With `--cedh`, the tournament entry count is printed beside every percentage,
 and below five entries **no percentage is quoted at all** — at four entries
 every card is 25%, 50%, 75% or 100%.
 
+#### Decision notes: why a card is *not* in the list
+
+Ten of nineteen rows on a real run were cards already rejected, with reasons.
+Without a record every run re-litigates them. The record lives **in the
+decklist**, as comments `read_decklist` has always skipped:
+
+```
+# CUT: Wakening Sun's Avatar -- board wipe kills [[Craterhoof Behemoth]] too
+# TRAP: Sword of the Animist -- ramp that needs combat; [[Sol Ring]] is faster
+# DEFER: Displacer Kitten -- revisit once [[Dockside Extortionist]] is in
+```
+
+`ceiling` then annotates the row instead of re-proposing the card:
+
+```
+  Displacer Kitten                      7.9%  -0.045     896/11360    0  $29.99
+      DEFER revisit once [[Dockside Extortionist]] is in
+```
+
+Three decisions, and each is the opposite of the obvious one:
+
+**In the decklist, not a separate store keyed by commander.** A second store is
+a thing nothing keeps honest — its entries are invalidated by deck changes it
+cannot observe, and nothing fails when they go stale. In the decklist, a note
+travels in the same file as the cards it reasons about, changes in the same
+diff, and is reviewed by whoever edits the list. It is also keyed **per deck**,
+which is the right key: two builds of the same commander diverge on the first
+swap.
+
+**Annotates, never suppresses.** Hiding rejected rows behind a flag is the one
+thing a note must not do — a stale `CUT` would silently remove a card that has
+since become right, and a shorter table reads as less work to do.
+
+**The notes are falsifiable, which is what makes them storable at all.** This
+repo does not store measurements; `report_calibrate` says *never quote a stored
+row*. A judgement can be stored only if something can tell you it has gone
+wrong, so reasons cite cards with `[[...]]` — the same markup `primer` uses,
+checked by the same extractor — and `ceiling` reports both ways a note expires:
+
+```
+  NOTES THAT NOW CONTRADICT THE LIST (1):
+    line 12: Sol Ring is marked CUT and is IN the deck
+
+  NOTES WHOSE REASON HAS EXPIRED (1):
+    line 11: Displacer Kitten -- reason cites Dockside Extortionist, no longer in the deck
+```
+
+The separator is ` -- ` rather than a comma or a colon because card names
+contain commas constantly — every *"Name, the Title"* legend.
+
 #### Land rows are cross-referenced against the roster
 
 Inclusion is the right tool for spells and the wrong one for lands: EDHREC's

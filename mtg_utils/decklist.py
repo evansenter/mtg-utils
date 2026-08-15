@@ -169,3 +169,42 @@ def diff_multiset(local_cmdrs, local_entries, live_cmdrs, live_main):
     only_live = sorted((n, c) for n, c in (b - a).items())
     ca, cb = sorted(as_cmdrs(local_cmdrs)), sorted(as_cmdrs(live_cmdrs))
     return only_local, only_live, (None if ca == cb else (ca, cb))
+
+
+# A decision note, carried in the decklist file itself:
+#
+#   # CUT: Wakening Sun's Avatar -- destroys [[Craterhoof Behemoth]]
+#
+# The placement is the design. A separate ledger keyed by commander is a
+# second store that nothing keeps honest: its entries are invalidated by deck
+# changes it cannot observe, and nothing fails when they go stale. Kept in the
+# decklist, a note travels in the same file as the cards it reasons about,
+# changes in the same diff, and is reviewed by whoever changes the list. It is
+# also already ignored by every existing reader -- read_decklist has always
+# skipped '#' lines -- so no other caller sees a thing.
+#
+# Reasons cite cards with [[...]], the same markup a primer uses, so
+# parse_primer_links does the extraction for both and the staleness rule is
+# one implementation rather than two that drift.
+DECISION = re.compile(r"^#\s*(CUT|TRAP|DEFER):\s*(.+?)\s+--\s+(.*)$", re.I)
+
+
+def read_decisions(path):
+    """The CUT / TRAP / DEFER notes in a decklist, in file order.
+
+    Verdicts are a deliberately short vocabulary. A trap is the permanent end
+    of the same ledger a cut sits on -- "I looked at this and the answer is
+    no, and it will still be no next time" -- and a defer is the same sentence
+    with a date on it. Three words cover what a rejection can mean; more would
+    be a taxonomy nobody maintains.
+    """
+    out = []
+    with open(path, encoding="utf-8") as f:
+        for n, line in enumerate(f, 1):
+            m = DECISION.match(line.strip())
+            if not m:
+                continue
+            verdict, card, reason = m.groups()
+            out.append({"verdict": verdict.upper(), "card": card.strip(),
+                        "reason": reason.strip(), "line": n})
+    return out

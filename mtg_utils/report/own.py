@@ -6,9 +6,10 @@ mtg_utils/sources/ for the traps each one carries.
 """
 import time
 from collections import defaultdict
-from mtg_utils.analysis import ceiling_audit, collapse_temps, combo_completions
+from mtg_utils.analysis import (ceiling_audit, collapse_temps,
+                                combo_completions, decisions_audit)
 from mtg_utils.cards import front_name
-from mtg_utils.decklist import as_cmdrs
+from mtg_utils.decklist import as_cmdrs, read_decisions
 from mtg_utils.sources.collection import load_collection
 from mtg_utils.sources.edhrec import PAGE_CAP, edhrec_fetch, edhrec_slug, parse_commander_page
 from mtg_utils.sources.edhtop16 import MIN_ENTRIES, edhtop16_commander_name, edhtop16_fetch, parse_edhtop16
@@ -24,6 +25,19 @@ COMBO_LINES = 2
 
 
 PRODUCES_SHOWN = 2
+
+
+def _decision_lines(notes):
+    """A card's decision notes, one line each.
+
+    ANNOTATES, NEVER SUPPRESSES -- the rule the whole feature turns on. The
+    proposal that prompted this wanted rejected rows hidden behind a flag, and
+    hiding is the one thing a note must not do: a stale CUT would silently
+    remove a card that has since become right, and a shorter table reads as
+    less work to do. The row still prints, with the reason attached, and the
+    reader decides.
+    """
+    return [f"{d['verdict']} {d['reason']}" for d in notes]
 
 
 def _roster_line(note):
@@ -129,7 +143,8 @@ def report_contention(cmdr, entries, other_ids):
 
 
 def report_ceiling(cmdr, entries, scry, cache=None, rec_cache=None, cedh=False,
-                   threshold=50.0, sort="inclusion", combos=True):
+                   threshold=50.0, sort="inclusion", combos=True,
+                   decklist=None):
     """Collection-ceiling audit: what is above the bar and not in the list.
 
     NETWORK unless both caches already hold what it needs, following the
@@ -207,6 +222,11 @@ def report_ceiling(cmdr, entries, scry, cache=None, rec_cache=None, cedh=False,
     # A Spellbook outage must not take `ceiling` down with it, and must not
     # quietly turn into "no combos found" either -- an unrun check and a clean
     # result are the same empty column.
+    # Notes live in the decklist file, so they are read from it rather than
+    # from a store keyed on the commander. `decklist` is optional: every other
+    # caller of report_ceiling predates notes and must keep working.
+    decisions = decisions_audit(read_decisions(decklist) if decklist else [],
+                                cmdr, entries)
     completions, combo_note = {}, None
     if combos:
         try:
@@ -227,6 +247,9 @@ def report_ceiling(cmdr, entries, scry, cache=None, rec_cache=None, cedh=False,
         syn = "-" if m.get("synergy") is None else f"{m['synergy']:+.3f}"
         print(f"  {m['name'][:34]:34s} {m['inclusion']:6.1f}% {syn:>7} {n_of:>13} "
               f"{m['owned']:>4}  {price}")
+        for line in _decision_lines(decisions["by_card"].get(
+                front_name(m["name"]).lower(), [])):
+            print(f"      {line}")
         roster_line = _roster_line(m.get("roster"))
         if roster_line:
             print(f"      {roster_line}")
@@ -242,6 +265,20 @@ def report_ceiling(cmdr, entries, scry, cache=None, rec_cache=None, cedh=False,
     print(f"\n  {len(a['missing'])} missing above the bar, "
           f"{a['owned_count']} already owned; "
           f"buy total ${a['buy_total']:.2f}")
+    # The staleness report is the falsifiable half, and it is printed whether
+    # or not the stale note's card came up in this run -- a note nobody is
+    # looking at is exactly the one that rots.
+    if decisions["readmitted"]:
+        print(f"\n  NOTES THAT NOW CONTRADICT THE LIST "
+              f"({len(decisions['readmitted'])}):")
+        for d in decisions["readmitted"]:
+            print(f"    line {d['line']}: {d['card']} is marked {d['verdict']} "
+                  f"and is IN the deck")
+    if decisions["stale"]:
+        print(f"\n  NOTES WHOSE REASON HAS EXPIRED ({len(decisions['stale'])}):")
+        for d in decisions["stale"]:
+            print(f"    line {d['line']}: {d['card']} -- reason cites "
+                  f"{', '.join(d['gone'])}, no longer in the deck")
     downgrades = sum(1 for m in a["missing"] if _roster_line(m.get("roster")))
     if downgrades:
         # Said once at the bottom as well as inline, because the land rows are

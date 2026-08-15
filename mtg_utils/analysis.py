@@ -7,7 +7,7 @@ from mtg_utils.cards import (enters_tapped, front, front_name, has_land_back,
                              is_front_land, land_face)
 from mtg_utils.castability import (at_least_in_draw, castable_faces,
                                    pips_from_cost, playsim_report, probability)
-from mtg_utils.decklist import apply_swaps, as_cmdrs, flat
+from mtg_utils.decklist import apply_swaps, as_cmdrs, flat, read_decisions
 from mtg_utils.primer import parse_primer_links, unclosed_openers
 from mtg_utils.profiles import build_accel_profiles, build_land_profiles
 from mtg_utils.roster import (OFF_ROSTER_RANK, PAIR_CYCLES, TRIPLE_CYCLES,
@@ -665,3 +665,41 @@ def land_roster_note(row, deck_names):
                 better.append(("Triome", member))
     return {"cycle": (slot or {}).get("cycle"), "key": key, "better": better,
             "on_roster": slot is not None}
+
+
+def decisions_audit(decisions, cmdr, entries):
+    """The decision notes, keyed for lookup, plus the two ways they go stale.
+
+    Pure compute; report_ceiling only formats it.
+
+    A note is a JUDGEMENT, not a measurement, and this repo does not store
+    measurements -- `report_calibrate` says so in as many words. What makes a
+    note storable is that it is falsifiable, and these are the two ways it
+    falsifies:
+
+    `readmitted` -- the note says CUT and the card is in the list. Someone
+                    changed their mind, or added it back without seeing the
+                    note. Either way the note is now arguing against the deck
+                    it ships with.
+    `stale`      -- the reason cites a card the deck no longer holds.
+                    "Destroys your own Craterhoof Behemoth" stops being true
+                    the moment Craterhoof is cut, and nothing about cutting
+                    Craterhoof touches this line.
+
+    That second one is the whole reason the reasons use [[...]]: a free-text
+    reason cannot be checked at all, and an unfalsifiable note is exactly the
+    stored row this repo refuses to quote.
+    """
+    have = {front_name(n).lower() for n in list(entries) + as_cmdrs(cmdr)}
+    by_card, readmitted, stale = {}, [], []
+    for d in decisions:
+        key = front_name(d["card"]).lower()
+        by_card.setdefault(key, []).append(d)
+        if d["verdict"] in ("CUT", "TRAP") and key in have:
+            readmitted.append(d)
+        gone = [l["name"] for l in parse_primer_links(d["reason"])
+                if front_name(l["name"]).lower() not in have]
+        if gone:
+            stale.append(dict(d, gone=gone))
+    return {"decisions": decisions, "by_card": by_card,
+            "readmitted": readmitted, "stale": stale}
