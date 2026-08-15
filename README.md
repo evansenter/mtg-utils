@@ -93,6 +93,29 @@ Spells that merely *make* a mana-producing token are excluded too: a Treasure's
 reminder text says "Add one mana of any color", which once made a counterspell
 count as one of your sources.
 
+**A triggered mana ability is the third category.** The activated-ability
+pattern requires a colon, so a card whose mana arrives off a *trigger* matched
+nothing and was dropped entirely — not misclassified, invisible. Lotus Cobra
+and Nissa, Resurgent Animist are both MV ≤ 3, both make mana, and neither was
+counted. The two trigger shapes are not equally reliable and are not treated
+alike:
+
+| shape | example | treatment |
+|---|---|---|
+| `phase` | *"At the beginning of your first main phase, add `{G}{G}`"* | counted — it fires on its own every turn, as reliable as a rock |
+| `event` | *"Landfall — Whenever a land you control enters, add one mana of any color"* | flagged and excluded from generic totals, like restricted mana |
+
+A phase-triggered source is also **offline the turn it enters**, for the same
+reason a mana creature is: the beginning of your first main phase has already
+happened by the time you cast it.
+
+Worth stating plainly, because it is the surprising part: **recognising the
+shape does not by itself surface the cards that prompted it.** Hulking Raptor
+is MV 4 and Regal Behemoth is MV 6, against a default `max_mv` of 3, so both
+stay outside the accelerant window. And Sword of the Animist adds no mana at
+all — it fetches a land, which is a change to the land count partway through a
+game and a different model entirely.
+
 **Restricted mana is not mana.** Fíli and Kíli, Joyous taps for `{R}{R}` *"only
 to cast Dwarf, Equipment, and Saga spells"*; Delighted Halfling's coloured mana
 is legendary-only. `build_accel_profiles` flags these `restricted` and excludes
