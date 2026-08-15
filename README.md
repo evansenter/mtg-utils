@@ -52,8 +52,30 @@ question rather than the maths — a function whose only documented property is
 primer. The old name is not aliased; it raises and names the replacement.
 
 What it is legitimately for is a question purely about the draw — how often an
-opening seven holds at most one land, say — which is a counting question and
-not a claim about casting anything.
+opening seven holds at most one land — which is the opening-hand floor `mana`
+prints below the play simulation.
+
+### No mulligan is modelled, and `mana` says how much that costs
+
+`playsim` deals seven and never looks back, so every opening hand is kept,
+zero-land hands included. Real play mulligans, which makes **every play-
+simulation figure a floor**, not an estimate. `mana` prints the size of that
+floor for the deck in front of it:
+
+```
+  No mulligan is modelled: every opening seven is kept, so the figures above are FLOORS.
+  38.2% of opening sevens hold at most one land (9.9% hold none), off 27 lands in 99.
+```
+
+The share is large — around one hand in seven on a 40-land deck — and it
+**moves with land count**, so it skews decks against each other as well as
+lowering each one. That matters most in `calibrate`, which puts decks side by
+side in a single table.
+
+Computed exactly rather than simulated: the opening hand is a counting
+question. Modelling an actual mulligan is deliberately **not** done — it needs
+a keep heuristic, and inventing one is the mistake `KNOWN_ISSUES.md` #13
+records.
 
 ### Mana sources means lands *plus* cheap accelerants
 

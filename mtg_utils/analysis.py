@@ -4,8 +4,8 @@ import random
 import re
 
 from mtg_utils.cards import front, has_land_back, is_front_land, land_face, enters_tapped
-from mtg_utils.castability import (castable_faces, pips_from_cost, playsim_report,
-                                   probability)
+from mtg_utils.castability import (at_least_in_draw, castable_faces,
+                                   pips_from_cost, playsim_report, probability)
 from mtg_utils.decklist import apply_swaps, as_cmdrs, flat
 from mtg_utils.profiles import build_accel_profiles, build_land_profiles
 
@@ -174,6 +174,33 @@ def replicate_playsim(lands, accels, deck_size, lines, trials, seed, reps):
     return out
 
 
+def opening_hand_floor(lands, deck_size, hand=7):
+    """How often the opening seven holds at most one land.
+
+    `playsim` deals seven and never looks back, so every hand is kept --
+    zero-land hands included. Real play mulligans, which makes every figure
+    the play simulation reports a FLOOR rather than an estimate.
+
+    This measures how big that floor is instead of leaving it to be
+    inferred, and it is measured rather than simulated: the opening hand is
+    a pure counting question, so it has an exact answer.
+
+    Two reasons this is worth printing rather than describing. It is large --
+    around one hand in seven on a 40-land deck. And it is DECK-DEPENDENT: a
+    27-land list ships back nearly three times as many hands as a 40-land
+    one, so the bias does not merely lower every number, it skews decks
+    against each other. `calibrate` puts decks side by side in one table.
+
+    "At most one land" is a deliberately crude keep rule, and the only one
+    available without inventing a heuristic -- which is the failure
+    KNOWN_ISSUES #13 records. Accelerants are not counted toward keepability
+    on purpose: a hand of one land and a Sol Ring casts nothing on turn one.
+    """
+    return {"lands": lands, "hand": hand, "deck_size": deck_size,
+            "p_none": 1.0 - at_least_in_draw(1, lands, hand, deck_size),
+            "p_one_or_fewer": 1.0 - at_least_in_draw(2, lands, hand, deck_size)}
+
+
 def analyse_mana(cmdr, entries, scry, sims, trials, seed=17, lines=None, reps=3):
     """The whole section 6 measurement, as data. report_mana only prints it.
 
@@ -223,8 +250,10 @@ def analyse_mana(cmdr, entries, scry, sims, trials, seed=17, lines=None, reps=3)
                           "".join("{%s}" % x for x in req)))
         lines += commander_lines(cmdr, scry)
     res = replicate_playsim(lands, accels, deck_size, lines, trials, seed, reps)
+    # An MDFC back is a land you can play, so it counts toward keepability.
+    floor = opening_hand_floor(v["lands"] + v["mdfc_land_backs"], deck_size)
     return {"verify": v, "lands": lands, "accels": accels,
-            "rows": rows, "lines": lines, "sim": res,
+            "rows": rows, "lines": lines, "sim": res, "floor": floor,
             "sims": sims, "trials": trials, "seed": seed, "reps": reps}
 
 

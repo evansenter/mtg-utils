@@ -59,8 +59,9 @@ from mtg_utils.roster import (ANY_COLOUR, PAIR_CYCLES, TRIPLE_CYCLES, WUBRG,
                               identity_pairs, pair_key, roster_names, roster_status)
 from mtg_utils.analysis import (analyse_mana, ceiling_audit, collapse_temps,
                                 commander_lines, compare_swap, deck_base_name,
-                                mean_spread, replicate_playsim, split_budget,
-                                t95, verify, worst_lines)
+                                mean_spread, opening_hand_floor,
+                                replicate_playsim, split_budget, t95, verify,
+                                worst_lines)
 from mtg_utils.sources import UA_BROWSER, UA_TOOL
 from mtg_utils.sources.collection import COLLECTION, load_collection
 from mtg_utils.sources.moxfield import (moxfield_deck, moxfield_user_decks,

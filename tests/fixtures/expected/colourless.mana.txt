@@ -21,3 +21,8 @@
   Diagnosis: a line CLOSE to its baseline is a QUANTITY problem (no land swap will help).
   A line FAR BELOW its baseline is a COLOUR problem (a filter land for that pip is the answer).
   A gap smaller than the two ± beside it is noise, not a finding.
+
+  No mulligan is modelled: every opening seven is kept, so the figures above are FLOORS.
+  38.2% of opening sevens hold at most one land (9.9% hold none), off 27 lands in 99.
+  Those hands are kept here and shipped back in real play. The share moves with
+  land count, so it skews deck-to-deck comparison and not just the level.
