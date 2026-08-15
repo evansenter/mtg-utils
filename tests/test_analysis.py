@@ -98,3 +98,42 @@ def test_temp_collapses_into_its_main(mm):
 def test_temp_orphan_temp_stands_alone(mm):
     """temp/orphan temp stands alone"""
     assert sorted(mm.collapse_temps({"Sauron [Temp]": {"x"}})) == ["Sauron [Temp]"]
+
+
+# --- the library is the deck minus its commanders ----------------------
+@pytest.mark.parametrize("deck,want", [("mono", 99), ("multi", 99),
+                                       ("colourless", 99), ("partner", 98)],
+                         ids=["deck_size/mono is 99", "deck_size/multi is 99",
+                              "deck_size/colourless is 99",
+                              "deck_size/partner pair is 98"])
+def test_analyse_mana_draws_from_the_real_library(mm, deck, want, monkeypatch):
+    """A partner deck has 98 cards behind its two commanders, not 99.
+
+    Simulating a library one card too large dilutes it with an extra
+    non-source, which biases every figure in the same direction. Asserted by
+    capturing what analyse_mana actually passes down rather than by reading
+    the number off the output, because the effect on any individual line is
+    a few tenths and would be indistinguishable from Monte Carlo noise.
+    """
+    import json
+    import os
+
+    import mtg_utils.analysis as an
+    from conftest import FIXTURES
+
+    seen = []
+    real = an.playsim_report
+    monkeypatch.setattr(an, "playsim_report",
+                        lambda l, a, ds, *args, **kw: seen.append(ds) or real(l, a, ds, *args, **kw))
+    real_prob = an.probability
+    monkeypatch.setattr(an, "probability",
+                        lambda l, a, ds, *args, **kw: seen.append(ds) or real_prob(l, a, ds, *args, **kw))
+
+    cmdr, entries = mm.read_decklist(os.path.join(FIXTURES, f"{deck}.txt"))
+    with open(os.path.join(FIXTURES, f"{deck}.scry.json"), encoding="utf-8") as f:
+        scry = json.load(f)
+    an.analyse_mana(cmdr, entries, scry, sims=20, trials=20)
+
+    assert seen, "neither model was called"
+    assert set(seen) == {want}, sorted(set(seen))
+    assert want == sum(entries.values())

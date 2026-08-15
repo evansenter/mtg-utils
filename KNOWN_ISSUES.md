@@ -124,7 +124,7 @@ byte-identical.
 
 ---
 
-## 5. Deck size is hard-coded to 99
+## 5. Deck size is hard-coded to 99 — FIXED
 
 `analysis.py` twice, `report.py` once:
 
@@ -136,9 +136,17 @@ playsim_report(lands, accels, 99, ...)
 A partner or background deck has 98 non-commander cards, not 99. The simulation
 draws from a library one card larger than the real one.
 
-**Cost:** small and consistently optimistic — it slightly dilutes the library
-with one extra non-source. It biases every partner deck's numbers in the same
-direction.
+**Cost:** small and optimistic — it dilutes the library with one extra
+non-source, biasing a partner deck's figures.
+
+**Fixed.** The library size is now `len(names)`, the non-commander multiset,
+threaded through `worst_lines`, `analyse_mana` and `report_calibrate`. On the
+partner fixture 33 reported figures moved by a mean of +0.30 points, range
+-0.1 to +1.0, none by more than a point; two rows of the worst-lines table
+swapped rank as a result. Not every figure moved upward, because a smaller
+library also changes the RNG draw sequence — the systematic effect is upward,
+the per-line jitter is noise. Single-commander decks are byte-identical: their
+library was already 99.
 
 ---
 

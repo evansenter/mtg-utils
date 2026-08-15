@@ -240,14 +240,15 @@ def report_calibrate(deck_ids, cache_path, sims, trials, user=None):
         names = flat(cmdr, entries)[len(as_cmdrs(cmdr)):]
         lands = build_land_profiles(names, scry)
         accels = build_accel_profiles(names, scry)
+        deck_size = len(names)          # the library: deck minus commanders
         srows = worst_lines(names, scry, lands, accels, sims,
-                            random.Random(17), top=1)
+                            random.Random(17), top=1, deck_size=deck_size)
         lines = []
         for pr, turn, mv, req, cards in srows:
             lines.append((f"{cards[0]} T{turn}", mv,
                           "".join("{%s}" % x for x in req)))
         lines += commander_lines(cmdr, scry)
-        res = playsim_report(lands, accels, 99, lines, trials, random.Random(17))
+        res = playsim_report(lands, accels, deck_size, lines, trials, random.Random(17))
 
         worst = None
         for label, mv, pipstr in lines:
