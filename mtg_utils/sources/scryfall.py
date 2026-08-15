@@ -4,6 +4,7 @@ import os
 import subprocess
 import time
 
+from mtg_utils.cards import front_name
 from mtg_utils.sources import UA_TOOL
 
 # ============================================================ Scryfall
@@ -15,7 +16,7 @@ def scry_fetch(names, cache_path=None):
     nf = []
     for i in range(0, len(want), 75):
         chunk = want[i:i + 75]
-        payload = json.dumps({"identifiers": [{"name": n.split(" // ")[0]} for n in chunk]})
+        payload = json.dumps({"identifiers": [{"name": front_name(n)} for n in chunk]})
         for _try in range(4):
             r = subprocess.run(
                 ["curl", "-s", "-X", "POST", "-H", "Content-Type: application/json",
@@ -34,7 +35,7 @@ def scry_fetch(names, cache_path=None):
         for c in d["data"]:
             # key on BOTH the full name and the front-face name
             cache[c["name"].lower()] = c
-            cache[c["name"].split(" // ")[0].lower()] = c
+            cache[front_name(c["name"]).lower()] = c
         # not_found names are returned to the caller and deliberately NOT
         # cached. A lookup fails either because the name is a typo, fixed on
         # the next run, or because the card is too new for Scryfall, findable

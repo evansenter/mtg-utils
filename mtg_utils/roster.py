@@ -10,6 +10,8 @@
 # misremembered cycle member surfaces as NOT FOUND or as a colour-identity
 # mismatch, never as a silently missing row.
 
+from mtg_utils.cards import front_name
+
 WUBRG = "WUBRG"
 
 
@@ -135,5 +137,5 @@ def roster_status(name, deck_names, owned):
     low = name.lower()
     if low in deck_names:
         return "IN"
-    q = owned.get(low, 0) or owned.get(low.split(" // ")[0], 0)
+    q = owned.get(low, 0) or owned.get(front_name(low), 0)
     return f"BENCH x{q}" if q else "BUY"

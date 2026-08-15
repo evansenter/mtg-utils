@@ -162,3 +162,40 @@ def test_is_front_land_plain_land(mm):
 def test_has_land_back_plain_land(mm):
     """has_land_back/plain land"""
     assert mm.has_land_back(card(type_line="Land — Forest")) is False
+
+
+# --- front_name -------------------------------------------------------
+# The join key between a decklist, a ManaBox export and every external
+# ranking source -- none of which agree on the convention. Doing this by
+# hand at each call site is how a card sitting in the deck got reported as
+# missing, so it lives in cards.py and everything routes through it.
+@pytest.mark.parametrize("name,want", [
+    ("Agadeem's Awakening // Agadeem, the Undercrypt", "Agadeem's Awakening"),
+    ("Sink into Stupor // Soporific Springs", "Sink into Stupor"),
+    ("Commit // Memory", "Commit"),
+    ("Sol Ring", "Sol Ring"),
+    ("  Sol Ring  ", "Sol Ring"),
+    ("", ""),
+    (None, ""),
+], ids=["front_name/MDFC", "front_name/MDFC land back", "front_name/split card",
+        "front_name/plain name is unchanged", "front_name/strips whitespace",
+        "front_name/empty", "front_name/None is not a crash"])
+def test_front_name(mm, name, want):
+    """Every card name here is verbatim -- Commit // Memory is the entry in
+    this repo's own multi fixture, and the other two are real MDFCs."""
+    assert mm.front_name(name) == want
+
+
+def test_front_name_is_the_join_between_the_two_conventions(mm):
+    """The reason this function exists.
+
+    EDHREC returns front faces only and edhtop16 returns full names, so the
+    SAME card arrives spelled two ways, and a decklist spells it a third.
+    All three have to land on one key or the audit reports an in-deck card
+    as missing -- which is exactly what the hand-rolled version did.
+    """
+    decklist = "Sink into Stupor // Soporific Springs"
+    edhtop16 = "Sink into Stupor // Soporific Springs"
+    edhrec = "Sink into Stupor"
+    keys = {mm.front_name(x).lower() for x in (decklist, edhtop16, edhrec)}
+    assert keys == {"sink into stupor"}, keys

@@ -2,6 +2,8 @@
 import csv
 from collections import defaultdict
 
+from mtg_utils.cards import front_name
+
 COLLECTION = "/mnt/project/ManaBox_Collection.csv"
 
 
@@ -13,7 +15,7 @@ def load_collection(path=COLLECTION):
             q = int(r["Quantity"])
             n = r["Name"].strip().lower()
             owned[n] += q
-            front_name = n.split(" // ")[0]
-            if front_name != n:
-                owned[front_name] += q
+            fn = front_name(n)
+            if fn != n:
+                owned[fn] += q
     return owned

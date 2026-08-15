@@ -23,6 +23,7 @@ import subprocess
 import time
 from collections import Counter
 
+from mtg_utils.cards import front_name
 from mtg_utils.sources import UA_BROWSER
 
 EDHTOP16_GQL = "https://edhtop16.com/api/graphql"
@@ -107,8 +108,7 @@ def parse_edhtop16(data):
     counts = Counter()
     for e in edges:
         deck = ((e or {}).get("node") or {}).get("maindeck") or []
-        seen = {(c.get("name") or "").split(" // ")[0].strip()
-                for c in deck if c.get("name")}
+        seen = {front_name(c.get("name")) for c in deck if c.get("name")}
         counts.update(seen)
     rows = [{"name": name, "num_decks": k, "potential_decks": n,
              "inclusion": 100.0 * k / n, "cardlist": "edhtop16"}
