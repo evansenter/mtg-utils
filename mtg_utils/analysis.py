@@ -366,10 +366,17 @@ def compare_swap(cmdr, entries, scry, swaps, sims, trials, seed=17, reps=3):
             "sources_only_after": sorted(after_rows.keys() - base_rows.keys())}
 
 
-def ceiling_audit(cmdr, entries, rows, capped, owned, scry, threshold=50.0):
+def ceiling_audit(cmdr, entries, rows, capped, owned, scry, threshold=50.0,
+                  sort="inclusion"):
     """Which cards above the inclusion bar for this commander are missing.
 
     Pure compute; report_ceiling only formats it.
+
+    `sort` orders the reported rows; it does NOT select them. The bar stays on
+    inclusion whichever way the table is sorted, because synergy is a
+    difference of two inclusion rates and is at its noisiest exactly where
+    inclusion is lowest -- a bar on synergy would promote fringe cards played
+    in a handful of decks over the staples the audit exists to catch.
 
     Every name on both sides is reduced to its FRONT FACE before comparison.
     This is the whole reason the audit belongs in the package: run by hand it
@@ -397,8 +404,17 @@ def ceiling_audit(cmdr, entries, rows, capped, owned, scry, threshold=50.0):
         missing.append(dict(r, owned=owned.get(key, 0),
                             price=float(price) if price else None,
                             type_line=(card or {}).get("type_line", "")))
-    missing.sort(key=lambda r: -r["inclusion"])
+    # A card with no synergy figure sorts LAST under --sort=synergy rather
+    # than at zero. Unknown is not "no synergy": every --cedh row is unknown,
+    # and floating them through the middle of the table on a 0.0 they were
+    # never measured at is how the column would start lying.
+    if sort == "synergy":
+        missing.sort(key=lambda r: (r.get("synergy") is None,
+                                    -(r.get("synergy") or 0.0), -r["inclusion"]))
+    else:
+        missing.sort(key=lambda r: -r["inclusion"])
     return {"missing": missing, "threshold": threshold, "capped": capped,
+            "sort": sort,
             "considered": len(rows),
             "owned_count": sum(1 for m in missing if m["owned"] > 0),
             "buy_total": sum(m["price"] for m in missing

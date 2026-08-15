@@ -352,3 +352,133 @@ def test_a_sufficient_edhtop16_sample_does_quote_percentages(
     assert "6 tournament entries counted" in out
     assert "FEWER THAN" not in out
     assert got is not None and got["missing"]
+
+
+# --- synergy ----------------------------------------------------------
+# Inclusion alone cannot separate a commander-specific card from generic
+# goodstuff: Sol Ring is 80% in every deck ever built and says nothing about
+# THIS commander. EDHREC ships the discriminator in the same payload and it
+# was being dropped at parse time -- the column exists to stop the tool
+# ranking on the axis nobody was choosing on.
+def test_synergy_is_carried_from_the_payload(mm):
+    """It is in every cardview and was being discarded by parse_commander_page.
+
+    Pinned to the committed fixture's real value, so dropping the field again
+    fails here rather than reading as a formatting change downstream.
+    """
+    rows, _ = mm.parse_commander_page(_rec_page())
+    by = {r["name"]: r for r in rows}
+    assert by["Birds of Paradise"]["synergy"] == pytest.approx(0.47119880)
+    assert all(r["synergy"] is not None for r in rows)
+
+
+def test_a_cardview_without_synergy_is_none_not_zero(mm):
+    """Zero is a MEASURED synergy -- it is exactly what a card played at the
+    same rate everywhere scores. A missing field defaulted to 0.0 is therefore
+    not a harmless placeholder: it is a specific, wrong, plausible claim about
+    the one card the column had no data for."""
+    page = {"container": {"json_dict": {"cardlists": [{
+        "header": "Top Cards",
+        "cardviews": [{"name": "Sol Ring", "num_decks": 9,
+                       "potential_decks": 10},
+                      {"name": "Mystic Remora", "num_decks": 8,
+                       "potential_decks": 10, "synergy": 0.0}]}]}}}
+    rows, _ = mm.parse_commander_page(page)
+    by = {r["name"]: r for r in rows}
+    assert by["Sol Ring"]["synergy"] is None
+    assert by["Mystic Remora"]["synergy"] == 0.0
+
+
+def test_edhtop16_rows_report_synergy_as_unknown(mm):
+    """synergy is an EDHREC statistic. edhtop16 does not carry it, and the key
+    must still be present and None so --sort=synergy against --cedh ranks
+    nothing visibly rather than ranking everything at a fabricated zero."""
+    rows, n = mm.parse_edhtop16(_top16_data())
+    assert rows and n == 6
+    assert all(r["synergy"] is None for r in rows)
+
+
+def test_the_dedup_keeps_the_synergy_of_the_row_it_keeps(mm):
+    """A card in two cardlists is kept once, at its HIGHEST inclusion. Its
+    synergy has to travel with the row that survived: keeping 88%'s inclusion
+    beside 30%'s synergy is a figure that appears on no EDHREC page."""
+    page = {"container": {"json_dict": {"cardlists": [
+        {"header": "Lands",
+         "cardviews": [{"name": "Ancient Tomb", "num_decks": 3,
+                        "potential_decks": 10, "synergy": 0.1}]},
+        {"header": "Utility Lands",
+         "cardviews": [{"name": "Ancient Tomb", "num_decks": 9,
+                        "potential_decks": 10, "synergy": 0.9}]}]}}}
+    rows, _ = mm.parse_commander_page(page)
+    assert len(rows) == 1
+    assert rows[0]["inclusion"] == pytest.approx(90.0)
+    assert rows[0]["synergy"] == pytest.approx(0.9)
+
+
+def _syn_rows():
+    """Goodstuff ranks above the signal card on inclusion and below it on
+    synergy, so the two orderings are not the same list."""
+    return [
+        {"name": "Goodstuff", "num_decks": 9, "potential_decks": 10,
+         "inclusion": 90.0, "synergy": 0.02, "cardlist": "x"},
+        {"name": "Signal", "num_decks": 6, "potential_decks": 10,
+         "inclusion": 60.0, "synergy": 0.55, "cardlist": "x"},
+        {"name": "Fringe", "num_decks": 1, "potential_decks": 10,
+         "inclusion": 10.0, "synergy": 0.95, "cardlist": "x"},
+    ]
+
+
+def test_sort_by_synergy_reorders_the_table(mm):
+    a = mm.ceiling_audit("Cmdr", {}, _syn_rows(), [], {}, {}, sort="synergy")
+    assert [m["name"] for m in a["missing"]] == ["Signal", "Goodstuff"]
+
+
+def test_sorting_by_synergy_does_not_move_the_bar(mm):
+    """The bar stays on inclusion whichever way the table is sorted. Fringe
+    has the highest synergy on the page and is played in one deck in ten:
+    letting the sort key double as the filter is how a --sort flag turns into
+    a silent change of what the audit reports."""
+    for sort in ("inclusion", "synergy"):
+        a = mm.ceiling_audit("Cmdr", {}, _syn_rows(), [], {}, {}, sort=sort)
+        assert "Fringe" not in [m["name"] for m in a["missing"]], sort
+        assert len(a["missing"]) == 2, sort
+
+
+def test_unknown_synergy_sorts_last_not_at_zero(mm):
+    """A --cedh row has no synergy at all. Sorted as 0.0 it lands ABOVE every
+    card with a measured negative synergy -- so the rows the tool knows least
+    about would outrank the ones it measured and found wanting."""
+    rows = [{"name": "Measured", "num_decks": 9, "potential_decks": 10,
+             "inclusion": 90.0, "synergy": -0.2, "cardlist": "x"},
+            {"name": "Unknown", "num_decks": 8, "potential_decks": 10,
+             "inclusion": 80.0, "synergy": None, "cardlist": "x"}]
+    a = mm.ceiling_audit("Cmdr", {}, rows, [], {}, {}, sort="synergy")
+    assert [m["name"] for m in a["missing"]] == ["Measured", "Unknown"]
+
+
+def test_the_report_prints_synergy_and_says_how_it_sorted(mm, monkeypatch,
+                                                          tmp_path, capsys):
+    _run_ceiling(mm, monkeypatch, tmp_path, rec_cache=REC, threshold=75.0,
+                 sort="synergy")
+    out = capsys.readouterr().out
+    assert "sorted by synergy" in out
+    # Signed, so a negative synergy cannot be mistaken for a positive one at
+    # a glance in a column of small decimals.
+    assert "+0.579" in out
+    # The whole point, on real data: Deathrite Shaman has the LOWEST inclusion
+    # of the four rows above the bar and the highest synergy, so it sorts
+    # first here and last under --sort=inclusion. If the two orderings ever
+    # agree on this fixture the case has stopped discriminating.
+    rows = [l for l in out.split("\n") if "%" in l and "bar is" not in l]
+    assert "Deathrite Shaman" in rows[0]
+    assert "75.6%" in rows[0]
+
+
+def test_the_report_prints_unknown_synergy_as_a_dash(mm, monkeypatch, tmp_path,
+                                                     capsys):
+    """--cedh has no synergy for any row, and 0.000 down the column would read
+    as a measured finding that every tournament card is pure goodstuff."""
+    _run_ceiling(mm, monkeypatch, tmp_path, rec_cache=TOP16, cedh=True,
+                 threshold=90.0)
+    out = capsys.readouterr().out
+    assert "0.000" not in out

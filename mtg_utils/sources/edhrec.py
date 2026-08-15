@@ -146,7 +146,14 @@ def parse_commander_page(data):
             pct = 100.0 * num / pot
             prev = rows.get(name.lower())
             if prev is None or pct > prev["inclusion"]:
+                # synergy is carried through as None when absent, never as
+                # 0.0. Zero is a REAL synergy value -- it is what a pure
+                # goodstuff card scores -- so a missing field defaulted to
+                # zero is indistinguishable from a measured "no better here
+                # than anywhere else", which is the one thing this column
+                # exists to tell apart.
                 rows[name.lower()] = {
                     "name": name, "num_decks": num, "potential_decks": pot,
-                    "inclusion": pct, "cardlist": cl.get("header") or "?"}
+                    "inclusion": pct, "synergy": cv.get("synergy"),
+                    "cardlist": cl.get("header") or "?"}
     return sorted(rows.values(), key=lambda r: -r["inclusion"]), capped

@@ -79,6 +79,10 @@ def main():
                     help="ceiling: use edhtop16 tournament data instead of EDHREC")
     ap.add_argument("--bar", type=float, default=50.0,
                     help="ceiling: inclusion %% above which a missing card is reported")
+    ap.add_argument("--sort", choices=["inclusion", "synergy"],
+                    default="inclusion",
+                    help="ceiling: order the reported rows; the bar stays on "
+                         "inclusion either way")
     ap.add_argument("--swap", default="",
                     help="variants: measure named swaps, 'Cut->Add,Cut2->Add2' "
                          "(use ';' between pairs if a name contains a comma)")
@@ -152,7 +156,7 @@ def main():
         report_mana(cmdr, entries, scry, a.sims, a.trials, a.seed, reps=a.reps)
     if a.cmd == "ceiling":
         report_ceiling(cmdr, entries, scry, a.cache, a.rec_cache, a.cedh,
-                       a.bar)
+                       a.bar, a.sort)
     if a.cmd in ("roster", "audit"):
         report_roster(cmdr, entries, scry, a.cache)
     if a.cmd == "variants":
