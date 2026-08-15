@@ -53,6 +53,15 @@ understates castability badly — measured on one deck, `{2}{R}{G}{W}` on turn
 five was 36.4% lands-only and 53.5% once accelerants were counted. The
 lands-only figure is a statement about land count, not about castability.
 
+**A source is a permanent with an activated ability that adds mana.** The cost
+need not be `{T}`: Ashnod's Altar adds `{C}{C}` off a sacrifice and is a real
+repeatable source. One-shots are excluded — Dark Ritual is an Instant, and
+counting it as a permanent had it producing three mana every turn from the
+moment it was drawn — which understates a ritual-heavy deck, deliberately.
+Spells that merely *make* a mana-producing token are excluded too: a Treasure's
+reminder text says "Add one mana of any color", which once made a counterspell
+count as one of your sources.
+
 **Restricted mana is not mana.** Fíli and Kíli, Joyous taps for `{R}{R}` *"only
 to cast Dwarf, Equipment, and Saga spells"*; Delighted Halfling's coloured mana
 is legendary-only. `build_accel_profiles` flags these `restricted` and excludes
@@ -86,6 +95,12 @@ pay-3 MDFC cycle to TRULY TAPPED, a wrong verdict that looked right.
 This means **the model cannot price a checkland's real downside at all**. When
 a checkland question comes up, answer the turn-one-tapped part from the deck's
 basic-type density in prose rather than pretending a number covers it.
+
+The same applies to conditional *accelerants* — Mox Opal needs metalcraft,
+Chrome Mox needs a card to imprint, Mox Diamond discards a land to enter — all
+of which are counted as full sources. Inventing probabilities for those board
+states is precisely the mistake that once moved a commander-on-curve figure by
+five points; `KNOWN_ISSUES.md` #13 records them instead.
 
 ## Subcommands
 
@@ -297,10 +312,12 @@ program's bytes and not something typed to make a test pass. The reference copy
 is gone; the snapshots carry the invariant, and the tests that compared against
 it skip with a message saying so.
 
-**The snapshots can no longer be regenerated, and that is the point.** They are
-the definition of correct output. If you intend to change what the tool prints,
-change them in the same commit, say so in the message, and say what moved and
-why.
+**The snapshots are the definition of correct output.** Regenerating them is a
+deliberate act: `pytest tests/test_golden.py --regen-golden` rewrites them from
+the current code, which means it blesses whatever the code now prints. If you
+intend to change what the tool reports, regenerate, review the diff, and commit
+the snapshots alongside the code, saying what moved and why. If you did not
+intend to change it, the failing diff is the finding.
 
 ### The three deck shapes
 

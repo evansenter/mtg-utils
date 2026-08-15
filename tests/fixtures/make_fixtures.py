@@ -86,7 +86,34 @@ COLOURLESS_SPELLS = [
     "Sol Ring", "Everflowing Chalice", "Mind Stone", "Hedron Archive",
 ]
 
+PARTNER_LANDS = {
+    "Plains": 2, "Island": 2, "Swamp": 2, "Forest": 2,
+    # four colours, six pairs: the widest roster walk of any fixture, and the
+    # only identity here with NO three-colour row (TRIPLE_CYCLES is keyed on a
+    # 3-colour identity string, so WUBG falls through it)
+    "Tundra": 1, "Scrubland": 1, "Savannah": 1, "Underground Sea": 1,
+    "Tropical Island": 1, "Bayou": 1,
+    "Hallowed Fountain": 1, "Godless Shrine": 1, "Watery Grave": 1,
+    "Overgrown Tomb": 1, "Breeding Pool": 1, "Temple Garden": 1,
+    "Flooded Strand": 1, "Marsh Flats": 1, "Polluted Delta": 1,
+    "Verdant Catacombs": 1, "Misty Rainforest": 1, "Windswept Heath": 1,
+    "Mystic Gate": 1, "Fetid Heath": 1, "Sunken Ruins": 1, "Twilight Mire": 1,
+    "Command Tower": 1, "Exotic Orchard": 1, "Reflecting Pool": 1,
+    "City of Brass": 1, "Mana Confluence": 1, "Prismatic Vista": 1,
+    "Ancient Tomb": 1, "Urborg, Tomb of Yawgmoth": 1,
+}
+PARTNER_SPELLS = [
+    # Mana Crypt was in this list on the first attempt and the legality check
+    # rejected the deck: it is BANNED in Commander. Exactly the sort of thing
+    # that gets asserted from memory and is one API field away from being known.
+    "Mana Vault",
+    "Sol Ring", "Arcane Signet", "Birds of Paradise",
+    "Agadeem's Awakening",
+]
+
 SPECS = [
+    {"key": "partner", "cmdr": ["Tymna the Weaver", "Thrasios, Triton Hero"],
+     "q": "ci<=wubg", "lands": PARTNER_LANDS, "spells": PARTNER_SPELLS},
     {"key": "mono", "cmdr": "Magda, Brazen Outlaw", "q": "ci<=r",
      "lands": MONO_LANDS, "spells": MONO_SPELLS},
     {"key": "multi", "cmdr": "Muldrotha, the Gravetide", "q": "ci<=bug",
@@ -166,7 +193,8 @@ def build(spec):
         entries[n] += q
     for n in spec["spells"]:
         entries[n] += 1
-    need = 99 - sum(entries.values())
+    ncmdr = len(m.as_cmdrs(spec["cmdr"]))
+    need = (100 - ncmdr) - sum(entries.values())
     assert need > 0, (spec["key"], need)
 
     d = search(f"{spec['q']} legal:commander -t:land")
@@ -175,11 +203,12 @@ def build(spec):
     time.sleep(0.6)
 
     taken = 0
+    cmdr_names = set(m.as_cmdrs(spec["cmdr"]))
     for c in d["data"]:
         if taken >= need:
             break
         name = c["name"]
-        if name == spec["cmdr"] or name in entries:
+        if name in cmdr_names or name in entries:
             continue
         if "Land" in c["type_line"].split("//")[0]:
             continue

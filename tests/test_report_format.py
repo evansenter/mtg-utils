@@ -250,3 +250,75 @@ def test_mana_table_columns(mm, capsys):
         assert m.group("base").startswith(" ")                          # right aligned
     assert "--- play simulation, 400 trials ---" in out
     assert "Diagnosis: a line CLOSE to its baseline is a QUANTITY problem" in out
+
+
+# ============================================================ verify header
+@pytest.mark.parametrize("deck", ["mono", "multi", "colourless", "partner"])
+def test_verify_header_arithmetic_closes(candidate, deck, tmp_path):
+    """verify/printed arithmetic closes
+
+    The header is copied straight into a primer, where "24 lands plus 75
+    non-land" in a 100-card deck is a sentence nobody re-adds. It has to sum.
+
+    Shape-general on purpose: the snapshot for the partner deck pins the exact
+    string, but this catches the same class of error on any deck, including one
+    added later. verify() has always returned the right numbers -- it was only
+    the format string that said "1 commander" regardless.
+    """
+    from conftest import deck_args, run_cli
+    out = run_cli(candidate, deck_args(deck, "verify"), str(tmp_path))
+    line = [l for l in out.splitlines() if " cards = " in l]
+    assert len(line) == 1, out
+    m = re.fullmatch(r"\s*(\d+) cards = (\d+) commanders? \+ (\d+) non-land"
+                     r" \+ (\d+) lands\s+\((\d+) MDFC land-backs\)", line[0])
+    assert m, repr(line[0])
+    total, ncmdr, nonland, lands, _mdfc = (int(g) for g in m.groups())
+    assert ncmdr + nonland + lands == total, line[0]
+
+
+def test_verify_header_pluralises(candidate, tmp_path):
+    """verify/singular for one, plural for two"""
+    from conftest import deck_args, run_cli
+    one = run_cli(candidate, deck_args("mono", "verify"), str(tmp_path))
+    two = run_cli(candidate, deck_args("partner", "verify"), str(tmp_path))
+    assert "= 1 commander +" in one
+    assert "= 2 commanders +" in two
+
+
+# ============================================================ guards
+def test_variants_refuses_to_clone_a_land_it_does_not_have(report, capsys):
+    """variants/no land to clone fails by name
+
+    `--lands=2` clones an untapped colour-producing land. With none in the
+    deck the old code reached dict(None) and raised TypeError several frames
+    away, which reads as a crash rather than as a statement about the deck.
+    Guards in this project fail loudly and by name.
+    """
+    from collections import Counter
+    scry = {"cmdr": {"name": "Cmdr", "type_line": "Legendary Creature",
+                     "color_identity": [], "cmc": 1, "oracle_text": "",
+                     "mana_cost": "{1}", "legalities": {"commander": "legal"}},
+            "tapped land": {"name": "Tapped Land", "type_line": "Land",
+                            "color_identity": [], "cmc": 0,
+                            "oracle_text": "Tapped Land enters tapped.",
+                            "produced_mana": [], "legalities": {"commander": "legal"}}}
+    with pytest.raises(SystemExit) as e:
+        report.report_variants("Cmdr", Counter({"Tapped Land": 30}), scry,
+                               [2], [0], 10)
+    assert "cannot add lands" in str(e.value)
+    capsys.readouterr()
+
+
+def test_variants_still_works_when_there_is_a_land_to_clone(report, capsys, mm):
+    """variants/the guard does not block the normal case"""
+    import json
+    import os
+
+    from conftest import FIXTURES
+    cmdr, entries = mm.read_decklist(os.path.join(FIXTURES, "mono.txt"))
+    with open(os.path.join(FIXTURES, "mono.scry.json"), encoding="utf-8") as f:
+        scry = json.load(f)
+    report.report_variants(cmdr, entries, scry, [0, 1], [0], 20)
+    out = capsys.readouterr().out
+    assert "VARIANTS SWEEP" in out
+    assert len([l for l in out.splitlines() if "lands," in l]) == 2

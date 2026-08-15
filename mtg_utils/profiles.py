@@ -17,6 +17,38 @@ OMNI_TYPE = {"urborg, tomb of yawgmoth": "B", "yavimaya, cradle of growth": "G"}
 
 
 # ============================================================ profiles
+RESTRICTED_MANA = "spend this mana only"
+
+
+def unrestricted_mana(txt):
+    """(colours, amount) a land offers with NO strings attached.
+
+    Scryfall puts one ability per line, and the restriction rides on the same
+    line as the ability it restricts:
+
+        {T}: Add {C}.
+        {T}: Add {C}{C}. Spend this mana only to cast colorless Eldrazi spells.
+
+    so dropping the restricted lines leaves exactly the mana that pays for
+    anything. Eldrazi Temple is a 1, not a 2. Cavern of Souls and Unclaimed
+    Territory produce {C} and nothing else -- their any-colour mana casts one
+    creature type, and counting it as free colour made a mono-red deck look
+    like it had five.
+
+    Returns (set(), 0) when every ability is restricted, which flags the land
+    for exclusion the same way build_accel_profiles flags a restricted rock.
+    """
+    free = "\n".join(l for l in txt.split("\n") if RESTRICTED_MANA not in l)
+    cols, amount = set(), 0
+    for match in re.finditer(r"add ([^.;\n]*)", free):
+        clause = match.group(1)
+        cols |= {c.upper() for c in re.findall(r"\{([wubrgc])\}", clause)}
+        if "any color" in clause:
+            cols |= set(COLOURS)
+        amount = max(amount, 1)
+    return cols, (mana_amount(free) if amount else 0)
+
+
 def build_land_profiles(deck_names, scry):
     profiles = []
     for n in deck_names:
@@ -50,17 +82,48 @@ def build_land_profiles(deck_names, scry):
                     if any(t in tl for t, col in BASIC_TYPE_COLOUR.items() if col in ft):
                         pm.update(x for x in (lf2.get("produced_mana") or []) if x in COLOURS)
         tapped, cond = enters_tapped(lf, c)
+        amount = 1 if kind in ("filter", "fetch") else mana_amount(txt)
+        restricted = False
+        # "Spend this mana only to cast..." is not mana for a generic total,
+        # on a land exactly as on a rock. Recomputed only for lands that
+        # carry the clause, so every other land is untouched.
+        if kind == "normal" and RESTRICTED_MANA in txt:
+            free_cols, free_amount = unrestricted_mana(txt)
+            restricted = not free_amount
+            if free_amount:
+                pm = {x for x in free_cols if x in MANA_SYMBOLS}
+                amount = free_amount
         profiles.append({
             "name": name, "kind": "land",
             "colours": frozenset(pm),
             "filter": FILTER_LANDS.get(name),
             "tapped": False if kind == "fetch" else tapped,
             "cond_tap": cond,
-            "amount": 1 if kind in ("filter", "fetch") else mana_amount(txt),
+            "amount": amount,
             "omni": OMNI_TYPE.get(name),
+            "restricted": restricted,
             "mdfc": has_land_back(c),
         })
     return profiles
+
+
+# A mana source is a PERMANENT with an activated ability that adds mana.
+# "Battle" and "Planeswalker" are here for completeness; front-face lands are
+# already filtered out before this is consulted.
+PERMANENT_TYPES = ("Artifact", "Creature", "Enchantment", "Land",
+                   "Planeswalker", "Battle")
+# Reminder text is parenthetical, and a Treasure token's reminder text reads
+# '{T}, Sacrifice this token: Add one mana of any color'. Matching it made
+# every Treasure-maker a mana source. Strip parentheticals before deciding
+# whether THIS card makes mana -- but never for a land, where a dual's whole
+# ability is reminder text: Taiga's oracle text is exactly "({T}: Add {R} or
+# {G}.)" and stripping it would leave nothing.
+REMINDER_TEXT = re.compile(r"\([^)]*\)")
+# An activated ability that adds mana: a cost, a colon, then "add" before the
+# clause ends. The cost deliberately does NOT have to be {T} -- Ashnod's Altar
+# and Phyrexian Altar add mana off a sacrifice and are real, repeatable
+# sources.
+MANA_ABILITY = re.compile(r":[^.]*\badd\b")
 
 
 def build_accel_profiles(deck_names, scry, max_mv=3):
@@ -79,9 +142,15 @@ def build_accel_profiles(deck_names, scry, max_mv=3):
         if mv > max_mv:
             continue
         txt = (front(c, "oracle_text", "") or "").lower()
-        if not re.search(r"\{t\}[^:]*:\s*add", txt) and "add " not in txt:
+        # Both halves are load-bearing. The permanent check drops one-shots:
+        # Dark Ritual (Instant, MV 1, "Add {B}{B}{B}") was counted as a
+        # permanent producing three mana EVERY turn from the moment it was
+        # drawn. The reminder-text strip drops spells that merely make a
+        # mana-producing token: An Offer You Can't Refuse is a counterspell
+        # whose Treasures go to the OPPONENT, and it counted as a source.
+        if not any(t in c["type_line"].split("//")[0] for t in PERMANENT_TYPES):
             continue
-        if "add" not in txt:
+        if not MANA_ABILITY.search(REMINDER_TEXT.sub(" ", txt)):
             continue
         pm = set(x for x in (c.get("produced_mana") or []) if x in MANA_SYMBOLS)
         if not pm and re.search(r"add \{c\}", txt):

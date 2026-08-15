@@ -1,0 +1,122 @@
+
+=== ROSTER WALK: Tymna the Weaver + Thrasios, Triton Hero (WUBG) ===
+
+  --- WU ---
+  ABUR dual          Tundra                         IN
+  Shockland          Hallowed Fountain              IN
+  Fetchland          Flooded Strand                 IN
+  Horizon land       (no such card)                
+  Painland           Adarkar Wastes                 BUY   $0.30
+  Filter land        Mystic Gate                    IN
+  Battlebond land    Sea of Clouds                  BUY   $19.28
+  Checkland          Glacial Fortress               BUY   $0.32
+  Pathway            Hengegate Pathway              BUY   $4.11
+  Surveil land       Meticulous Archive             BUY   $11.49
+  Fastland           Seachrome Coast                BUY   $0.47
+
+  --- WB ---
+  ABUR dual          Scrubland                      IN
+  Shockland          Godless Shrine                 IN
+  Fetchland          Marsh Flats                    IN
+  Horizon land       Silent Clearing                BUY   $5.59
+  Painland           Caves of Koilos                BUY   $0.59
+  Filter land        Fetid Heath                    IN
+  Battlebond land    Vault of Champions             BUY   $20.82
+  Checkland          Isolated Chapel                BUY   $0.39
+  Pathway            Brightclimb Pathway            BUY   $4.75
+  Surveil land       Shadowy Backstreet             BUY   $9.86
+  Fastland           Concealed Courtyard            BUY   $0.94
+
+  --- WG ---
+  ABUR dual          Savannah                       IN
+  Shockland          Temple Garden                  IN
+  Fetchland          Windswept Heath                IN
+  Horizon land       Horizon Canopy                 BUY   $4.22
+  Painland           Brushland                      BUY   $1.68
+  Filter land        Wooded Bastion                 BUY   $16.46
+  Battlebond land    Bountiful Promenade            BUY   $5.65
+  Checkland          Sunpetal Grove                 BUY   $0.36
+  Pathway            Branchloft Pathway             BUY   $3.05
+  Surveil land       Lush Portico                   BUY   $5.05
+  Fastland           Razorverge Thicket             BUY   $0.35
+
+  --- UB ---
+  ABUR dual          Underground Sea                IN
+  Shockland          Watery Grave                   IN
+  Fetchland          Polluted Delta                 IN
+  Horizon land       (no such card)                
+  Painland           Underground River              BUY   $2.17
+  Filter land        Sunken Ruins                   IN
+  Battlebond land    Morphic Pool                   BUY   $27.66
+  Checkland          Drowned Catacomb               BENCH x2   $0.90
+  Pathway            Clearwater Pathway             BUY   $4.70
+  Surveil land       Undercity Sewers               BUY   $12.96
+  Fastland           Darkslick Shores               BUY   $2.47
+
+  --- UG ---
+  ABUR dual          Tropical Island                IN
+  Shockland          Breeding Pool                  IN
+  Fetchland          Misty Rainforest               IN
+  Horizon land       Waterlogged Grove              BUY   $1.59
+  Painland           Yavimaya Coast                 BUY   $0.40
+  Filter land        Flooded Grove                  BUY   $0.33
+  Battlebond land    Rejuvenating Springs           BUY   $4.15
+  Checkland          Hinterland Harbor              BENCH x1   $0.27
+  Pathway            Barkchannel Pathway            BUY   $3.97
+  Surveil land       Hedge Maze                     BUY   $10.46
+  Fastland           Botanical Sanctum              BUY   $1.65
+
+  --- BG ---
+  ABUR dual          Bayou                          IN
+  Shockland          Overgrown Tomb                 IN
+  Fetchland          Verdant Catacombs              IN
+  Horizon land       Nurturing Peatland             BUY   $6.72
+  Painland           Llanowar Wastes                BUY   $0.60
+  Filter land        Twilight Mire                  IN
+  Battlebond land    Undergrowth Stadium            BUY   $5.98
+  Checkland          Woodland Cemetery              BUY   $0.92
+  Pathway            Darkbore Pathway               BUY   $6.34
+  Surveil land       Underground Mortuary           BUY   $13.46
+  Fastland           Blooming Marsh                 BENCH x1   $2.21
+
+  --- off-pair fetchlands (reach one colour of the identity) ---
+  WR                 Arid Mesa                      BUY   $30.74
+  UR                 Scalding Tarn                  BUY   $35.98
+  BR                 Bloodstained Mire              BUY   $18.70
+  RG                 Wooded Foothills               BUY   $17.63
+
+  --- identity-independent ---
+  Any-colour         Command Tower                  IN
+  Any-colour         City of Brass                  IN
+  Any-colour         Mana Confluence                IN
+  Any-colour         Exotic Orchard                 IN
+  Any-colour         Reflecting Pool                IN
+  Fetch (basic)      Prismatic Vista                IN
+  Typal              Cavern of Souls                BUY   $49.39
+  Typal              Secluded Courtyard             BUY   $0.35
+  Typal              Three Tree City                BENCH x2   $28.35
+  Typal              Unclaimed Territory            BUY   $0.32
+  Typal (tapped)     Path of Ancestry               BUY   -
+  Legendary          Plaza of Heroes                BUY   $4.68
+  Legendary          Great Hall of the Citadel      BENCH x1   $0.37
+
+  PREMIUM SLOTS NOT IN THE LIST: 18
+    WU Painland           Adarkar Wastes                 BUY
+    WU Battlebond land    Sea of Clouds                  BUY
+    WB Horizon land       Silent Clearing                BUY
+    WB Painland           Caves of Koilos                BUY
+    WB Battlebond land    Vault of Champions             BUY
+    WG Horizon land       Horizon Canopy                 BUY
+    WG Painland           Brushland                      BUY
+    WG Filter land        Wooded Bastion                 BUY
+    WG Battlebond land    Bountiful Promenade            BUY
+    UB Painland           Underground River              BUY
+    UB Battlebond land    Morphic Pool                   BUY
+    UG Horizon land       Waterlogged Grove              BUY
+    UG Painland           Yavimaya Coast                 BUY
+    UG Filter land        Flooded Grove                  BUY
+    UG Battlebond land    Rejuvenating Springs           BUY
+    BG Horizon land       Nurturing Peatland             BUY
+    BG Painland           Llanowar Wastes                BUY
+    BG Battlebond land    Undergrowth Stadium            BUY
+  Ownership routes the purchase; it never decides the slot.

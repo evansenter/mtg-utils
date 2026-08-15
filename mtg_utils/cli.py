@@ -6,7 +6,7 @@ import time
 
 from mtg_utils import __doc__ as _BANNER
 from mtg_utils.analysis import verify
-from mtg_utils.decklist import flat, read_decklist, write_deck
+from mtg_utils.decklist import as_cmdrs, flat, read_decklist, write_deck
 from mtg_utils.report import (report_calibrate, report_combos, report_contention,
                               report_diff, report_mana, report_own, report_roster,
                               report_variants)
@@ -73,7 +73,11 @@ def main():
 
     if a.cmd == "moxfield":
         name, cmdrs, main = moxfield_deck(a.target)
-        print(f"# {name}  (fetched {time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())})")
+        # One header, not two. This printed a bare "# {name} (fetched ...)"
+        # here AND built a second, fuller one into the text below -- so stdout
+        # carried both, and writing to --out still printed the bare one to the
+        # terminal. The header that survives is the one carrying the deck id,
+        # because that is the provenance a delta has to name.
         out = list(cmdrs) + [""]
         out += [f"{q} {n}" for n, q in sorted(main.items(), key=lambda x: x[0].lower())]
         header = (f"# {name}  (deck {a.target}, fetched "
@@ -100,8 +104,15 @@ def main():
 
     if a.cmd in ("verify", "audit"):
         v = verify(cmdr, entries, scry)
+        # The commander count is len(cmdrs), not 1. A partner or background
+        # pair is TWO, and verify() has always counted both in `total` -- only
+        # this sentence claimed otherwise, so the printed arithmetic came out
+        # one short (100 = 1 + 60 + 38) on exactly the decks whose primer
+        # header is hardest to check by eye.
+        ncmdr = len(as_cmdrs(cmdr))
         print(f"\n=== VERIFY: {cmdr} ===")
-        print(f"  {v['total']} cards = 1 commander + {v['nonland']} non-land "
+        print(f"  {v['total']} cards = {ncmdr} commander"
+              f"{'' if ncmdr == 1 else 's'} + {v['nonland']} non-land "
               f"+ {v['lands']} lands  ({v['mdfc_land_backs']} MDFC land-backs)")
         print(f"  average non-land MV {v['avg_mv']:.2f}")
         print(f"  Game Changers ({len(v['game_changers'])}, Scryfall game_changer): "

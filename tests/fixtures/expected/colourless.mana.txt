@@ -1,22 +1,22 @@
 
 === MANA BASE (27 front-face lands + 0 MDFC land-backs, 0 truly tapped) ===
-  accelerants counted: 25  (restricted, excluded: none)
+  accelerants counted: 24  (restricted, excluded: none)
 
 --- sources model (colour), worst lines ---
-  T6 {C}           69.5%   Endbringer
-  T5 {C}           78.6%   Reality Smasher
-  T4 {C}           85.7%   Thought-Knot Seer
-  T3 {C}           90.0%   Matter Reshaper
-  T2 {C}           90.7%   Spatial Contortion, Warping Wail
+  T6 {C}           67.0%   Endbringer
+  T5 {C}           76.2%   Reality Smasher
+  T4 {C}           84.4%   Thought-Knot Seer
+  T3 {C}           89.3%   Matter Reshaper
+  T2 {C}           90.1%   Spatial Contortion, Warping Wail
 
 --- play simulation, 20000 trials ---
   line                                           on play   on draw  baseline(any N on TN)
-  Endbringer T6                                    78.4%     84.8%      78.5% / 84.9%
-  Reality Smasher T5                               82.8%     88.3%      83.0% / 88.5%
-  Thought-Knot Seer T4                             85.2%     89.9%      85.6% / 90.2%
-  Matter Reshaper T3                               83.5%     88.2%      84.2% / 88.9%
-  Spatial Contortion T2                            84.6%     88.6%      87.0% / 90.9%
-  Zhulodok, Void Gorger on curve                   78.4%     84.8%      78.5% / 84.9%
+  Endbringer T6                                    73.8%     81.3%      73.9% / 81.4%
+  Reality Smasher T5                               78.3%     85.0%      78.5% / 85.2%
+  Thought-Knot Seer T4                             81.7%     87.2%      82.1% / 87.6%
+  Matter Reshaper T3                               81.6%     86.8%      82.3% / 87.6%
+  Spatial Contortion T2                            83.8%     87.7%      86.7% / 90.7%
+  Zhulodok, Void Gorger on curve                   73.8%     81.3%      73.9% / 81.4%
 
   Diagnosis: a line CLOSE to its baseline is a QUANTITY problem (no land swap will help).
   A line FAR BELOW its baseline is a COLOUR problem (a filter land for that pip is the answer).

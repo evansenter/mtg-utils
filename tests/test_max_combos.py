@@ -41,13 +41,19 @@ def multi(mm):
 
 
 # (label, req, mv, turn, {max_combos: expected})
+# These moved once, deliberately, when the accelerant gate was tightened to
+# permanents with a mana ability: the multicolour deck went from 18 counted
+# accelerants to 14, dropping Dark Ritual and three Treasure-makers. The
+# previous values were 0.758 / 0.86075 / 0.73375 at max_combos=250. They are
+# output-invariance guards, so they are expected to fail on any accidental
+# change and to be updated only alongside an intended one.
 CASES = [
     ("T2 {U}{U} never truncates at all", ["U", "U"], 2, 2,
-     {250: 0.7580, 2000: 0.7580, 20000: 0.7580}),
+     {250: 0.73275, 2000: 0.73275, 20000: 0.73275}),
     ("T5 {B}{B}{G}", ["B", "B", "G"], 5, 5,
-     {250: 0.86075, 2000: 0.863, 20000: 0.863}),
+     {250: 0.7865, 2000: 0.78675, 20000: 0.78675}),
     ("T7 {U}{B}{G} truncates hardest", ["U", "B", "G"], 7, 7,
-     {250: 0.73375, 2000: 0.73575, 20000: 0.73575}),
+     {250: 0.61825, 2000: 0.6095, 20000: 0.6095}),
 ]
 
 

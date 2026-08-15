@@ -80,7 +80,12 @@ def castable(sources, req, mv):
     omni = set(p["omni"] for p in sources if p.get("omni")) - {None}
 
     def cols(p):
-        return set(p["colours"]) | omni
+        # Urborg makes every LAND a Swamp; Yavimaya every land a Forest.
+        # Neither says anything about a mana rock, and applying the omni
+        # colour to every source had a colourless rock producing black.
+        if omni and p.get("kind", "land") == "land":
+            return set(p["colours"]) | omni
+        return set(p["colours"])
 
     filters = [p for p in sources if p.get("filter")]
     others = [p for p in sources if not p.get("filter")]
@@ -137,6 +142,7 @@ def probability(lands, accels, deck_size, req, mv, turn, sims, rng,
     Requires at least one land and at least `turn` mana sources present.
     """
     accels = [a for a in accels if count_restricted or not a.get("restricted")]
+    lands = [l for l in lands if count_restricted or not l.get("restricted")]
     pool_idx = list(range(len(lands) + len(accels)))
     allp = lands + accels
     pool = pool_idx + [None] * (deck_size - len(pool_idx))
@@ -179,6 +185,7 @@ def playsim(lands, accels, deck_size, turns, on_draw, trials, rng,
     one, deploy the cheapest affordable accelerant, then read off available
     mana. Returns per-turn lists of (available source profiles, total mana)."""
     accels = [a for a in accels if count_restricted or not a.get("restricted")]
+    lands = [l for l in lands if count_restricted or not l.get("restricted")]
     entries = ([{"t": "land", "p": p} for p in lands] +
                [{"t": "accel", "p": a} for a in accels])
     deck = entries + [{"t": "spell"}] * (deck_size - len(entries))
@@ -217,15 +224,27 @@ def playsim(lands, accels, deck_size, turns, on_draw, trials, rng,
                     srcs.append(p)
                 return srcs
 
+            # Deploying an accelerant COSTS the mana it costs. Without
+            # `spent`, each pass re-read the full total and two lands could
+            # deploy Sol Ring and a two-drop rock in the same turn -- and the
+            # Sol Ring's own mana then funded a third. Every play-simulation
+            # figure was inflated by it, most in the decks that lean on rocks.
+            #
+            # The rock's mana is still available the moment it lands (an
+            # untapped, non-creature source is online the turn it enters), so
+            # a turn-two Sol Ring off two lands correctly leaves 1 + 2 = 3.
+            spent = 0
             for _pass in range(4):
                 srcs = online()
-                total = sum(p.get("amount", 1) for p in srcs)
-                cands = [c for c in hand if c["t"] == "accel" and c["p"]["cost"] <= total]
+                available = sum(p.get("amount", 1) for p in srcs) - spent
+                cands = [c for c in hand
+                         if c["t"] == "accel" and c["p"]["cost"] <= available]
                 if not cands:
                     break
                 cands.sort(key=lambda c: c["p"]["cost"])
                 c = cands[0]
                 hand.remove(c)
+                spent += c["p"]["cost"]
                 rocks.append({"p": c["p"], "entered": t})
             srcs = online()
             out[t].append(srcs)

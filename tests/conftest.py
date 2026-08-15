@@ -27,7 +27,7 @@ REFERENCE = os.path.join(REPO, "reference", "mana_model_v0.py")
 if REPO not in sys.path:
     sys.path.insert(0, REPO)
 
-DECKS = ("mono", "multi", "colourless")
+DECKS = ("mono", "multi", "colourless", "partner")
 
 
 def pytest_addoption(parser):
@@ -74,10 +74,17 @@ def card(**kw):
     return kw
 
 
-def src(colours="", amount=1, filt=None, omni=None):
-    """Ported verbatim from selftest's `_src`."""
+def src(colours="", amount=1, filt=None, omni=None, kind="land"):
+    """Ported from selftest's `_src`, plus `kind`.
+
+    The original had no `kind` because nothing read it. castable now does, for
+    omni-typing only: Urborg makes every LAND a Swamp and says nothing about a
+    rock. Every stand-in built by this helper represents a land -- which is
+    what the omni case has always asserted, in those words -- so the default
+    keeps each ported case meaning exactly what it meant.
+    """
     return {"colours": frozenset(colours), "amount": amount,
-            "filter": filt, "omni": omni}
+            "filter": filt, "omni": omni, "kind": kind}
 
 
 def load_fixture_collection(path=os.path.join(FIXTURES, "collection.csv")):

@@ -21,6 +21,7 @@ def verify(cmdr, entries, scry):
     lands = nonland = 0
     mv_sum = 0.0
     truly, cond = [], []
+    truly_n = cond_n = 0
     for n, q in list(entries.items()) + [(cn, 1) for cn in cmdrs]:
         c = scry.get(n.lower())
         if not c:
@@ -35,10 +36,17 @@ def verify(cmdr, entries, scry):
             lands += q
             lf = land_face(c)
             t, cm = enters_tapped(lf, c)
+            # The name is listed once; the COUNT is by quantity, so it is in
+            # the same units as `lands` beside it in the header. They coincide
+            # in singleton Commander -- basics are the only entries above one
+            # and are never tapped -- so this changes no current output. The
+            # two numbers were simply in different units.
             if t:
                 truly.append(n)
+                truly_n += q
             elif cm:
                 cond.append((n, cm))
+                cond_n += q
         elif n not in cmdrs:
             nonland += q
             mv_sum += float(front(c, "cmc", 0) or 0) * q
@@ -48,13 +56,22 @@ def verify(cmdr, entries, scry):
             "nonland": nonland, "avg_mv": mv_sum / nonland if nonland else 0,
             "game_changers": sorted(gc), "illegal": illegal,
             "ci_violations": ci_bad, "truly_tapped": truly,
-            "conditional_tapped": cond}
+            "conditional_tapped": cond,
+            "truly_tapped_copies": truly_n, "conditional_tapped_copies": cond_n}
 
 
 # ============================================================ reporting
-def worst_lines(names, scry, lands, accels, sims, rng, top=5):
+def worst_lines(names, scry, lands, accels, sims, rng, top=5, deck_size=None):
     """Sources-model rows, worst first. Pure compute -- no printing, so a test
-    can assert on the numbers instead of scraping stdout."""
+    can assert on the numbers instead of scraping stdout.
+
+    deck_size is the LIBRARY, i.e. the deck minus its commanders: 99 for one
+    commander and 98 for a partner or background pair. Defaults to len(names),
+    which is exactly that, because `names` is already the non-commander
+    multiset.
+    """
+    if deck_size is None:
+        deck_size = len(names)
     cand = {}
     for n in names:
         c = scry.get(n.lower())
@@ -70,7 +87,7 @@ def worst_lines(names, scry, lands, accels, sims, rng, top=5):
             cand.setdefault((turn, mv, tuple(sorted(req))), []).append(label)
     rows = []
     for (turn, mv, req), cards in cand.items():
-        p = probability(lands, accels, 99, list(req), mv, turn, sims, rng)
+        p = probability(lands, accels, deck_size, list(req), mv, turn, sims, rng)
         rows.append((p, turn, mv, req, sorted(set(cards))))
     rows.sort()
     return rows[:top] if top else rows
@@ -96,7 +113,12 @@ def analyse_mana(cmdr, entries, scry, sims, trials, seed=17, lines=None):
     lands = build_land_profiles(names, scry)
     accels = build_accel_profiles(names, scry)
     v = verify(cmdr, entries, scry)
-    rows = worst_lines(names, scry, lands, accels, sims, random.Random(seed))
+    # The library is the deck minus its commanders -- 98 for a partner pair,
+    # not 99. Drawing from a library one card too large dilutes it with an
+    # extra non-source and biases every figure the same way.
+    deck_size = len(names)
+    rows = worst_lines(names, scry, lands, accels, sims, random.Random(seed),
+                       deck_size=deck_size)
     if lines is None:
         lines, seen = [], set()
         for p, turn, mv, req, cards in rows:
@@ -107,7 +129,7 @@ def analyse_mana(cmdr, entries, scry, sims, trials, seed=17, lines=None):
             lines.append((f"{cards[0]} T{turn}", mv,
                           "".join("{%s}" % x for x in req)))
         lines += commander_lines(cmdr, scry)
-    res = playsim_report(lands, accels, 99, lines, trials, random.Random(seed))
+    res = playsim_report(lands, accels, deck_size, lines, trials, random.Random(seed))
     return {"verify": v, "lands": lands, "accels": accels,
             "rows": rows, "lines": lines, "sim": res}
 

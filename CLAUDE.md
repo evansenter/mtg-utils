@@ -16,11 +16,12 @@ frozen decks and asserts stdout is byte-identical to committed snapshots in
 
 - **Refactoring?** The snapshots must not move. If they do, you changed
   behaviour — find out why before touching the snapshot.
-- **Deliberately changing output?** Update the snapshots *in the same commit*,
-  and say in the message what moved, by how much, and why. The snapshots cannot
-  be regenerated automatically any more (the reference implementation they came
-  from was deleted once it had served its purpose), which is intentional: they
-  are the definition of correct output.
+- **Deliberately changing output?** Regenerate with
+  `pytest tests/test_golden.py --regen-golden`, review the diff, and commit the
+  moved snapshots *in the same commit* as the code, saying what moved and why.
+  That flag rewrites the definition of correct output from the current code, so
+  it will just as happily bless an accidental change — only reach for it when
+  moving the number is the point.
 - **Claiming a change is behaviour-preserving?** Run it and diff. Do not reason
   about the code.
 
@@ -136,7 +137,12 @@ function, not the constant.
 ## Rules for tests
 
 - **Mutation-check every new case.** Revert the code it guards, confirm the case
-  fails, restore. A test that passes the moment it is written has not been shown
+  fails, restore. Clear `__pycache__` between steps, or export
+  `PYTHONDONTWRITEBYTECODE=1`: a mutation the same byte length as the original
+  (`+= q` for `+= 1`) restored within the same second leaves a stale `.pyc`
+  that Python considers valid, and the run silently uses the wrong bytecode.
+  That reads as "the test didn't catch it" and can get a perfectly good test
+  rewritten. It happened here. A test that passes the moment it is written has not been shown
   to test anything. Two cases in this repo's history were decorative: one used a
   basic land as a colour-identity canary (basics have empty colour identity, so
   it could never fail), and one used a substring check that still matched with

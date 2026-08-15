@@ -4,20 +4,24 @@ The invariant this repo is built around: no refactor may change what the tool
 prints. Not "should be equivalent" -- measured equal, on real decks, byte for
 byte.
 
-Three assertions per case, and they are not redundant:
+The snapshots in tests/fixtures/expected/ began as the output of the original
+single-file implementation, kept at reference/mana_model_v0.py through the
+migration. While it existed each case asserted three ways -- reference against
+snapshot, candidate against snapshot, and reference directly against candidate
+-- so the committed snapshots are provably that program's bytes rather than
+something typed to make a test pass. The reference is gone; those tests skip,
+and the snapshots carry the invariant.
 
-  reference == snapshot   the committed snapshot really is v0's output, and
-                          not something a human typed to make a test pass
-  candidate == snapshot   the current code still prints it
-  reference == candidate  direct, no snapshot in the middle
-
-The first goes away with reference/ in the final commit. The other two carry
-the invariant forward permanently, which is the only reason deleting reference/
-is safe.
-
-Regenerate the snapshots (from the reference, never from the candidate) with:
+CHANGING A SNAPSHOT CHANGES THE DEFINITION OF CORRECT OUTPUT.
 
     pytest tests/test_golden.py --regen-golden
+
+rewrites them from the CURRENT code. That is the right tool for a deliberate
+change to what the tool reports and the wrong tool for everything else -- it
+will happily paper over a refactor that moved a probability by half a point,
+which is the exact failure this suite exists to prevent. Use it only when
+moving the number is the point of the commit, review the resulting diff, and
+put what moved and why in the commit message.
 """
 import os
 
@@ -59,22 +63,25 @@ def _read_snapshot(deck, cmd):
 @pytest.mark.parametrize("cmd", CMDS)
 def test_reference_matches_snapshot(reference, deck, cmd, tmp_path, request):
     """The snapshot is v0's bytes. Without this the other two tests could agree
-    on a baseline that was never produced by the code being preserved."""
-    got = _output(reference, "ref", deck, cmd, str(tmp_path))
+    on a baseline that was never produced by the code being preserved.
+
+    Skips once reference/ is deleted. It does NOT regenerate: with the
+    reference gone there is nothing here to regenerate from.
+    """
     if request.config.getoption("--regen-golden"):
-        os.makedirs(EXPECTED, exist_ok=True)
-        with open(_snapshot_path(deck, cmd), "w", encoding="utf-8") as f:
-            f.write(got)
-        pytest.skip("regenerated")
-    assert got == _read_snapshot(deck, cmd)
+        pytest.skip("regenerating from the current code")
+    assert _output(reference, "ref", deck, cmd, str(tmp_path)) == _read_snapshot(deck, cmd)
 
 
 @pytest.mark.parametrize("deck", DECKS)
 @pytest.mark.parametrize("cmd", CMDS)
 def test_candidate_matches_snapshot(candidate, deck, cmd, tmp_path, request):
-    if request.config.getoption("--regen-golden"):
-        pytest.skip("regenerating from the reference, not the candidate")
     got = _output(candidate, "cand", deck, cmd, str(tmp_path))
+    if request.config.getoption("--regen-golden"):
+        os.makedirs(EXPECTED, exist_ok=True)
+        with open(_snapshot_path(deck, cmd), "w", encoding="utf-8") as f:
+            f.write(got)
+        pytest.skip("regenerated")
     assert got == _read_snapshot(deck, cmd)
 
 
@@ -95,13 +102,9 @@ def _help_snapshot():
 
 def test_reference_help_matches_snapshot(reference, tmp_path, request):
     """Provenance for the help snapshot. Skips once reference/ is gone."""
-    ref = run_cli(reference, ["--help"], str(tmp_path))
     if request.config.getoption("--regen-golden"):
-        os.makedirs(EXPECTED, exist_ok=True)
-        with open(os.path.join(EXPECTED, "help.txt"), "w", encoding="utf-8") as f:
-            f.write(ref)
-        pytest.skip("regenerated")
-    assert ref == _help_snapshot()
+        pytest.skip("regenerating from the current code")
+    assert run_cli(reference, ["--help"], str(tmp_path)) == _help_snapshot()
 
 
 def test_help_text_is_unchanged(candidate, tmp_path, request):
@@ -116,9 +119,13 @@ def test_help_text_is_unchanged(candidate, tmp_path, request):
     test. Splitting it out was prompted by running the suite with reference/
     moved aside and finding --help checked by nothing at all.
     """
+    got = run_cli(candidate, ["--help"], str(tmp_path))
     if request.config.getoption("--regen-golden"):
-        pytest.skip("regenerating from the reference, not the candidate")
-    assert run_cli(candidate, ["--help"], str(tmp_path)) == _help_snapshot()
+        os.makedirs(EXPECTED, exist_ok=True)
+        with open(os.path.join(EXPECTED, "help.txt"), "w", encoding="utf-8") as f:
+            f.write(got)
+        pytest.skip("regenerated")
+    assert got == _help_snapshot()
 
 
 def test_analyse_mana_returns_identical_data(reference, candidate, tmp_path):

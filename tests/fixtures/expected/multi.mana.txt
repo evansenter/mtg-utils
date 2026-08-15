@@ -8,23 +8,23 @@
   TRULY TAPPED: Golgari Rot Farm
   TRULY TAPPED: Opulent Palace
   TRULY TAPPED: Zagoth Triome
-  accelerants counted: 17  (restricted, excluded: delighted halfling)
+  accelerants counted: 13  (restricted, excluded: delighted halfling)
 
 --- sources model (colour), worst lines ---
-  T2 {U}{U}        75.3%   Counterspell, Mana Drain
+  T6 {U}{U}        69.1%   Memory
+  T2 {U}{U}        72.7%   Counterspell, Mana Drain
   T1 {U}           76.7%   An Offer You Can't Refuse, Brainstorm, Mystic Remora
-  T6 {U}{U}        78.3%   Memory
   T1 {G}           79.9%   Birds of Paradise, Delighted Halfling, Elvish Mystic
-  T1 {B}           80.2%   Dark Ritual, Reanimate, Vampiric Tutor
+  T1 {B}           79.9%   Dark Ritual, Reanimate, Vampiric Tutor
 
 --- play simulation, 20000 trials ---
   line                                           on play   on draw  baseline(any N on TN)
-  Counterspell T2                                  63.5%     68.8%      94.1% / 96.4%
-  An Offer You Can't Refuse T1                     71.5%     74.7%      97.2% / 98.2%
-  Memory T6                                        81.2%     87.6%      84.8% / 90.5%
-  Birds of Paradise T1                             73.1%     77.0%      97.2% / 98.2%
-  Dark Ritual T1                                   74.9%     78.1%      97.2% / 98.2%
-  Muldrotha, the Gravetide on curve                83.9%     89.9%      84.8% / 90.5%
+  Memory T6                                        72.3%     80.2%      75.5% / 83.2%
+  Counterspell T2                                  55.8%     60.5%      92.7% / 95.4%
+  An Offer You Can't Refuse T1                     68.0%     71.0%      97.2% / 98.3%
+  Birds of Paradise T1                             69.9%     73.5%      97.2% / 98.3%
+  Dark Ritual T1                                   70.7%     73.5%      97.2% / 98.3%
+  Muldrotha, the Gravetide on curve                74.7%     82.5%      75.5% / 83.2%
 
   Diagnosis: a line CLOSE to its baseline is a QUANTITY problem (no land swap will help).
   A line FAR BELOW its baseline is a COLOUR problem (a filter land for that pip is the answer).
