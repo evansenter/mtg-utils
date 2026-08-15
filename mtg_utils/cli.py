@@ -173,7 +173,7 @@ def main():
                                     a.cache)["ok"] else 2)
     if a.cmd == "ceiling":
         report_ceiling(cmdr, entries, scry, a.cache, a.rec_cache, a.cedh,
-                       a.bar, a.sort, not a.no_combos)
+                       a.bar, a.sort, not a.no_combos, a.target)
     if a.cmd in ("roster", "audit"):
         report_roster(cmdr, entries, scry, a.cache)
     if a.cmd == "variants":
