@@ -32,8 +32,8 @@ jobs:
         # the reviewer while holding its token). Note it does NOT fail: it logs
         # "Skipping action due to workflow validation" and exits *success*, so a green
         # claude-review on a workflow-editing PR means the review never ran, not that it
-        # passed. Don't read it as a pass. dotfiles.yml is bumped to v5 (verified green);
-        # revisit these two once v5 is confirmed safe for the action.
+        # passed. Don't read it as a pass. This repo's own test.yml can be bumped
+        # independently; revisit these two once v5 is confirmed safe for the action.
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
