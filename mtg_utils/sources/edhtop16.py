@@ -110,8 +110,14 @@ def parse_edhtop16(data):
         deck = ((e or {}).get("node") or {}).get("maindeck") or []
         seen = {front_name(c.get("name")) for c in deck if c.get("name")}
         counts.update(seen)
+    # synergy is an EDHREC statistic and this endpoint does not carry it.
+    # Emitted as None so the column prints "-" rather than 0.0, which would
+    # read as "measured, and this card is pure goodstuff" -- a claim no
+    # tournament sample here supports. Sorting by synergy against --cedh
+    # therefore ranks nothing, which is correct and visible.
     rows = [{"name": name, "num_decks": k, "potential_decks": n,
-             "inclusion": 100.0 * k / n, "cardlist": "edhtop16"}
+             "inclusion": 100.0 * k / n, "synergy": None,
+             "cardlist": "edhtop16"}
             for name, k in counts.items()] if n else []
     rows.sort(key=lambda r: -r["inclusion"])
     return rows, n

@@ -198,7 +198,7 @@ def report_swap(cmdr, entries, scry, swaps, sims, trials, seed=17, reps=3):
 
 
 def report_ceiling(cmdr, entries, scry, cache=None, rec_cache=None, cedh=False,
-                   threshold=50.0):
+                   threshold=50.0, sort="inclusion"):
     """Collection-ceiling audit: what is above the bar and not in the list.
 
     NETWORK unless both caches already hold what it needs, following the
@@ -266,13 +266,17 @@ def report_ceiling(cmdr, entries, scry, cache=None, rec_cache=None, cedh=False,
                   "only!):", nf)
 
     a = ceiling_audit(cmdr, entries, rows, capped, load_collection(), scry,
-                      threshold)
-    print(f"  {a['considered']} cards ranked; bar is {threshold:.0f}% inclusion")
-    print(f"\n  {'card':34s} {'incl':>7} {'n/of':>13} {'own':>4}  price")
+                      threshold, sort)
+    print(f"  {a['considered']} cards ranked; bar is {threshold:.0f}% inclusion"
+          f", sorted by {sort}")
+    print(f"\n  {'card':34s} {'incl':>7} {'syn':>7} {'n/of':>13} {'own':>4}  price")
     for m in a["missing"]:
         n_of = f"{m['num_decks']}/{m['potential_decks']}"
         price = f"${m['price']:.2f}" if m["price"] else "-"
-        print(f"  {m['name'][:34]:34s} {m['inclusion']:6.1f}% {n_of:>13} "
+        # None prints as "-", not as 0.0. See parse_commander_page: zero is a
+        # measured value here, so the two must not share a rendering.
+        syn = "-" if m.get("synergy") is None else f"{m['synergy']:+.3f}"
+        print(f"  {m['name'][:34]:34s} {m['inclusion']:6.1f}% {syn:>7} {n_of:>13} "
               f"{m['owned']:>4}  {price}")
     if not a["missing"]:
         print("  (nothing above the bar is missing from this list)")

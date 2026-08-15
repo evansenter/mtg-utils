@@ -2,7 +2,7 @@ usage: mana_model.py [-h] [--cache CACHE] [--sims SIMS] [--trials TRIALS]
                      [--reps REPS] [--seed SEED] [--out OUT] [--decks DECKS]
                      [--lands LANDS] [--accel ACCEL] [--adds ADDS]
                      [--cuts CUTS] [--rec-cache REC_CACHE] [--cedh]
-                     [--bar BAR] [--swap SWAP]
+                     [--bar BAR] [--sort {inclusion,synergy}] [--swap SWAP]
                      {fetch,verify,mana,variants,combos,own,contention,moxfield,write,audit,roster,diff,selftest,calibrate,ceiling}
                      [target]
 
@@ -69,5 +69,8 @@ options:
                         EDHREC
   --bar BAR             ceiling: inclusion % above which a missing card is
                         reported
+  --sort {inclusion,synergy}
+                        ceiling: order the reported rows; the bar stays on
+                        inclusion either way
   --swap SWAP           variants: measure named swaps, 'Cut->Add,Cut2->Add2'
                         (use ';' between pairs if a name contains a comma)

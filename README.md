@@ -208,6 +208,30 @@ With `--cedh`, the tournament entry count is printed beside every percentage,
 and below five entries **no percentage is quoted at all** — at four entries
 every card is 25%, 50%, 75% or 100%.
 
+#### `--sort=synergy`
+
+Inclusion alone cannot tell a commander-specific card from generic goodstuff:
+Sol Ring is played in most decks ever built and that says nothing about *this*
+commander. EDHREC ships the discriminator — `synergy`, the gap between a card's
+inclusion here and its inclusion wherever else it is legal — in the same
+payload, so the `syn` column costs nothing extra to fetch.
+
+```
+python3 mana_model.py ceiling deck.txt --sort=synergy
+```
+
+Two rules the column follows:
+
+- **The bar stays on inclusion whichever way the table is sorted.** Synergy is
+  a difference of two rates and is noisiest exactly where inclusion is lowest,
+  so a bar on synergy would promote cards played in one deck in ten over the
+  staples the audit exists to catch. `--sort` orders rows; it never selects
+  them.
+- **Unknown synergy prints `-` and sorts last, never 0.0.** Zero is a *measured*
+  value — it is what a card played at the same rate everywhere scores — so a
+  missing figure rendered as zero is a specific, plausible, wrong claim. Every
+  `--cedh` row is unknown: edhtop16 does not carry the statistic.
+
 ### Measuring a named swap
 
 ```
