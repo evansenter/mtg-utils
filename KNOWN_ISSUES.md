@@ -1,4 +1,6 @@
-# Known issues — found during the repo migration, deliberately not fixed
+# Known issues — found during the repo migration
+
+Entries marked FIXED have been dealt with since; the rest stand.
 
 Everything here was found while moving `mana_model.py` into `mtg_utils/`, and
 every one was left exactly as it was, because **fixing any of them would change
@@ -89,7 +91,7 @@ in `build_accel_profiles`' docstring applies verbatim to lands.
 
 ---
 
-## 4. The `verify` printer hard-codes "1 commander"
+## 4. The `verify` printer hard-codes "1 commander" — FIXED
 
 `mtg_utils/cli.py`, the `verify` branch:
 
@@ -112,7 +114,13 @@ correct `total`, and the ported test `verify/arithmetic closes` asserts
 
 **Cost:** the header block of a partner deck's primer does not add up — which is
 the exact failure mode the "make it arithmetically self-consistent" rule exists
-to prevent. This is the cheapest fix on the list and the one I would do first.
+to prevent.
+
+**Fixed.** The count is `len(as_cmdrs(cmdr))` and the noun is pluralised. A
+partner-pair fixture was added first, so the wrong arithmetic is in the git
+history as a committed snapshot rather than only as a description of it. The
+output change is one line on one deck shape; single-commander output is
+byte-identical.
 
 ---
 

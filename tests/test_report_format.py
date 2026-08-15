@@ -250,3 +250,36 @@ def test_mana_table_columns(mm, capsys):
         assert m.group("base").startswith(" ")                          # right aligned
     assert "--- play simulation, 400 trials ---" in out
     assert "Diagnosis: a line CLOSE to its baseline is a QUANTITY problem" in out
+
+
+# ============================================================ verify header
+@pytest.mark.parametrize("deck", ["mono", "multi", "colourless", "partner"])
+def test_verify_header_arithmetic_closes(candidate, deck, tmp_path):
+    """verify/printed arithmetic closes
+
+    The header is copied straight into a primer, where "24 lands plus 75
+    non-land" in a 100-card deck is a sentence nobody re-adds. It has to sum.
+
+    Shape-general on purpose: the snapshot for the partner deck pins the exact
+    string, but this catches the same class of error on any deck, including one
+    added later. verify() has always returned the right numbers -- it was only
+    the format string that said "1 commander" regardless.
+    """
+    from conftest import deck_args, run_cli
+    out = run_cli(candidate, deck_args(deck, "verify"), str(tmp_path))
+    line = [l for l in out.splitlines() if " cards = " in l]
+    assert len(line) == 1, out
+    m = re.fullmatch(r"\s*(\d+) cards = (\d+) commanders? \+ (\d+) non-land"
+                     r" \+ (\d+) lands\s+\((\d+) MDFC land-backs\)", line[0])
+    assert m, repr(line[0])
+    total, ncmdr, nonland, lands, _mdfc = (int(g) for g in m.groups())
+    assert ncmdr + nonland + lands == total, line[0]
+
+
+def test_verify_header_pluralises(candidate, tmp_path):
+    """verify/singular for one, plural for two"""
+    from conftest import deck_args, run_cli
+    one = run_cli(candidate, deck_args("mono", "verify"), str(tmp_path))
+    two = run_cli(candidate, deck_args("partner", "verify"), str(tmp_path))
+    assert "= 1 commander +" in one
+    assert "= 2 commanders +" in two

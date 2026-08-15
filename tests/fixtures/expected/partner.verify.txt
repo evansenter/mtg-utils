@@ -1,6 +1,6 @@
 
 === VERIFY: ['Tymna the Weaver', 'Thrasios, Triton Hero'] ===
-  100 cards = 1 commander + 60 non-land + 38 lands  (1 MDFC land-backs)
+  100 cards = 2 commanders + 60 non-land + 38 lands  (1 MDFC land-backs)
   average non-land MV 2.07
   Game Changers (11, Scryfall game_changer): ['Ancient Tomb', 'Cyclonic Rift', 'Demonic Tutor', 'Enlightened Tutor', 'Fierce Guardianship', 'Mana Vault', 'Rhystic Study', 'Smothering Tithe', "Teferi's Protection", 'The One Ring', 'Vampiric Tutor']
   illegal: none
