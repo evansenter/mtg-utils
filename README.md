@@ -41,10 +41,19 @@ Anywhere a spell's mana value is close to the turn number — most obviously the
 commander's own cast — the sources model understates badly. Use it for pip
 questions on cheap spells. **Say which model produced any number you quote.**
 
-A hypergeometric over coloured sources is in here as `hypergeometric()` and is
-a fast sanity check only. It overstates castability: it asks whether you drew N
-coloured sources, not whether you have enough lands in play to cast the spell,
-and it cannot see filter lands. Never quote it.
+A hypergeometric over coloured sources is in here as `at_least_in_draw()`. It
+is **not** a castability figure and must never be reported as one: it asks
+whether you drew N sources, not whether you have enough lands in play to cast
+the spell, and it cannot see filter lands or sequencing.
+
+It was called `hypergeometric()` until the name was changed to state the
+question rather than the maths — a function whose only documented property is
+"never quote this" is a trap, and that one was short enough to paste into a
+primer. The old name is not aliased; it raises and names the replacement.
+
+What it is legitimately for is a question purely about the draw — how often an
+opening seven holds at most one land, say — which is a counting question and
+not a claim about casting anything.
 
 ### Mana sources means lands *plus* cheap accelerants
 

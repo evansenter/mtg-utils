@@ -1,4 +1,4 @@
-"""Ported from `selftest`: castable, playable_set, hypergeometric, determinism."""
+"""Ported from `selftest`: castable, playable_set, at_least_in_draw, determinism."""
 import random
 
 import pytest
@@ -92,15 +92,41 @@ def test_lone_filter_pays_c(mm):
     assert mm.castable([src(filt="WU"), src("G")], ["C"], 2) is True
 
 
-# --- hypergeometric --------------------------------------------------
+# --- at_least_in_draw (was hypergeometric) ----------------------------
 def test_hypergeom_impossible(mm):
     """hypergeom/impossible"""
-    assert mm.hypergeometric(3, 2, 7) == 0.0
+    assert mm.at_least_in_draw(3, 2, 7) == 0.0
 
 
 def test_hypergeom_certain(mm):
     """hypergeom/certain"""
-    assert round(mm.hypergeometric(1, 99, 7, 99), 9) == 1.0
+    assert round(mm.at_least_in_draw(1, 99, 7, 99), 9) == 1.0
+
+
+def test_the_old_name_fails_with_the_new_one(mm):
+    """`hypergeometric` was renamed, and deliberately not aliased.
+
+    Aliasing would keep the trap the rename exists to remove: the old name
+    describes the maths, says nothing about the question, and is short
+    enough to paste into a primer as though it were a castability figure.
+    Everything here is re-exported for `import mana_model`, so a bare rename
+    would hand a caller an AttributeError several frames from the cause --
+    this one names the replacement and says what it is not.
+    """
+    with pytest.raises(AttributeError) as e:
+        mm.hypergeometric
+    msg = str(e.value)
+    assert "at_least_in_draw" in msg
+    assert "probability()" in msg and "playsim()" in msg
+
+
+def test_an_unrelated_missing_attribute_still_reads_normally(mm):
+    """The rename guard must not swallow every AttributeError -- a typo
+    should still say it is a typo, not lecture about hypergeometrics."""
+    with pytest.raises(AttributeError) as e:
+        mm.no_such_function_here
+    assert "no_such_function_here" in str(e.value)
+    assert "at_least_in_draw" not in str(e.value)
 
 
 # --- playable_set ------------------------------------------------------
