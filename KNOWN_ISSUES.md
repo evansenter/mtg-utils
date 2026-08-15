@@ -349,3 +349,41 @@ the first to the terminal.
 **Fixed.** The bare header is gone; the one that survives carries the deck id,
 because that is the provenance a delta has to name. Writing to `--out` now
 prints only `wrote <path>`.
+
+---
+
+## 13. Conditional accelerants are counted as unconditional — RESOLVED, documented
+
+Found while fixing #2 and #3, by sweeping the fixtures for counted sources whose
+availability has a cost or condition the model does not read:
+
+| card | condition |
+|---|---|
+| Mox Opal | metalcraft — dead until you control three artifacts |
+| Chrome Mox | imprint — produces the colour of an exiled card, or nothing |
+| Mox Diamond | discards a **land** to enter, so it converts a land into a rock |
+
+Each is counted as a full, unconditional source.
+
+**Resolved as a documented limitation, not fixed.** This is the same family as
+the checkland downside the README already declines to price: the model does not
+invent probabilities for board states. Inventing one here would repeat a failure
+this project has already had — a play simulation once hard-coded tap
+probabilities of 0.25/0.30/0.05 for three conditional lands, and those made-up
+numbers moved a reported commander-on-curve figure by about five points.
+
+Mox Diamond is the sharpest of the three, because its cost is a land: the model
+gains a source and does not lose the land that paid for it. Worth saying out
+loud when a deck runs it.
+
+### Not an issue: Lotus Petal and other self-sacrificing sources
+
+The sweep also turned up Lotus Petal, whose mana ability sacrifices it. It looks
+like the ritual case from #2 and is not: both models read the mana available on
+**one** turn, and a Petal on the battlefield genuinely provides one mana that
+turn. Dark Ritual was excluded because an Instant is never on the battlefield to
+be read at all, not because it is one-shot. Counted, correctly.
+
+Commander's Sphere and Mind Stone also match "sacrifice this", but theirs is a
+DRAW ability, not the mana one — a rule keyed on that phrase alone would have
+dropped two ordinary rocks.

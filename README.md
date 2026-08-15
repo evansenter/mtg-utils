@@ -96,6 +96,12 @@ This means **the model cannot price a checkland's real downside at all**. When
 a checkland question comes up, answer the turn-one-tapped part from the deck's
 basic-type density in prose rather than pretending a number covers it.
 
+The same applies to conditional *accelerants* — Mox Opal needs metalcraft,
+Chrome Mox needs a card to imprint, Mox Diamond discards a land to enter — all
+of which are counted as full sources. Inventing probabilities for those board
+states is precisely the mistake that once moved a commander-on-curve figure by
+five points; `KNOWN_ISSUES.md` #13 records them instead.
+
 ## Subcommands
 
 | Command | What it does |
