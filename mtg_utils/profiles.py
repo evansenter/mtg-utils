@@ -17,6 +17,38 @@ OMNI_TYPE = {"urborg, tomb of yawgmoth": "B", "yavimaya, cradle of growth": "G"}
 
 
 # ============================================================ profiles
+RESTRICTED_MANA = "spend this mana only"
+
+
+def unrestricted_mana(txt):
+    """(colours, amount) a land offers with NO strings attached.
+
+    Scryfall puts one ability per line, and the restriction rides on the same
+    line as the ability it restricts:
+
+        {T}: Add {C}.
+        {T}: Add {C}{C}. Spend this mana only to cast colorless Eldrazi spells.
+
+    so dropping the restricted lines leaves exactly the mana that pays for
+    anything. Eldrazi Temple is a 1, not a 2. Cavern of Souls and Unclaimed
+    Territory produce {C} and nothing else -- their any-colour mana casts one
+    creature type, and counting it as free colour made a mono-red deck look
+    like it had five.
+
+    Returns (set(), 0) when every ability is restricted, which flags the land
+    for exclusion the same way build_accel_profiles flags a restricted rock.
+    """
+    free = "\n".join(l for l in txt.split("\n") if RESTRICTED_MANA not in l)
+    cols, amount = set(), 0
+    for match in re.finditer(r"add ([^.;\n]*)", free):
+        clause = match.group(1)
+        cols |= {c.upper() for c in re.findall(r"\{([wubrgc])\}", clause)}
+        if "any color" in clause:
+            cols |= set(COLOURS)
+        amount = max(amount, 1)
+    return cols, (mana_amount(free) if amount else 0)
+
+
 def build_land_profiles(deck_names, scry):
     profiles = []
     for n in deck_names:
@@ -50,14 +82,26 @@ def build_land_profiles(deck_names, scry):
                     if any(t in tl for t, col in BASIC_TYPE_COLOUR.items() if col in ft):
                         pm.update(x for x in (lf2.get("produced_mana") or []) if x in COLOURS)
         tapped, cond = enters_tapped(lf, c)
+        amount = 1 if kind in ("filter", "fetch") else mana_amount(txt)
+        restricted = False
+        # "Spend this mana only to cast..." is not mana for a generic total,
+        # on a land exactly as on a rock. Recomputed only for lands that
+        # carry the clause, so every other land is untouched.
+        if kind == "normal" and RESTRICTED_MANA in txt:
+            free_cols, free_amount = unrestricted_mana(txt)
+            restricted = not free_amount
+            if free_amount:
+                pm = {x for x in free_cols if x in MANA_SYMBOLS}
+                amount = free_amount
         profiles.append({
             "name": name, "kind": "land",
             "colours": frozenset(pm),
             "filter": FILTER_LANDS.get(name),
             "tapped": False if kind == "fetch" else tapped,
             "cond_tap": cond,
-            "amount": 1 if kind in ("filter", "fetch") else mana_amount(txt),
+            "amount": amount,
             "omni": OMNI_TYPE.get(name),
+            "restricted": restricted,
             "mdfc": has_land_back(c),
         })
     return profiles

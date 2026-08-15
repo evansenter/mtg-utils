@@ -137,6 +137,7 @@ def probability(lands, accels, deck_size, req, mv, turn, sims, rng,
     Requires at least one land and at least `turn` mana sources present.
     """
     accels = [a for a in accels if count_restricted or not a.get("restricted")]
+    lands = [l for l in lands if count_restricted or not l.get("restricted")]
     pool_idx = list(range(len(lands) + len(accels)))
     allp = lands + accels
     pool = pool_idx + [None] * (deck_size - len(pool_idx))
@@ -179,6 +180,7 @@ def playsim(lands, accels, deck_size, turns, on_draw, trials, rng,
     one, deploy the cheapest affordable accelerant, then read off available
     mana. Returns per-turn lists of (available source profiles, total mana)."""
     accels = [a for a in accels if count_restricted or not a.get("restricted")]
+    lands = [l for l in lands if count_restricted or not l.get("restricted")]
     entries = ([{"t": "land", "p": p} for p in lands] +
                [{"t": "accel", "p": a} for a in accels])
     deck = entries + [{"t": "spell"}] * (deck_size - len(entries))

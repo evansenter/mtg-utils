@@ -178,3 +178,61 @@ def test_reminder_text_strip_is_not_applied_to_lands(mm, caches):
     prof = mm.build_land_profiles(["Bayou"], caches)
     assert prof and prof[0]["colours"] == frozenset("BG")
     assert prof[0]["amount"] == 1
+
+
+# --- restricted mana on LANDS -----------------------------------------
+# "Spend this mana only to cast..." is not mana for a generic total, on a
+# land exactly as on a rock. Scryfall puts one ability per line and the
+# restriction rides on the line it restricts, so the free mana is what is
+# left after dropping those lines.
+@pytest.mark.parametrize("name,colours,amount", [
+    # the amount case: the second ability makes two, for Eldrazi only
+    ("Eldrazi Temple", "C", 1),
+    # the COLOUR case, and the more damaging one -- any colour, but only for
+    # creature spells of the chosen type. Counting it as free colour gave a
+    # mono-red deck five colours of mana.
+    ("Cavern of Souls", "C", 1),
+    ("Unclaimed Territory", "C", 1),
+    # unrestricted lands must be untouched by the recompute
+    ("Ancient Tomb", "C", 2),
+], ids=["restricted-land/Eldrazi Temple is 1 not 2",
+        "restricted-land/Cavern makes only {C}",
+        "restricted-land/Unclaimed Territory makes only {C}",
+        "restricted-land/Ancient Tomb is unchanged"])
+def test_restricted_land_mana(mm, caches, name, colours, amount):
+    p = mm.build_land_profiles([name], caches)[0]
+    assert p["colours"] == frozenset(colours), (name, p["colours"])
+    assert p["amount"] == amount
+    assert p["restricted"] is False          # it still makes SOME free mana
+
+
+def test_plaza_keeps_its_any_colour_ability(mm, caches):
+    """restricted-land/Plaza of Heroes keeps its colours
+
+    Plaza has three mana abilities: {C}, any-colour-for-legendary-spells
+    (restricted), and any colour among legendary permanents you control
+    (conditional, not restricted). The third is real mana for anything, so
+    the colours survive. The model does not price the board condition, the
+    same way it does not price a checkland's -- that limitation is stated in
+    the README rather than guessed at with a probability.
+    """
+    p = mm.build_land_profiles(["Plaza of Heroes"], caches)[0]
+    assert p["colours"] == frozenset("WUBRGC")
+
+
+def test_a_wholly_restricted_land_is_excluded(mm):
+    """restricted-land/all-restricted is dropped by both models"""
+    from conftest import card
+    scry = {"hypothetical hall": card(
+        name="Hypothetical Hall", type_line="Land",
+        oracle_text="{T}: Add {G}. Spend this mana only to cast Elf spells.",
+        produced_mana=["G"])}
+    p = mm.build_land_profiles(["Hypothetical Hall"], scry)[0]
+    assert p["restricted"] is True
+
+    import random
+    lands = [p] * 40
+    off = mm.probability(lands, [], 99, ["G"], 1, 1, 400, random.Random(9))
+    on = mm.probability(lands, [], 99, ["G"], 1, 1, 400, random.Random(9),
+                        count_restricted=True)
+    assert off == 0.0 and on > 0.9, (off, on)

@@ -104,7 +104,7 @@ quantity/colour diagnostic uses.
 
 ---
 
-## 3. Restricted mana is modelled for accelerants but not for lands
+## 3. Restricted mana is modelled for accelerants but not for lands — FIXED
 
 `build_accel_profiles` sets a `restricted` flag from `"spend this mana only"`.
 `build_land_profiles` has no such flag, and neither model looks for one on a
@@ -125,6 +125,31 @@ output.
 **Cost:** inflates colourless and tribal decks specifically. Note this is the
 mirror of a bug the project already fixed once for accelerants — the reasoning
 in `build_accel_profiles`' docstring applies verbatim to lands.
+
+**Fixed**, and the survey found the *colour* half mattered more than the amount.
+Scryfall puts one ability per line and the restriction rides on the line it
+restricts, so dropping those lines leaves exactly the mana that pays for
+anything:
+
+| land | was | now |
+|---|---|---|
+| Eldrazi Temple | `{C}`, amount 2 | `{C}`, amount 1 |
+| Cavern of Souls | **WUBRGC**, amount 1 | `{C}`, amount 1 |
+| Unclaimed Territory | **WUBRGC**, amount 1 | `{C}`, amount 1 |
+| Plaza of Heroes | WUBRGC | WUBRGC — unchanged, correctly |
+
+Cavern and Unclaimed Territory were the damaging pair: their any-colour mana
+only casts one creature type, and counting it as free colour gave a **mono-red
+deck five colours**. Plaza keeps its colours because its third ability is
+genuinely any-colour, merely conditional on board state — a condition the model
+does not price, exactly as it does not price a checkland's.
+
+A land whose every ability is restricted is flagged and dropped by both models,
+mirroring a restricted rock. None of the fixtures has one; a synthetic case
+covers it.
+
+Movement: mono and colourless only (multi and partner have no restricted land),
+every line down, largest -3.3 (Faithless Looting T1, 92.3% -> 89.0%).
 
 ---
 
