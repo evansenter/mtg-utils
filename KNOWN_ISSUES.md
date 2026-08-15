@@ -241,7 +241,7 @@ precisely the case that needs its own test, and it is mutation-checked.
 
 ---
 
-## 7. Tapped-land counts are per entry; land counts are per quantity
+## 7. Tapped-land counts are per entry; land counts are per quantity — FIXED
 
 `verify` appends a land's **name** to `truly_tapped` / `conditional_tapped` once
 per entry, while incrementing `lands` by the entry's **quantity**. The `mana`
@@ -255,9 +255,16 @@ header then prints both in one sentence:
 for everything except basics, which is why it has never bitten — but the two
 numbers in that sentence are in different units.
 
+**Fixed.** `verify` now returns `truly_tapped_copies` and
+`conditional_tapped_copies` alongside the name lists, and the header prints the
+copy count, so both numbers are in copies. The name lists still list each card
+once. No fixture output moved, because the two agree in a singleton deck — a
+test asserts they agree on all four fixtures, so a future fixture that breaks
+the assumption is noticed rather than silently changing a header.
+
 ---
 
-## 8. `scry_fetch` never caches a `not_found`
+## 8. `scry_fetch` never caches a `not_found` — RESOLVED, keeping the behaviour
 
 A name Scryfall cannot resolve is returned to the caller and is not written to
 the cache, so every later run asks about it again.
@@ -265,11 +272,19 @@ the cache, so every later run asks about it again.
 **Cost:** none to correctness, and it is the right behaviour for a typo about to
 be corrected. It is the wrong behaviour for a name that will never resolve, and
 in `calibrate` — which walks every deck — it means a repeated round trip per
-run. Pinned by a test as current behaviour, not endorsed.
+run.
+
+**Resolved by keeping it, deliberately.** Caching a negative would make a name
+permanently unfindable in that cache, and the two reasons a lookup fails are a
+typo (fixed in the next run) and a card too new for Scryfall (findable in the
+next run). Both want a retry. The cost is one round trip per unresolvable name
+per run, against a failure mode where a real card stays invisible until someone
+thinks to delete the cache. Pinned by a test as behaviour, and now stated as a
+decision rather than left as an open question.
 
 ---
 
-## 9. `report_variants` has a latent `TypeError`
+## 9. `report_variants` has a latent `TypeError` — FIXED
 
 ```python
 basic = next((p for p in base_lands if not p["tapped"] and p["colours"]), None)
@@ -280,22 +295,30 @@ lands = base_lands + [dict(basic) for _ in range(dl)]
 If no untapped colour-producing land exists, `basic` is `None` and `dict(None)`
 raises `TypeError: 'NoneType' object is not iterable`.
 
-**Checked, and it does not fire on any of the three fixtures**, including the
+**Checked, and it does not fire on any of the fixtures**, including the
 colourless one: Wastes produce `{C}`, and `frozenset({'C'})` is truthy. It needs
-a deck whose entire manabase is tapped or produces nothing, which is not a
-realistic list. Latent, not live.
+a deck whose entire manabase is tapped or produces nothing.
+
+**Fixed.** A positive `--lands` delta with no untapped colour-producing land to
+clone now raises `SystemExit` naming the problem and the two ways out, instead
+of a `TypeError` several frames later that reads as a crash.
 
 ---
 
-## 10. `enters_tapped(face, card)` never uses `card`
+## 10. `enters_tapped(face, card)` never uses `card` — FIXED
 
 Every call site passes one. Harmless, and worth a moment's thought before
 removing in case the second argument was meant to carry the whole-card context
 that a land-back check would need.
 
+**Fixed by making it optional** rather than removing it. `mtg_utils` re-exports
+`enters_tapped`, so dropping the parameter would break any script still calling
+`enters_tapped(face, card)`. Every call site keeps working and the signature no
+longer demands an argument nothing reads.
+
 ---
 
-## 11. The sources model assumes any drawn source is deployable
+## 11. The sources model assumes any drawn source is deployable — RESOLVED, by design
 
 `probability` picks `turn` sources out of everything seen and asks whether they
 can pay the cost. It does not model the one-land-per-turn rule, nor the mana
@@ -304,15 +327,16 @@ spent casting an accelerant.
 So four lands plus a Sol Ring "have" five mana on turn five, without ever paying
 the one to cast the Sol Ring.
 
-This is the documented idealisation of the sources model rather than a defect —
-the model exists to answer "can I make these pips", and the play simulation
-exists precisely because this one does not answer "do I have N mana on turn N".
-Recorded so the optimism is explicit and nobody quotes a sources-model figure as
-an on-curve number.
+**Resolved as by design.** This is the sources model's stated idealisation, not
+a defect: it answers "can I make these pips", and the play simulation exists
+precisely because it does not answer "do I have N mana on turn N". Both the
+README and CLAUDE.md say so in those terms, and `report_mana` prints both models
+side by side. Recorded so the optimism is explicit and nobody quotes a
+sources-model figure as an on-curve number.
 
 ---
 
-## 12. `moxfield` prints its header twice
+## 12. `moxfield` prints its header twice — FIXED
 
 `cli.py` prints `# {name} (fetched ...)` to stdout, then builds a second,
 slightly different header (`# {name} (deck {id}, fetched ...)`) into the text it
@@ -321,3 +345,7 @@ the first to the terminal.
 
 **Cost:** cosmetic. The file written by `--out` contains exactly one header, so
 `read_decklist` is unaffected.
+
+**Fixed.** The bare header is gone; the one that survives carries the deck id,
+because that is the provenance a delta has to name. Writing to `--out` now
+prints only `wrote <path>`.

@@ -137,3 +137,46 @@ def test_analyse_mana_draws_from_the_real_library(mm, deck, want, monkeypatch):
     assert seen, "neither model was called"
     assert set(seen) == {want}, sorted(set(seen))
     assert want == sum(entries.values())
+
+
+# --- tapped counts are in the same units as the land count -------------
+def test_tapped_count_is_by_quantity_not_by_entry(mm):
+    """verify/tapped count counts copies
+
+    The mana header prints the land count and the tapped count in one
+    sentence. `lands` counted copies and the tapped figure counted distinct
+    entries, so the two numbers were in different units.
+
+    Unreachable in a legal Commander deck -- basics are the only entries above
+    one and are never tapped -- which is why it never bit and why fixing it
+    moves no fixture output. A two-of tapped land shows the difference.
+    """
+    from collections import Counter
+    tapped = {"name": "Tapped Land", "type_line": "Land", "color_identity": [],
+              "cmc": 0, "oracle_text": "Tapped Land enters tapped.",
+              "legalities": {"commander": "legal"}}
+    scry = {"tapped land": tapped, "cmdr": _real("Cmdr", "Legendary Creature", "", 1)}
+    v = mm.verify("Cmdr", Counter({"Tapped Land": 2}), scry)
+    assert v["lands"] == 2                      # copies
+    assert v["truly_tapped"] == ["Tapped Land"]  # listed once
+    assert v["truly_tapped_copies"] == 2         # counted twice
+
+
+@pytest.mark.parametrize("deck", ["mono", "multi", "colourless", "partner"])
+def test_tapped_units_agree_on_every_fixture(mm, deck):
+    """verify/counts coincide in singleton
+
+    The reason this fix moved no output: with every nonbasic a one-of, copies
+    and entries are the same number. Asserted so a future fixture that breaks
+    the assumption is noticed rather than silently changing a header.
+    """
+    import json
+    import os
+
+    from conftest import FIXTURES
+    cmdr, entries = mm.read_decklist(os.path.join(FIXTURES, f"{deck}.txt"))
+    with open(os.path.join(FIXTURES, f"{deck}.scry.json"), encoding="utf-8") as f:
+        scry = json.load(f)
+    v = mm.verify(cmdr, entries, scry)
+    assert v["truly_tapped_copies"] == len(v["truly_tapped"])
+    assert v["conditional_tapped_copies"] == len(v["conditional_tapped"])

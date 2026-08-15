@@ -22,7 +22,7 @@ def report_mana(cmdr, entries, scry, sims, trials, seed=17, lines=None):
 
     print(f"\n=== MANA BASE ({v['lands']} front-face lands"
           f" + {v['mdfc_land_backs']} MDFC land-backs, "
-          f"{len(v['truly_tapped'])} truly tapped) ===")
+          f"{v['truly_tapped_copies']} truly tapped) ===")
     for n, m in v["conditional_tapped"]:
         print(f"  conditional, not counted: {n}   [{m}]")
     for n in v["truly_tapped"]:
@@ -59,6 +59,14 @@ def report_variants(cmdr, entries, scry, land_deltas, accel_deltas, trials, seed
     accels = build_accel_profiles(names, scry)
     accels = [a for a in accels if not a.get("restricted")]
     basic = next((p for p in base_lands if not p["tapped"] and p["colours"]), None)
+    if basic is None and any(d > 0 for d in land_deltas):
+        # dict(None) raises TypeError several frames later, which reads as a
+        # crash rather than as "this deck has nothing to clone". Guards fail
+        # loudly and by name here.
+        raise SystemExit(
+            "variants: cannot add lands to a deck with no untapped "
+            "colour-producing land to copy. Drop the positive entries from "
+            "--lands, or add one such land to the list first.")
     generic_rock = {"name": "generic rock", "kind": "accel", "colours": frozenset(),
                     "filter": None, "omni": None, "amount": 1, "cost": 2,
                     "tapped": False, "cond_tap": None, "restricted": False,

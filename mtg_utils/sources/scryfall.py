@@ -35,6 +35,11 @@ def scry_fetch(names, cache_path=None):
             # key on BOTH the full name and the front-face name
             cache[c["name"].lower()] = c
             cache[c["name"].split(" // ")[0].lower()] = c
+        # not_found names are returned to the caller and deliberately NOT
+        # cached. A lookup fails either because the name is a typo, fixed on
+        # the next run, or because the card is too new for Scryfall, findable
+        # on the next run. Both want a retry; caching the negative would make
+        # a real card invisible until someone deleted the cache.
         nf += [x.get("name") for x in d.get("not_found", [])]
         time.sleep(0.2)
     if cache_path:

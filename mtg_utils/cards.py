@@ -69,7 +69,10 @@ def has_land_back(card):
     return (not is_front_land(card)) and land_face(card) is not None
 
 
-def enters_tapped(face, card):
+def enters_tapped(face, card=None):
+    # `card` is unused and kept optional: every call site passes one, and
+    # mtg_utils re-exports this, so dropping the parameter would break any
+    # script that still calls enters_tapped(face, card).
     txt = (face.get("oracle_text") or "").lower()
     if "enters tapped" not in txt and "enters the battlefield tapped" not in txt:
         return False, None

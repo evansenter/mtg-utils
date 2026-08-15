@@ -137,7 +137,12 @@ function, not the constant.
 ## Rules for tests
 
 - **Mutation-check every new case.** Revert the code it guards, confirm the case
-  fails, restore. A test that passes the moment it is written has not been shown
+  fails, restore. Clear `__pycache__` between steps, or export
+  `PYTHONDONTWRITEBYTECODE=1`: a mutation the same byte length as the original
+  (`+= q` for `+= 1`) restored within the same second leaves a stale `.pyc`
+  that Python considers valid, and the run silently uses the wrong bytecode.
+  That reads as "the test didn't catch it" and can get a perfectly good test
+  rewritten. It happened here. A test that passes the moment it is written has not been shown
   to test anything. Two cases in this repo's history were decorative: one used a
   basic land as a colour-identity canary (basics have empty colour identity, so
   it could never fail), and one used a substring check that still matched with

@@ -73,7 +73,11 @@ def main():
 
     if a.cmd == "moxfield":
         name, cmdrs, main = moxfield_deck(a.target)
-        print(f"# {name}  (fetched {time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())})")
+        # One header, not two. This printed a bare "# {name} (fetched ...)"
+        # here AND built a second, fuller one into the text below -- so stdout
+        # carried both, and writing to --out still printed the bare one to the
+        # terminal. The header that survives is the one carrying the deck id,
+        # because that is the provenance a delta has to name.
         out = list(cmdrs) + [""]
         out += [f"{q} {n}" for n, q in sorted(main.items(), key=lambda x: x[0].lower())]
         header = (f"# {name}  (deck {a.target}, fetched "

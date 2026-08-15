@@ -283,3 +283,42 @@ def test_verify_header_pluralises(candidate, tmp_path):
     two = run_cli(candidate, deck_args("partner", "verify"), str(tmp_path))
     assert "= 1 commander +" in one
     assert "= 2 commanders +" in two
+
+
+# ============================================================ guards
+def test_variants_refuses_to_clone_a_land_it_does_not_have(report, capsys):
+    """variants/no land to clone fails by name
+
+    `--lands=2` clones an untapped colour-producing land. With none in the
+    deck the old code reached dict(None) and raised TypeError several frames
+    away, which reads as a crash rather than as a statement about the deck.
+    Guards in this project fail loudly and by name.
+    """
+    from collections import Counter
+    scry = {"cmdr": {"name": "Cmdr", "type_line": "Legendary Creature",
+                     "color_identity": [], "cmc": 1, "oracle_text": "",
+                     "mana_cost": "{1}", "legalities": {"commander": "legal"}},
+            "tapped land": {"name": "Tapped Land", "type_line": "Land",
+                            "color_identity": [], "cmc": 0,
+                            "oracle_text": "Tapped Land enters tapped.",
+                            "produced_mana": [], "legalities": {"commander": "legal"}}}
+    with pytest.raises(SystemExit) as e:
+        report.report_variants("Cmdr", Counter({"Tapped Land": 30}), scry,
+                               [2], [0], 10)
+    assert "cannot add lands" in str(e.value)
+    capsys.readouterr()
+
+
+def test_variants_still_works_when_there_is_a_land_to_clone(report, capsys, mm):
+    """variants/the guard does not block the normal case"""
+    import json
+    import os
+
+    from conftest import FIXTURES
+    cmdr, entries = mm.read_decklist(os.path.join(FIXTURES, "mono.txt"))
+    with open(os.path.join(FIXTURES, "mono.scry.json"), encoding="utf-8") as f:
+        scry = json.load(f)
+    report.report_variants(cmdr, entries, scry, [0, 1], [0], 20)
+    out = capsys.readouterr().out
+    assert "VARIANTS SWEEP" in out
+    assert len([l for l in out.splitlines() if "lands," in l]) == 2

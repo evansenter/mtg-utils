@@ -21,6 +21,7 @@ def verify(cmdr, entries, scry):
     lands = nonland = 0
     mv_sum = 0.0
     truly, cond = [], []
+    truly_n = cond_n = 0
     for n, q in list(entries.items()) + [(cn, 1) for cn in cmdrs]:
         c = scry.get(n.lower())
         if not c:
@@ -35,10 +36,17 @@ def verify(cmdr, entries, scry):
             lands += q
             lf = land_face(c)
             t, cm = enters_tapped(lf, c)
+            # The name is listed once; the COUNT is by quantity, so it is in
+            # the same units as `lands` beside it in the header. They coincide
+            # in singleton Commander -- basics are the only entries above one
+            # and are never tapped -- so this changes no current output. The
+            # two numbers were simply in different units.
             if t:
                 truly.append(n)
+                truly_n += q
             elif cm:
                 cond.append((n, cm))
+                cond_n += q
         elif n not in cmdrs:
             nonland += q
             mv_sum += float(front(c, "cmc", 0) or 0) * q
@@ -48,7 +56,8 @@ def verify(cmdr, entries, scry):
             "nonland": nonland, "avg_mv": mv_sum / nonland if nonland else 0,
             "game_changers": sorted(gc), "illegal": illegal,
             "ci_violations": ci_bad, "truly_tapped": truly,
-            "conditional_tapped": cond}
+            "conditional_tapped": cond,
+            "truly_tapped_copies": truly_n, "conditional_tapped_copies": cond_n}
 
 
 # ============================================================ reporting
