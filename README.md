@@ -345,6 +345,15 @@ clean bill of health.**
 
 Run both copies and diff them. Do not reason about the code.
 
+## Known issues
+
+`KNOWN_ISSUES.md` lists twelve things found during the migration that look
+wrong and were deliberately left alone, because fixing any of them would change
+a reported number and the migration's contract was that none do. Each entry says
+what it costs and which way it moves the figure. The largest is that the play
+simulation never spends the mana it uses to deploy accelerants; the cheapest to
+fix is the `verify` header claiming "1 commander" for a partner pair.
+
 ## Provenance
 
 This tool spent its life as a single 1914-line `mana_model.py`, re-delivered
