@@ -217,15 +217,27 @@ def playsim(lands, accels, deck_size, turns, on_draw, trials, rng,
                     srcs.append(p)
                 return srcs
 
+            # Deploying an accelerant COSTS the mana it costs. Without
+            # `spent`, each pass re-read the full total and two lands could
+            # deploy Sol Ring and a two-drop rock in the same turn -- and the
+            # Sol Ring's own mana then funded a third. Every play-simulation
+            # figure was inflated by it, most in the decks that lean on rocks.
+            #
+            # The rock's mana is still available the moment it lands (an
+            # untapped, non-creature source is online the turn it enters), so
+            # a turn-two Sol Ring off two lands correctly leaves 1 + 2 = 3.
+            spent = 0
             for _pass in range(4):
                 srcs = online()
-                total = sum(p.get("amount", 1) for p in srcs)
-                cands = [c for c in hand if c["t"] == "accel" and c["p"]["cost"] <= total]
+                available = sum(p.get("amount", 1) for p in srcs) - spent
+                cands = [c for c in hand
+                         if c["t"] == "accel" and c["p"]["cost"] <= available]
                 if not cands:
                     break
                 cands.sort(key=lambda c: c["p"]["cost"])
                 c = cands[0]
                 hand.remove(c)
+                spent += c["p"]["cost"]
                 rocks.append({"p": c["p"], "entered": t})
             srcs = online()
             out[t].append(srcs)

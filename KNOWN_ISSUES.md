@@ -18,7 +18,7 @@ Verified empirically against the committed fixtures, not asserted from reading.
 
 ---
 
-## 1. The play simulation never spends the mana it uses to deploy accelerants
+## 1. The play simulation never spends the mana it uses to deploy accelerants — FIXED
 
 `playsim`, the four-pass deployment loop.
 
@@ -32,8 +32,18 @@ third can follow.
 the decks that lean on accelerants. This is the largest single item on this
 list.
 
-**Fixing it** means tracking mana spent per turn, which lowers on-curve numbers
-across the board — including any number already written into a primer.
+**Fixed.** The loop tracks mana spent this turn and compares each candidate
+against what is left, not against the board total.
+
+The chain is deliberately preserved where it is real: an untapped non-creature
+rock is online the turn it enters, so a Sol Ring cast off two lands leaves
+1 + 2 = 3 available, and one-cost rocks that tap for one genuinely pay for each
+other up to the four-pass cap. Deducting the cost is the whole change; it is not
+a ban on deploying more than one thing.
+
+Measured after the accelerant-gate fix had already removed the worst phantom
+sources, so the remaining movement is modest — every line down, mean -0.4 to
+-1.1 points, largest -1.8 (Reality Smasher T5, 81.2% -> 79.4%).
 
 ---
 

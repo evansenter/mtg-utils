@@ -151,3 +151,72 @@ def test_determinism_playsim(mm, taiga_profile):
     s1 = mm.playsim(dl, [], 99, 3, False, 100, random.Random(4))
     s2 = mm.playsim(dl, [], 99, 3, False, 100, random.Random(4))
     assert [len(x) for x in s1] == [len(x) for x in s2]
+
+
+# --- deploying an accelerant costs mana --------------------------------
+def _land1():
+    return {"name": "land", "kind": "land", "colours": frozenset("G"), "filter": None,
+            "omni": None, "amount": 1, "tapped": False, "cond_tap": None, "mdfc": False}
+
+
+def _rock(cost, amount=1):
+    return {"name": f"rock{cost}", "kind": "accel", "colours": frozenset("G"),
+            "filter": None, "omni": None, "amount": amount, "cost": cost,
+            "tapped": False, "cond_tap": None, "restricted": False,
+            "creature": False, "mdfc": False}
+
+
+def test_playsim_cannot_deploy_more_than_it_can_pay_for(mm):
+    """playsim/deployment is paid for
+
+    Two lands on turn two is two mana, so exactly ONE two-cost rock can be
+    deployed. The rock then taps for one, which is not enough for a second.
+    Ceiling: 2 lands + 1 rock = 3.
+
+    Before the fix each pass re-read the full board total without deducting
+    what had already been spent, so the first rock's own mana funded the
+    next, and the next -- up to the four-pass cap. Same board, ceiling of 6.
+
+    Constructed so the ceiling is exact rather than statistical: every card in
+    the deck is either an untapped one-mana land or a two-cost rock, so the
+    maximum over trials is reached whenever a trial has two lands by turn two.
+    """
+    lands = [_land1() for _ in range(40)]
+    accels = [_rock(2) for _ in range(59)]
+    rounds = mm.playsim(lands, accels, 99, 2, False, 500, random.Random(17))
+    totals = [sum(p.get("amount", 1) for p in s) for s in rounds[2]]
+    assert max(totals) == 3, max(totals)
+
+
+def test_playsim_deploys_nothing_it_cannot_pay_for(mm):
+    """playsim/an unaffordable rock stays in hand
+
+    Three-cost rocks on two lands: nothing is deployable, so turn two reads
+    exactly the two lands. Guards the other direction from the case above --
+    a fix that simply stopped deploying would pass that one and fail this.
+    """
+    lands = [_land1() for _ in range(40)]
+    accels = [_rock(3) for _ in range(59)]
+    rounds = mm.playsim(lands, accels, 99, 2, False, 800, random.Random(17))
+    totals = [sum(p.get("amount", 1) for p in s) for s in rounds[2]]
+    assert max(totals) == 2, max(totals)
+
+
+def test_playsim_still_chains_when_each_rock_pays_for_the_next(mm):
+    """playsim/a real chain is preserved
+
+    One-cost rocks that tap for one are mana-neutral, so each genuinely pays
+    for the next: land -> rock -> rock -> rock -> rock, stopping at the
+    four-pass cap. Turn one reads 1 land + 4 rocks = 5.
+
+    This is the case that makes "just deduct the cost" insufficient as a
+    description: the deduction is right, and the chain is still real, because
+    the rock is online the turn it enters. My first draft of this test
+    asserted 2, on the assumption that spending the land's mana ended the
+    turn. It does not, and the code was right.
+    """
+    lands = [_land1() for _ in range(40)]
+    accels = [_rock(1) for _ in range(59)]
+    rounds = mm.playsim(lands, accels, 99, 1, False, 500, random.Random(17))
+    totals = [sum(p.get("amount", 1) for p in s) for s in rounds[1]]
+    assert max(totals) == 5, max(totals)
