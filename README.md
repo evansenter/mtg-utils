@@ -297,10 +297,12 @@ program's bytes and not something typed to make a test pass. The reference copy
 is gone; the snapshots carry the invariant, and the tests that compared against
 it skip with a message saying so.
 
-**The snapshots can no longer be regenerated, and that is the point.** They are
-the definition of correct output. If you intend to change what the tool prints,
-change them in the same commit, say so in the message, and say what moved and
-why.
+**The snapshots are the definition of correct output.** Regenerating them is a
+deliberate act: `pytest tests/test_golden.py --regen-golden` rewrites them from
+the current code, which means it blesses whatever the code now prints. If you
+intend to change what the tool reports, regenerate, review the diff, and commit
+the snapshots alongside the code, saying what moved and why. If you did not
+intend to change it, the failing diff is the finding.
 
 ### The three deck shapes
 

@@ -16,11 +16,12 @@ frozen decks and asserts stdout is byte-identical to committed snapshots in
 
 - **Refactoring?** The snapshots must not move. If they do, you changed
   behaviour — find out why before touching the snapshot.
-- **Deliberately changing output?** Update the snapshots *in the same commit*,
-  and say in the message what moved, by how much, and why. The snapshots cannot
-  be regenerated automatically any more (the reference implementation they came
-  from was deleted once it had served its purpose), which is intentional: they
-  are the definition of correct output.
+- **Deliberately changing output?** Regenerate with
+  `pytest tests/test_golden.py --regen-golden`, review the diff, and commit the
+  moved snapshots *in the same commit* as the code, saying what moved and why.
+  That flag rewrites the definition of correct output from the current code, so
+  it will just as happily bless an accidental change — only reach for it when
+  moving the number is the point.
 - **Claiming a change is behaviour-preserving?** Run it and diff. Do not reason
   about the code.
 
