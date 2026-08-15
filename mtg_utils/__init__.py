@@ -21,6 +21,7 @@ Subcommands
   verify      count, legality, colour identity, Game Changers, MV, tapped classes
   mana        sources model + play simulation (the full section 6 pass)
   roster      section 6 roster walk: every cycle slot, IN / benched / buy
+  skeleton    slot budget and curve: 100 = commanders + lands + non-land
   ceiling     EDHREC (or --cedh edhtop16) inclusion: what is above the bar
               and missing from the list, with ownership and price
   variants    opt-in land/accelerant sweep; slow, run when the base is unsettled
@@ -58,11 +59,12 @@ from mtg_utils.decklist import (apply_swaps, as_cmdrs, diff_multiset, flat,
                                 parse_swaps, read_decklist, write_deck)
 from mtg_utils.roster import (ANY_COLOUR, PAIR_CYCLES, TRIPLE_CYCLES, WUBRG,
                               identity_pairs, pair_key, roster_names, roster_status)
-from mtg_utils.analysis import (analyse_mana, ceiling_audit, collapse_temps,
-                                commander_lines, compare_swap, deck_base_name,
+from mtg_utils.analysis import (CURVE_TOP, SKELETON_TYPES, analyse_mana,
+                                ceiling_audit, collapse_temps, commander_lines,
+                                compare_swap, deck_base_name, deck_skeleton,
                                 mean_spread, opening_hand_floor,
-                                replicate_playsim, split_budget, t95, verify,
-                                worst_lines)
+                                replicate_playsim, split_budget, t95,
+                                type_bucket, verify, worst_lines)
 from mtg_utils.sources import UA_BROWSER, UA_TOOL
 from mtg_utils.sources.collection import COLLECTION, load_collection
 from mtg_utils.sources.moxfield import (moxfield_deck, moxfield_user_decks,
@@ -75,8 +77,8 @@ from mtg_utils.sources.scryfall import scry_fetch
 from mtg_utils.sources.spellbook import spellbook
 from mtg_utils.report import (report_calibrate, report_combos, report_contention,
                               report_ceiling, report_diff, report_mana,
-                              report_own, report_roster, report_swap,
-                              report_variants)
+                              report_own, report_roster, report_skeleton,
+                              report_swap, report_variants)
 
 
 # `hypergeometric` was renamed to `at_least_in_draw`. Everything here is

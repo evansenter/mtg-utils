@@ -10,8 +10,8 @@ Almost every function here encodes a bug that once shipped a wrong figure into a
 document someone acted on. A refactor that shifts a probability by half a point
 is worse than no refactor, because the number still looks plausible. The golden
 suite exists to make that impossible by accident:
-`tests/test_golden.py` runs `verify`, `mana`, `roster` and `--help` over **four**
-frozen decks and asserts stdout is byte-identical to committed snapshots in
+`tests/test_golden.py` runs `verify`, `mana`, `roster`, `skeleton` and `--help`
+over **four** frozen decks and asserts stdout is byte-identical to committed snapshots in
 `tests/fixtures/expected/`.
 
 - **Refactoring?** The snapshots must not move. If they do, you changed
@@ -68,6 +68,7 @@ Running the tool:
 python3 mana_model.py audit deck.txt --cache scry.json
 python3 mana_model.py mana tests/fixtures/multi.txt --cache tests/fixtures/multi.scry.json
 python3 mana_model.py variants deck.txt --swap="Clifftop Retreat->Rugged Prairie"
+python3 mana_model.py skeleton deck.txt --cache scry.json
 python3 mana_model.py ceiling deck.txt --bar 65      # network; --cedh for edhtop16
 python3 -m mtg_utils --help              # equivalent entry point
 ```

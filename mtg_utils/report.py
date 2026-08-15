@@ -3,9 +3,10 @@ import random
 import time
 from collections import Counter, defaultdict
 
-from mtg_utils.analysis import (analyse_mana, ceiling_audit, collapse_temps,
-                                commander_lines, compare_swap, deck_base_name,
-                                replicate_playsim, verify, worst_lines)
+from mtg_utils.analysis import (CURVE_TOP, analyse_mana, ceiling_audit,
+                                collapse_temps, commander_lines, compare_swap,
+                                deck_base_name, deck_skeleton, replicate_playsim,
+                                verify, worst_lines)
 from mtg_utils.cards import front_name
 from mtg_utils.castability import pips_from_cost, playsim_report
 from mtg_utils.decklist import as_cmdrs, diff_multiset, flat
@@ -290,6 +291,47 @@ def report_ceiling(cmdr, entries, scry, cache=None, rec_cache=None, cedh=False,
               f"cutoff -- cards below that cutoff are of UNKNOWN inclusion, "
               f"not 0%.")
     return a
+
+
+def report_skeleton(cmdr, entries, scry):
+    """The slot budget and the curve. deck_skeleton computes and asserts it."""
+    s = deck_skeleton(cmdr, entries, scry)
+    ncmdr = s["commanders"]
+    print(f"\n=== SKELETON: {' + '.join(as_cmdrs(cmdr))} ===")
+    # The identity was ASSERTED by deck_skeleton before this line ran -- it is
+    # printed as a statement, not as arithmetic for the reader to check. A
+    # hand-written header once read "24 lands plus 75 non-land" for a
+    # 100-card deck, with the commander missing from the sum.
+    print(f"  {s['total']} = {ncmdr} commander{'' if ncmdr == 1 else 's'}"
+          f" + {s['lands']} lands + {s['nonland']} non-land   [checked]")
+    # The two manabase levers, side by side: land count and accelerant count
+    # are the pair you trade against each other before choosing any card.
+    print(f"  manabase levers: {s['lands']} lands"
+          f" (+{s['mdfc_land_backs']} MDFC land backs)"
+          f"   {s['accelerants']} accelerants at MV<=3")
+    print(f"  average non-land MV {s['avg_mv']:.2f}"
+          f"   Game Changers {s['game_changers']}")
+
+    nonland_cards = sum(s["curve"].values())
+    print(f"\n--- curve ({nonland_cards} non-land cards) ---")
+    for mv in range(CURVE_TOP + 1):
+        n = s["curve"].get(mv, 0)
+        label = f"{mv}+" if mv == CURVE_TOP else str(mv)
+        # rstrip: an empty bar would leave trailing spaces, which are
+        # invisible in review and churn in a byte-exact snapshot.
+        print(f"  {label:>3} {n:3d}  {'#' * min(n, 40)}".rstrip())
+
+    print(f"\n--- slots by type ({sum(s['types'].values())} non-commander"
+          f" cards) ---")
+    for t, n in sorted(s["types"].items(), key=lambda kv: (-kv[1], kv[0])):
+        print(f"  {t:14s} {n:3d}")
+    # Type lines are what can be counted. Ramp, draw and interaction are what
+    # a skeleton actually budgets, and inferring them needs a heuristic this
+    # repo would have to invent -- so they are absent rather than guessed.
+    print("\n  Types, not functional roles: ramp/draw/interaction are not "
+          "inferred.\n  The one measured functional count is the accelerants "
+          "above.")
+    return s
 
 
 def report_own(cmdr, entries, scry):

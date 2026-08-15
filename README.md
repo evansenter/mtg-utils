@@ -140,6 +140,7 @@ five points; `KNOWN_ISSUES.md` #13 records them instead.
 | `fetch` | Build or refresh the Scryfall cache for a decklist |
 | `verify` | Count, legality, colour identity, Game Changers, average MV, tapped classes |
 | `mana` | The full mana pass: sources model + play simulation |
+| `skeleton` | Slot budget and curve: `100 = commanders + lands + non-land`, asserted |
 | `roster` | The roster walk: every cycle slot, IN / benched / buy |
 | `variants` | Land and accelerant count sweep. Slow, opt-in |
 | `combos` | Commander Spellbook full-deck audit |
@@ -175,6 +176,31 @@ across `--reps`, not multiplied by it**. A default run therefore does the same
 work it always did and its mean is exactly as precise as it was; the error bar
 comes out of re-slicing that budget. `--reps=1` reproduces the pre-replicate
 numbers exactly at the same seed, and prints `±0.0`.
+
+### `skeleton` — the slot budget, before you pick cards
+
+```
+python3 mana_model.py skeleton deck.txt --cache scry.json
+```
+
+Land count, non-land count, the curve and the counts by type — the numbers you
+set *before* selecting cards, and the ones that otherwise get done by hand.
+
+**The identity is asserted, not printed for you to check.** `100 = commanders +
+lands + non-land` is verified in `deck_skeleton`, which raises when it does not
+hold and names the cards that landed in no category (in practice, a name
+Scryfall could not resolve). Hand arithmetic once shipped a header reading
+"24 lands plus 75 non-land" for a 100-card deck — the commander was missing
+from the sum and nothing caught it.
+
+The two manabase levers sit on one line, land count beside accelerants at
+MV ≤ 3, because they are what you trade against each other.
+
+Categories are **type lines**, not functional roles. Ramp, draw and interaction
+are what a skeleton really budgets, and they are not inferrable without a
+heuristic this repo would have to invent, so they are absent and said to be
+absent. The one functional count is measured: accelerants come from the same
+gate the mana models use.
 
 ### `ceiling` — what is above the bar and missing
 

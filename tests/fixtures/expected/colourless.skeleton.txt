@@ -1,0 +1,24 @@
+
+=== SKELETON: Zhulodok, Void Gorger ===
+  100 = 1 commander + 27 lands + 72 non-land   [checked]
+  manabase levers: 27 lands (+0 MDFC land backs)   24 accelerants at MV<=3
+  average non-land MV 2.50   Game Changers 5
+
+--- curve (72 non-land cards) ---
+    0   7  #######
+    1  11  ###########
+    2  18  ##################
+    3  18  ##################
+    4  12  ############
+    5   5  #####
+    6   1  #
+   7+   0
+
+--- slots by type (99 non-commander cards) ---
+  Artifact        58
+  Land            27
+  Creature        12
+  Instant          2
+
+  Types, not functional roles: ramp/draw/interaction are not inferred.
+  The one measured functional count is the accelerants above.
