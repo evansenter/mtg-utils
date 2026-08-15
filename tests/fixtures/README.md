@@ -19,6 +19,8 @@ the one thing the golden suite exists to make impossible.
 | `primer.md` | A primer for the `multi` deck carrying one of each `primer` finding |
 | `primer.scry.json` | Scryfall records for the cards `primer.md` links — a **projection** |
 | `ceiling.combos.json` | A real Commander Spellbook find-my-combos response for `partner.txt`, trimmed to whole combos |
+| `ceiling.lands.rec.json` | An EDHREC-shaped page ranking seven lands: four the roster can rank, three it deliberately cannot |
+| `ceiling.lands.scry.json` | Real Scryfall records for those seven — a **projection**, kept for their type lines |
 
 ## The `ceiling` fixtures
 

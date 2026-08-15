@@ -59,13 +59,16 @@ from mtg_utils.castability import (_match, at_least_in_draw, castable,
 from mtg_utils.decklist import (apply_swaps, as_cmdrs, diff_multiset, flat,
                                 parse_swaps, read_decklist, write_deck)
 from mtg_utils.primer import LINK_RE, parse_primer_links, unclosed_openers
-from mtg_utils.roster import (ANY_COLOUR, PAIR_CYCLES, TRIPLE_CYCLES, WUBRG,
-                              identity_pairs, pair_key, roster_names, roster_status)
+from mtg_utils.roster import (ANY_COLOUR, OFF_ROSTER_RANK, PAIR_CYCLES,
+                              TRIPLE_CYCLES, WUBRG, identity_pairs,
+                              pair_from_type_line, pair_key, roster_names,
+                              roster_slot, roster_status)
 from mtg_utils.analysis import (CURVE_TOP, SKELETON_TYPES, analyse_mana,
                                 ceiling_audit, collapse_temps,
                                 combo_completions, commander_lines,
                                 compare_swap, deck_base_name, deck_skeleton,
-                                mean_spread, opening_hand_floor, primer_audit,
+                                land_roster_note, mean_spread,
+                                opening_hand_floor, primer_audit,
                                 replicate_playsim, split_budget, t95,
                                 type_bucket, verify, worst_lines)
 from mtg_utils.sources import UA_BROWSER, UA_TOOL

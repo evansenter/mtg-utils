@@ -1,0 +1,72 @@
+{
+ "bountiful promenade": {
+  "collector_number": "226",
+  "id": "f0b11ba3-68ba-4067-af40-2a55e31b395e",
+  "name": "Bountiful Promenade",
+  "prices": {
+   "usd": "5.65"
+  },
+  "set": "msc",
+  "type_line": "Land"
+ },
+ "canopy vista": {
+  "collector_number": "227",
+  "id": "369e6485-fbc7-45f9-ac9d-2e26dd94f2d5",
+  "name": "Canopy Vista",
+  "prices": {
+   "usd": "0.28"
+  },
+  "set": "msc",
+  "type_line": "Land \u2014 Forest Plains"
+ },
+ "cinder glade": {
+  "collector_number": "230",
+  "id": "ec93087a-5728-40e8-8625-a1d175d5252c",
+  "name": "Cinder Glade",
+  "prices": {
+   "usd": "0.27"
+  },
+  "set": "msc",
+  "type_line": "Land \u2014 Mountain Forest"
+ },
+ "gaea's cradle": {
+  "collector_number": "321",
+  "id": "25b0b816-0583-44aa-9dc5-f3ff48993a51",
+  "name": "Gaea's Cradle",
+  "prices": {
+   "usd": "1636.78"
+  },
+  "set": "usg",
+  "type_line": "Legendary Land"
+ },
+ "glacial fortress": {
+  "collector_number": "248",
+  "id": "d673a2d5-0c61-48dc-8c8d-06f0c7b6b8bf",
+  "name": "Glacial Fortress",
+  "prices": {
+   "usd": "0.32"
+  },
+  "set": "msc",
+  "type_line": "Land"
+ },
+ "sunken hollow": {
+  "collector_number": "271",
+  "id": "3a8eef9b-9b03-42cd-a27a-07021bf0b33f",
+  "name": "Sunken Hollow",
+  "prices": {
+   "usd": "0.31"
+  },
+  "set": "msc",
+  "type_line": "Land \u2014 Island Swamp"
+ },
+ "unclaimed territory": {
+  "collector_number": "275",
+  "id": "d3782952-3839-4a94-95bc-716611d3ece6",
+  "name": "Unclaimed Territory",
+  "prices": {
+   "usd": "0.32"
+  },
+  "set": "msc",
+  "type_line": "Land"
+ }
+}

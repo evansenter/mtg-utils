@@ -234,6 +234,45 @@ With `--cedh`, the tournament entry count is printed beside every percentage,
 and below five entries **no percentage is quoted at all** — at four entries
 every card is 25%, 50%, 75% or 100%.
 
+#### Land rows are cross-referenced against the roster
+
+Inclusion is the right tool for spells and the wrong one for lands: EDHREC's
+land data reflects the population playing the commander, which is a budget
+population. `roster.py` already enumerates every cycle slot per colour pair,
+**best first**, so it can answer what inclusion cannot — is this land worse than
+what is already filling that slot:
+
+```
+  Glacial Fortress                     79.2%  +0.300    9000/11360    0  $0.32
+      ROSTER: WU already holds Tundra (ABUR dual), Hallowed Fountain (Shockland), Flooded Strand (Fetchland); this is the Checkland
+  Canopy Vista                         78.3%  +0.290    8900/11360    0  $0.28
+      ROSTER: WG already holds Savannah (ABUR dual), Temple Garden (Shockland), Windswept Heath (Fetchland); this is on no roster cycle
+```
+
+Two mechanisms, because one is not enough. A land **on** a roster cycle gets its
+pair and its rank from the cycle table. A land on **no** cycle — a battle land,
+say — gets its pair from its **basic land types** (`Land — Forest Plains` → `WG`)
+and ranks below every cycle, because that is what being on no cycle means.
+Without the second mechanism a battle land is indistinguishable from Gaea's
+Cradle.
+
+It **annotates, never suppresses**. A suppressed row is indistinguishable from a
+row that was never ranked, and a shorter table reads as less work to do.
+
+And it stays quiet wherever the roster has no opinion, which matters more than
+the verdicts:
+
+- **A land with no colour pair** (Gaea's Cradle, Urza's Saga) gets nothing.
+  These are among the best rows the table will ever print, and a "not on the
+  roster" warning would land on exactly the cards worth buying.
+- **An any-colour slot** (Exotic Orchard, Unclaimed Territory) is named by the
+  roster but carries no quality ordering, so it is not ranked. These two are the
+  known residue: the roster cannot say they are worse than what is in.
+- **A pair with nothing better already in it** is not a downgrade.
+
+The comparison is one-directional: holding the WU Pathway does not make the ABUR
+dual a downgrade, it makes it the upgrade.
+
 #### The Commander Spellbook cross-check
 
 A ceiling row is ranked on how often *other people* play the card. That says
