@@ -1,5 +1,6 @@
 """argparse wiring. Same subcommands, same flags, same argument names."""
 import argparse
+import os
 import sys
 import time
 
@@ -9,9 +10,36 @@ from mtg_utils.decklist import flat, read_decklist, write_deck
 from mtg_utils.report import (report_calibrate, report_combos, report_contention,
                               report_diff, report_mana, report_own, report_roster,
                               report_variants)
-from mtg_utils.selftest import selftest
 from mtg_utils.sources.moxfield import moxfield_deck
 from mtg_utils.sources.scryfall import scry_fetch
+
+TESTS_DIR = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "tests")
+
+
+def selftest():
+    """Run the pytest suite. Still a subcommand, so the CLI contract holds.
+
+    The assertions that used to live in this file are now pytest cases with
+    their names kept verbatim, plus the golden suite that diffs this code's
+    output against the frozen reference. Running it is no longer a one-second
+    job -- it is the whole suite, including the Monte Carlo passes over three
+    real decks -- but it is the same question: did anything move.
+
+    pytest is the only dev dependency; the package itself is standard library
+    only, so the import is deliberately late and the failure explicit.
+    """
+    try:
+        import pytest
+    except ImportError:
+        raise SystemExit(
+            "selftest runs the pytest suite: pip install pytest\n"
+            "(mtg_utils itself needs nothing but the standard library)")
+    if not os.path.isdir(TESTS_DIR):
+        raise SystemExit(f"no tests/ directory at {TESTS_DIR} -- selftest needs "
+                         "the repository, not just an installed package")
+    return pytest.main([TESTS_DIR])
+
 
 # ============================================================ CLI
 def main():
