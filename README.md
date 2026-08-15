@@ -53,6 +53,15 @@ understates castability badly — measured on one deck, `{2}{R}{G}{W}` on turn
 five was 36.4% lands-only and 53.5% once accelerants were counted. The
 lands-only figure is a statement about land count, not about castability.
 
+**A source is a permanent with an activated ability that adds mana.** The cost
+need not be `{T}`: Ashnod's Altar adds `{C}{C}` off a sacrifice and is a real
+repeatable source. One-shots are excluded — Dark Ritual is an Instant, and
+counting it as a permanent had it producing three mana every turn from the
+moment it was drawn — which understates a ritual-heavy deck, deliberately.
+Spells that merely *make* a mana-producing token are excluded too: a Treasure's
+reminder text says "Add one mana of any color", which once made a counterspell
+count as one of your sources.
+
 **Restricted mana is not mana.** Fíli and Kíli, Joyous taps for `{R}{R}` *"only
 to cast Dwarf, Equipment, and Saga spells"*; Delighted Halfling's coloured mana
 is legendary-only. `build_accel_profiles` flags these `restricted` and excludes

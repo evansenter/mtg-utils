@@ -63,6 +63,25 @@ def build_land_profiles(deck_names, scry):
     return profiles
 
 
+# A mana source is a PERMANENT with an activated ability that adds mana.
+# "Battle" and "Planeswalker" are here for completeness; front-face lands are
+# already filtered out before this is consulted.
+PERMANENT_TYPES = ("Artifact", "Creature", "Enchantment", "Land",
+                   "Planeswalker", "Battle")
+# Reminder text is parenthetical, and a Treasure token's reminder text reads
+# '{T}, Sacrifice this token: Add one mana of any color'. Matching it made
+# every Treasure-maker a mana source. Strip parentheticals before deciding
+# whether THIS card makes mana -- but never for a land, where a dual's whole
+# ability is reminder text: Taiga's oracle text is exactly "({T}: Add {R} or
+# {G}.)" and stripping it would leave nothing.
+REMINDER_TEXT = re.compile(r"\([^)]*\)")
+# An activated ability that adds mana: a cost, a colon, then "add" before the
+# clause ends. The cost deliberately does NOT have to be {T} -- Ashnod's Altar
+# and Phyrexian Altar add mana off a sacrifice and are real, repeatable
+# sources.
+MANA_ABILITY = re.compile(r":[^.]*\badd\b")
+
+
 def build_accel_profiles(deck_names, scry, max_mv=3):
     """Cheap accelerants: non-land, MV <= max_mv, taps for mana.
 
@@ -79,9 +98,15 @@ def build_accel_profiles(deck_names, scry, max_mv=3):
         if mv > max_mv:
             continue
         txt = (front(c, "oracle_text", "") or "").lower()
-        if not re.search(r"\{t\}[^:]*:\s*add", txt) and "add " not in txt:
+        # Both halves are load-bearing. The permanent check drops one-shots:
+        # Dark Ritual (Instant, MV 1, "Add {B}{B}{B}") was counted as a
+        # permanent producing three mana EVERY turn from the moment it was
+        # drawn. The reminder-text strip drops spells that merely make a
+        # mana-producing token: An Offer You Can't Refuse is a counterspell
+        # whose Treasures go to the OPPONENT, and it counted as a source.
+        if not any(t in c["type_line"].split("//")[0] for t in PERMANENT_TYPES):
             continue
-        if "add" not in txt:
+        if not MANA_ABILITY.search(REMINDER_TEXT.sub(" ", txt)):
             continue
         pm = set(x for x in (c.get("produced_mana") or []) if x in MANA_SYMBOLS)
         if not pm and re.search(r"add \{c\}", txt):

@@ -37,7 +37,7 @@ across the board — including any number already written into a primer.
 
 ---
 
-## 2. One-shot rituals are counted as permanent, repeatable mana sources
+## 2. One-shot rituals are counted as permanent, repeatable mana sources — FIXED
 
 `build_accel_profiles`, the second filter:
 
@@ -61,9 +61,36 @@ from the moment it is drawn**.
 **Cost:** inflates both models in any deck running rituals. The multicolour
 fixture contains Dark Ritual, so the committed snapshots embed this behaviour.
 
-**Fixing it** requires deciding what a ritual *should* count as — arguably
-something, since it does produce mana once — which makes it a modelling
-decision, not just a bug fix.
+**Fixed**, and the survey found three distinct things being counted, not one:
+
+- **Token reminder text.** An Offer You Can't Refuse and Deadly Dispute carry
+  "Add one mana of any color" inside a Treasure's *parenthetical reminder
+  text*; Warping Wail the same via an Eldrazi Scion. An Offer is a counterspell
+  and its Treasures go to the **opponent**. Unambiguous.
+- **Deferred, conditional mana.** Mana Drain adds `{C}` at your next main
+  phase, and only if it countered something.
+- **Real rituals.** Dark Ritual at `amount=3`, Seething Song at `amount=5`.
+
+The rule is now: a **permanent** with an **activated ability that adds mana**,
+matched against oracle text with parentheticals stripped. The cost deliberately
+need not be `{T}` — Ashnod's Altar and Phyrexian Altar add mana off a sacrifice
+and are real repeatable sources that a `{T}`-only rule silently drops. The strip
+is applied to the accelerant gate only, never to lands, where an ABUR dual's
+entire ability is reminder text.
+
+Rituals are therefore not counted at all. That understates a ritual-heavy deck,
+which is the deliberate trade: both models answer "what sources are available on
+turn N", and a ritual is not one. Modelling a genuine one-shot burst would need
+a new concept in both models and was not attempted.
+
+Measured, matched line-by-line rather than by row position (the table is sorted,
+so positional comparison compares different cards): **every line on every deck
+moved down**, from -0.1 to -9.1 points. Muldrotha's commander line went 83.9% ->
+74.8%. Accelerant counts fell 22->20, 18->14, 25->24 and 16->13.
+
+**Any stored figure predating this is invalid for a deck running rituals or
+Treasure-makers**, and the shift is larger than the ~3-point band the
+quantity/colour diagnostic uses.
 
 ---
 
