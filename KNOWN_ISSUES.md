@@ -1,13 +1,15 @@
 # Known issues — found during the repo migration
 
 Entries marked FIXED have been dealt with since; RESOLVED means the behaviour
-was examined and deliberately kept, with the reasoning recorded. **Nothing here
-is currently outstanding.**
+was examined and deliberately kept, with the reasoning recorded; CHANGED means
+a reported number was moved on purpose, with what moved written down beside it.
+**Nothing here is currently outstanding.**
 
 The file's job does not end when the list empties. It exists because a finding
 that lives only in scrollback gets rediscovered — so a decision NOT to do
 something belongs here too, not in a commit message nobody greps. #13 and #14
-are that shape.
+are that shape, and #15 is the other one: a limitation that was priced, kept,
+and later revisited deliberately, with the earlier entry left standing.
 
 Everything here was found while moving `mana_model.py` into `mtg_utils/`, and
 every one was left exactly as it was, because **fixing any of them would change
@@ -108,6 +110,12 @@ moved down**, from -0.1 to -9.1 points. Muldrotha's commander line went 83.9% ->
 **Any stored figure predating this is invalid for a deck running rituals or
 Treasure-makers**, and the shift is larger than the ~3-point band the
 quantity/colour diagnostic uses.
+
+**Superseded in part by #15**, which models a ritual as a one-shot burst in the
+play simulation. Nothing above is edited: this entry is the record of why the
+number moved the *first* time, and the thing it removed — a permanent,
+repeatable source producing its full amount every turn — is not coming back.
+What #15 revisits is the sentence saying a genuine burst "was not attempted".
 
 ---
 
@@ -431,3 +439,90 @@ commander-on-curve figure by about five points. A London mulligan with a
 "keep 2-5 lands" rule is defensible and standard, but it is a modelling
 choice that would move every number in the repo, and it should arrive as its
 own commit with the snapshot diff shown.
+
+---
+
+## 15. One-shot rituals were not counted at all — CHANGED, the number moved on purpose
+
+The residual left over from #2. That entry removed rituals-as-permanent-sources
+and, having no concept of a one-turn burst to replace it with, counted them at
+zero. Zero is wrong in the other direction, and by more than the ~3-point band
+the quantity/colour diagnostic uses: a Dark Ritual in hand with an untapped
+Swamp genuinely does give you three mana on turn one.
+
+The line #2 drew was a claim about the data structure, not about the question:
+
+> Dark Ritual was excluded because an Instant is never on the battlefield to be
+> read at all, not because it is one-shot.
+
+The play simulation advertises "do I have N mana on turn N". Lotus Petal and
+Dark Ritual are both one-shot and both net-positive on exactly one turn, and
+only one of them was counted — because only one of them is a permanent.
+
+**What is modelled now**, in the play simulation only:
+
+- A ritual is a non-permanent of mana value ≤ 3 whose oracle text carries a
+  clause that IS a sentence and is nothing but mana symbols — "Add {B}{B}{B}."
+- Its contribution is the **net**: Dark Ritual +2, Seething Song +2, Cabal
+  Ritual +1. Gross is the shape of the #2 bug.
+- It fires only if its own cost is payable, in the right colours, off sources
+  already online that turn — so it is worth less in a deck that cannot reliably
+  make its colour, which is what the play simulation exists to measure.
+- One per turn, read from hand after accelerant deployment, so it can never
+  fund a rock and never compounds.
+- The card's own cost is ignored, consistent with the rest of the model, which
+  prices mana available and not cards spent.
+
+**The sources model still counts rituals at zero, deliberately.** It has no
+turn ordering to attach "available on exactly this turn" to. So the two models
+disagree by design on a ritual deck, and the sources-model row is the lower of
+the two — one more reason a quoted figure must say which model produced it.
+
+**What moved** (20,000 trials, 3 reps, seed 17; on the play):
+
+| deck | line | before | after |
+|---|---|---|---|
+| multi | Muldrotha, the Gravetide on curve | 74.9% | 78.0% |
+| multi | Memory T6 | 72.3% | 75.0% |
+| multi | Counterspell T2 `{U}{U}` | 54.7% | 54.7% |
+| mono | Etali, Primal Storm T6 | 80.9% | 83.5% |
+| mono | Big Score T4 | 90.4% | 91.1% |
+| mono | Magda, Brazen Outlaw on curve (T2) | 92.8% | 92.8% |
+| partner | Tymna the Weaver on curve | 84.5% | 85.4% |
+| partner | Eternal Witness T3 | 75.3% | 75.5% |
+| colourless | *(no ritual in the deck)* | — | — |
+
+Every move is upward, which is the only direction a burst can move a figure,
+and the largest is +3.1. The rows that did not move say as much as the ones
+that did: **Counterspell T2** needs `{U}{U}` and a black burst pays neither
+pip, while its generic baseline beside it moved 92.7 → 93.2; **Magda on curve**
+is turn two and Seething Song costs three; every turn-one line on every deck is
+unchanged. The colourless deck runs no ritual and its snapshot is byte-identical
+— `mana` prints the ritual line only when there is one, so a ritual-free deck
+still produces exactly the bytes it produced before this existed, which keeps
+that fixture a live control on the gate.
+
+Note that **mono moved**, and the issue proposing this expected it not to. It
+runs Seething Song, which is a ritual by exactly the reading that admits Dark
+Ritual, and the issue names it as one two paragraphs above saying mono is
+unaffected. Admitting it is correct; the expectation was the error.
+
+**Known residuals, priced and kept:**
+
+- **The sources that pay for the ritual are not spent.** The burst is added to
+  the board rather than swapped for the sources it cost, so a Seething Song
+  paid for with two Islands keeps that blue available alongside the red it
+  made. Overstates colour flexibility by at most the pips of the ritual's own
+  cost, and only when the paying source is a dual. Modelling the payment
+  properly means choosing WHICH sources are tapped — a search, inside the trial
+  loop, for a fraction of a pip.
+- **A held ritual is available on every turn it is held.** It is re-read from
+  hand each turn and never lands on the battlefield, so it cannot compound; but
+  turn five's reading assumes you did not fire it on turn one. That is the
+  right reading of a per-turn question and of how a ritual is actually played —
+  firing it on sight would model casting Dark Ritual into an empty hand — and
+  it is the one place where "one-shot" is not literally simulated.
+- **Treasure engines are still excluded.** Pitiless Plunderer and Warren
+  Soultrader are an understatement in the same direction and stay out: their
+  "add" text is a Treasure's reminder, and the rate at which they make one is a
+  board state, which is what #13 declines to invent.

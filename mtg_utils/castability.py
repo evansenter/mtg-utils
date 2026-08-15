@@ -204,17 +204,66 @@ def at_least_in_draw(k, sources, cards_seen, deck=99):
 
 
 # ============================================================ play simulation
+def ritual_burst(srcs, cands):
+    """The best single ritual castable off `srcs` this turn, or None.
+
+    `cands` are hand entries -- {"p": profile, "pips": [...]} -- and the
+    profile that comes back IS the burst: `amount` is the net, so appending it
+    to `srcs` leaves the board at total + net, which is what the turn actually
+    has after the ritual resolves.
+
+    The gate is `castable` against the ritual's OWN cost, so a Dark Ritual
+    with no untapped black source contributes nothing. That is the whole
+    difference between this and a flat bonus, and the reason a ritual is worth
+    less in a deck that cannot reliably make its colour -- which is exactly
+    the question the play simulation exists to answer.
+
+    ONE per turn, best first. Two rituals really do chain in play, and the
+    second is paid for out of the first's mana -- a burst funding a burst,
+    which is the shape of every overstatement this model has already had. The
+    cap costs a line that needs two rituals in one hand and can only ever
+    lower a figure, which is the safe direction.
+
+    Ordered by net then name so the choice is deterministic: the same board
+    and the same hand pick the same ritual on every run and every seed.
+    """
+    for c in sorted(cands, key=lambda c: (-c["p"]["amount"], c["p"]["name"])):
+        if castable(srcs, list(c["pips"]), c["p"]["cost"]):
+            return c["p"]
+    return None
+
+
 def playsim(lands, accels, deck_size, turns, on_draw, trials, rng,
-            count_restricted=False, count_triggered=False):
+            count_restricted=False, count_triggered=False, rituals=None):
     """Draw seven (+1 on the draw), draw one per turn, play a land if you have
     one, deploy the cheapest affordable accelerant, then read off available
-    mana. Returns per-turn lists of (available source profiles, total mana)."""
+    mana. Returns per-turn lists of (available source profiles, total mana).
+
+    `rituals` are one-shot spells (build_ritual_profiles), and they are handled
+    nothing like accelerants. A ritual is never deployed to the battlefield and
+    never becomes a source: it is read out of HAND, once, at the end of the
+    turn, as a burst of its net mana, and only if the board can pay its cost.
+
+    It stays in hand across turns on purpose. Each turn's reading is a separate
+    question -- "if I am holding this on turn five, do I have five mana on turn
+    five" -- and a real player holds a ritual until the turn it pays for
+    something. Firing it on the first turn it is castable would model a player
+    who casts Dark Ritual into an empty hand, and would understate every later
+    turn. What must not happen, and does not, is the mana COMPOUNDING: it is
+    recomputed from scratch each turn, never lands on the battlefield, and
+    never funds an accelerant.
+    """
     accels = [a for a in accels
               if (count_restricted or not a.get("restricted"))
               and (count_triggered or a.get("trigger") != "event")]
     lands = [l for l in lands if count_restricted or not l.get("restricted")]
+    # The pips are solved ONCE here rather than per turn per trial: the cost of
+    # a card does not change, and pips_from_cost inside the trial loop is the
+    # kind of work that turns a 20,000-trial run into a coffee break.
     entries = ([{"t": "land", "p": p} for p in lands] +
-               [{"t": "accel", "p": a} for a in accels])
+               [{"t": "accel", "p": a} for a in accels] +
+               [{"t": "ritual", "p": r, "pips": pips_from_cost(r["mana_cost"])}
+                for r in (rituals or [])])
     deck = entries + [{"t": "spell"}] * (deck_size - len(entries))
     assert len(deck) == deck_size, (len(deck), deck_size)
 
@@ -283,15 +332,25 @@ def playsim(lands, accels, deck_size, turns, on_draw, trials, rng,
                 spent += c["p"]["cost"]
                 rocks.append({"p": c["p"], "entered": t})
             srcs = online()
+            # AFTER the deployment loop, so a ritual can never pay for an
+            # accelerant. The burst is one turn of mana; a rock it bought
+            # would be on the battlefield for the rest of the game.
+            if rituals:
+                held = [c for c in hand if c["t"] == "ritual"]
+                burst = ritual_burst(srcs, held) if held else None
+                if burst:
+                    srcs = srcs + [burst]
             out[t].append(srcs)
     return out
 
 
-def playsim_report(lands, accels, deck_size, lines, trials, rng, turns=7):
+def playsim_report(lands, accels, deck_size, lines, trials, rng, turns=7,
+                   rituals=None):
     """lines: list of (label, mana_value, pip_string like '{R}{R}')."""
     res = {}
     for on_draw in (False, True):
-        rounds = playsim(lands, accels, deck_size, turns, on_draw, trials, rng)
+        rounds = playsim(lands, accels, deck_size, turns, on_draw, trials, rng,
+                         rituals=rituals)
         key = "draw" if on_draw else "play"
         res[key] = {"generic": {}, "lines": {}}
         for t in range(1, turns + 1):

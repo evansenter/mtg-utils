@@ -1,4 +1,8 @@
-"""Source profiles: what each land and cheap accelerant actually produces."""
+"""Source profiles: what each land and cheap accelerant actually produces.
+
+Plus one shape that is NOT a source and is built separately for that reason:
+a ritual, which produces mana on exactly one turn and never again.
+"""
 import re
 
 from mtg_utils.cards import (COLOURS, MANA_SYMBOLS, BASIC_TYPE_COLOUR, enters_tapped,
@@ -217,5 +221,138 @@ def build_accel_profiles(deck_names, scry, max_mv=3):
             "trigger": trigger,
             "creature": "Creature" in c["type_line"].split("//")[0],
             "mdfc": False,
+        })
+    return out
+
+
+# A RITUAL is the fourth shape of mana, and the only one that is never on the
+# battlefield to be read: a one-shot spell whose whole effect is "Add {..}".
+# It is NOT an accelerant and must never be counted as one -- see
+# KNOWN_ISSUES.md #2 for what happened when it was. The play simulation
+# consumes these as a single-turn burst; the sources model does not consume
+# them at all, because it has no turn ordering to attach "available on exactly
+# this turn" to.
+#
+# The clause has to BE a sentence of its own that is nothing but mana symbols.
+# Every near miss in the four fixtures fails on one of those two halves, and
+# each of them is a card that would otherwise be counted:
+#
+#   Warping Wail    '... token. It has "Sacrifice this token: Add {C}."'
+#                   an ability the TOKEN has, and in quotes rather than
+#                   parentheses, so stripping reminder text does not reach it
+#                   -- the colon disqualifies it, the way MANA_ABILITY's colon
+#                   qualifies a rock
+#   Jeska's Will    '• Add {R} for each card in target opponent's hand.'
+#   Mana Geyser     'Add {R} for each tapped land your opponents control.'
+#                   an amount that depends on an opponent's board
+#   Mana Drain      'At the beginning of your next main phase, add an amount
+#                   of {C} equal to that spell's mana value.'
+#                   deferred to a phase this model does not simulate, an
+#                   amount it cannot know, and conditional on countering
+#                   something
+#
+# Most of them are refused two or three times over -- by an anchor, by the
+# net arithmetic below, or by the mana-value cap -- so no single loosening
+# here admits one. tests/test_rituals.py says per card which rule is load
+# bearing and which case pins only the outcome, because a case that passes for
+# a reason other than the one it names is a case this repo has already been
+# bitten by.
+#
+# The bullet is in the prefix class so that a MODE of a modal spell can be a
+# ritual: you choose the mode, so a fixed-amount one is real mana.
+RITUAL_ADD = re.compile(r"(?:^|[.\n•]\s*)add ((?:\{[wubrgc]\})+)(?=[.\n]|$)")
+# "Sacrifice a creature" as an additional cost is a board state the model does
+# not track, exactly like the conditional accelerants KNOWN_ISSUES.md #13
+# declines to price. Culling the Weak ("As an additional cost to cast this
+# spell, sacrifice a creature. Add {B}{B}{B}{B}.") is a ritual on paper and an
+# empty board away from producing nothing.
+ADDITIONAL_COST = "as an additional cost to cast this spell"
+
+
+def ritual_add(txt):
+    """(colours, gross mana) for a one-shot "Add {..}{..}." clause.
+
+    Returns (set(), 0) when the text has no such clause, which is the common
+    case: this is a gate, not a parser.
+
+    The LARGEST qualifying clause wins, and the colours come from that same
+    clause rather than from the union of all of them: two Add clauses in one
+    text are alternatives you choose between, so summing them would credit a
+    card with mana it cannot make in one cast and mixing their colours would
+    credit it with a colour it cannot make at all.
+
+    Like triggered_mana's phase-before-event order, that rule is A CHOICE NO
+    PRINTED CARD HERE EXERCISES, and it is written down rather than left
+    implicit. A second clause has to be a sentence of its own beginning with
+    "Add" to match at all, which the real two-clause rituals are not: Cabal
+    Ritual's second is behind "Threshold —" and Rite of Flame's is behind
+    "Then". Both are correctly read at their unconditional amount, by the
+    anchors rather than by this rule. There is no test for max-over-sum
+    specifically, because there is no card to write one against.
+    """
+    best, cols = 0, set()
+    for m in RITUAL_ADD.finditer(txt):
+        syms = re.findall(r"\{([wubrgc])\}", m.group(1))
+        if len(syms) > best:
+            best, cols = len(syms), {s.upper() for s in syms}
+    return cols, best
+
+
+def build_ritual_profiles(deck_names, scry, max_mv=3):
+    """One-shot rituals: non-permanent, MV <= max_mv, nets mana the turn it is cast.
+
+    `amount` is the NET -- Dark Ritual ({B} for {B}{B}{B}) is 2, not 3, and
+    Seething Song ({2}{R} for five red) is 2, not 5. Counting the gross is the
+    shape of the #2 bug and would put a one-mana instant three mana ahead.
+
+    `kind` is "ritual" rather than an "accel" carrying a flag, deliberately.
+    Anything that COUNTS accelerants -- the `accelerants counted:` line,
+    `skeleton`, the `variants --accel` sweep -- must not silently start
+    including a card that is not a source, or the number the sweep varies
+    stops meaning what the report says it means. The two questions want
+    different answers, so they get different lists.
+
+    Disjoint from build_accel_profiles by construction: that one requires a
+    permanent type on the front face and this one requires the absence of one.
+    No card in the fixtures actually needs that line -- a permanent's mana
+    clause sits behind a colon or a trigger and fails the clause reader on its
+    own -- so it is a boundary rather than a filter, and it is what makes "a
+    card appears in at most one of these two lists" true by construction
+    instead of by luck.
+    """
+    out = []
+    for n in deck_names:
+        c = scry.get(n.lower())
+        if not c or is_front_land(c):
+            continue
+        if any(t in c["type_line"].split("//")[0] for t in PERMANENT_TYPES):
+            continue
+        mv = int(float(front(c, "cmc", c.get("cmc", 0)) or 0))
+        if mv > max_mv:
+            continue
+        txt = (front(c, "oracle_text", "") or "").lower()
+        if ADDITIONAL_COST in txt or RESTRICTED_MANA in txt:
+            continue
+        # Reminder text is stripped for the same reason the accelerant gate
+        # strips it: a Treasure's parenthetical describes an ability the TOKEN
+        # has. An Offer You Can't Refuse and Deadly Dispute are counterspell
+        # and cantrip, and both carry "Add one mana of any color" inside one.
+        # The land caveat that makes stripping unsafe there cannot apply here
+        # -- a land is not a ritual.
+        cols, gross = ritual_add(REMINDER_TEXT.sub(" ", txt))
+        net = gross - mv
+        if net < 1:
+            continue
+        out.append({
+            "name": c["name"].lower(), "kind": "ritual",
+            "colours": frozenset(cols), "filter": None, "omni": None,
+            # The profile IS the burst the play simulation adds to the board
+            # for one turn, so `amount` has to be the net and `colours` the
+            # mana it makes. Read as a source it would be a two-mana any-turn
+            # rock, which is why nothing may read it as one.
+            "amount": net, "gross": gross,
+            "cost": mv, "mana_cost": front(c, "mana_cost", "") or "",
+            "tapped": False, "cond_tap": None, "restricted": False,
+            "trigger": None, "creature": False, "mdfc": False,
         })
     return out

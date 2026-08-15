@@ -6,7 +6,8 @@ a figure with its noise beside it. analysis.py does the measuring.
 from mtg_utils.analysis import analyse_mana, commander_lines, compare_swap, replicate_playsim
 from mtg_utils.castability import pips_from_cost
 from mtg_utils.decklist import as_cmdrs, flat
-from mtg_utils.profiles import build_accel_profiles, build_land_profiles
+from mtg_utils.profiles import (build_accel_profiles, build_land_profiles,
+                                build_ritual_profiles)
 
 
 def _reps(n):
@@ -22,6 +23,7 @@ def report_mana(cmdr, entries, scry, sims, trials, seed=17, lines=None, reps=3):
     # float and a TypeError several lines from the cause.
     v, accels, rows, lines, res, floor = (a["verify"], a["accels"], a["rows"],
                                           a["lines"], a["sim"], a["floor"])
+    rituals = a["rituals"]
 
     print(f"\n=== MANA BASE ({v['lands']} front-face lands"
           f" + {v['mdfc_land_backs']} MDFC land-backs, "
@@ -33,6 +35,22 @@ def report_mana(cmdr, entries, scry, sims, trials, seed=17, lines=None, reps=3):
     restricted = [a["name"] for a in accels if a.get("restricted")]
     print(f"  accelerants counted: {len([a for a in accels if not a.get('restricted')])}"
           f"  (restricted, excluded: {', '.join(restricted) if restricted else 'none'})")
+    # Printed on its own line, and never added to the accelerant count above.
+    # A ritual is not a source: it is one turn of mana, it appears in the play
+    # simulation only, and the sources model below does not see it. Saying so
+    # here is what stops the two tables in this report reading as a
+    # contradiction on a deck that runs one.
+    #
+    # Printed only when there ARE rituals, unlike the "restricted ... none"
+    # note above it. That is not a formatting preference: a deck with no
+    # ritual then produces output byte-identical to before rituals existed, so
+    # the ritual-free fixtures stay a live control on this gate. If the
+    # colourless snapshot ever moves, the gate is admitting something it
+    # should not, and the golden suite says so instead of showing a diff that
+    # is all header line.
+    if rituals:
+        burst = ", ".join("%s +%d" % (r["name"], r["amount"]) for r in rituals)
+        print(f"  rituals counted, play simulation only (net burst): {burst}")
 
     # Every figure carries the wobble of its own reported value. Without it a
     # 0.4-point gap between two variants reads exactly like a 4-point one, and
@@ -85,6 +103,11 @@ def report_variants(cmdr, entries, scry, land_deltas, accel_deltas, trials,
     base_lands = build_land_profiles(names, scry)
     accels = build_accel_profiles(names, scry)
     accels = [a for a in accels if not a.get("restricted")]
+    # Held CONSTANT across the sweep, and not counted in the "N accel" label:
+    # --accel varies how many accelerants the deck runs, and a ritual is not
+    # one. Folding them into that count would make the config column disagree
+    # with what the sweep actually varied.
+    rituals = build_ritual_profiles(names, scry)
     basic = next((p for p in base_lands if not p["tapped"] and p["colours"]), None)
     if basic is None and any(d > 0 for d in land_deltas):
         # dict(None) raises TypeError several frames later, which reads as a
@@ -124,7 +147,7 @@ def report_variants(cmdr, entries, scry, land_deltas, accel_deltas, trials,
             # question is always whether one row differs from another.
             r = replicate_playsim(lands, acc, 99,
                                   [("cmdr", cmv, "".join(f"{{{x}}}" for x in creq))],
-                                  trials, seed, reps)
+                                  trials, seed, reps, rituals=rituals)
             a, turn, sa = r["play"]["lines"]["cmdr"]
             b, _, sb = r["draw"]["lines"]["cmdr"]
             g1, s1 = r["play"]["generic"][turn]

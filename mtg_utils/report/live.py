@@ -10,7 +10,8 @@ from collections import Counter
 from mtg_utils.analysis import commander_lines, verify, worst_lines
 from mtg_utils.castability import playsim_report
 from mtg_utils.decklist import as_cmdrs, diff_multiset, flat
-from mtg_utils.profiles import build_accel_profiles, build_land_profiles
+from mtg_utils.profiles import (build_accel_profiles, build_land_profiles,
+                                build_ritual_profiles)
 from mtg_utils.sources.moxfield import moxfield_deck, moxfield_user_decks
 from mtg_utils.sources.scryfall import scry_fetch
 
@@ -65,6 +66,11 @@ def report_calibrate(deck_ids, cache_path, sims, trials, user=None):
         names = flat(cmdr, entries)[len(as_cmdrs(cmdr)):]
         lands = build_land_profiles(names, scry)
         accels = build_accel_profiles(names, scry)
+        # Play simulation only, as everywhere else -- worst_lines below is the
+        # sources model and is deliberately not told about them. A calibration
+        # table puts decks side by side, so a ritual deck measured without its
+        # rituals here would read as worse than a deck that simply owns none.
+        rituals = build_ritual_profiles(names, scry)
         deck_size = len(names)          # the library: deck minus commanders
         srows = worst_lines(names, scry, lands, accels, sims,
                             random.Random(17), top=1, deck_size=deck_size)
@@ -73,7 +79,8 @@ def report_calibrate(deck_ids, cache_path, sims, trials, user=None):
             lines.append((f"{cards[0]} T{turn}", mv,
                           "".join("{%s}" % x for x in req)))
         lines += commander_lines(cmdr, scry)
-        res = playsim_report(lands, accels, deck_size, lines, trials, random.Random(17))
+        res = playsim_report(lands, accels, deck_size, lines, trials,
+                             random.Random(17), rituals=rituals)
 
         worst = None
         for label, mv, pipstr in lines:
