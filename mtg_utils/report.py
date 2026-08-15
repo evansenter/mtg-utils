@@ -4,9 +4,10 @@ import time
 from collections import Counter, defaultdict
 
 from mtg_utils.analysis import (CURVE_TOP, analyse_mana, ceiling_audit,
-                                collapse_temps, commander_lines, compare_swap,
-                                deck_base_name, deck_skeleton, primer_audit,
-                                replicate_playsim, verify, worst_lines)
+                                collapse_temps, combo_completions,
+                                commander_lines, compare_swap, deck_base_name,
+                                deck_skeleton, primer_audit, replicate_playsim,
+                                verify, worst_lines)
 from mtg_utils.cards import front_name
 from mtg_utils.castability import pips_from_cost, playsim_report
 from mtg_utils.decklist import as_cmdrs, diff_multiset, flat
@@ -199,8 +200,33 @@ def report_swap(cmdr, entries, scry, swaps, sims, trials, seed=17, reps=3):
     return c
 
 
+# How many combo lines a ceiling row prints before the rest are summarised.
+# Displacer Kitten alone came back with sixteen `produces` features on one
+# combo; printed whole, one row buries the table it is annotating.
+COMBO_LINES = 2
+PRODUCES_SHOWN = 2
+
+
+def _combo_line(c):
+    """One combo, as a single line under the ceiling row it annotates."""
+    pieces = list(c["with"]) + [f"{t} (template)" for t in c["templates"]]
+    line = "COMBO with " + (", ".join(pieces) if pieces else "the commander")
+    # The honest qualifier. "Almost included" means at least one piece is
+    # missing, not exactly one, so a combo needing two more cards must not
+    # read the same as one this card finishes on its own.
+    if c["also_missing"]:
+        line += f"  (also needs {', '.join(c['also_missing'])})"
+    produces = c["produces"][:PRODUCES_SHOWN]
+    if produces:
+        line += " -> " + ", ".join(produces)
+        extra = len(c["produces"]) - len(produces)
+        if extra:
+            line += f" +{extra} more"
+    return line
+
+
 def report_ceiling(cmdr, entries, scry, cache=None, rec_cache=None, cedh=False,
-                   threshold=50.0, sort="inclusion"):
+                   threshold=50.0, sort="inclusion", combos=True):
     """Collection-ceiling audit: what is above the bar and not in the list.
 
     NETWORK unless both caches already hold what it needs, following the
@@ -267,8 +293,26 @@ def report_ceiling(cmdr, entries, scry, cache=None, rec_cache=None, cedh=False,
             print("  SCRYFALL NOT FOUND (ranked card, front-face names "
                   "only!):", nf)
 
+    # The combo cross-check is ON by default and DEGRADES LOUDLY. The card
+    # this matters for is the one you would never have looked up: a row can
+    # form a forced draw or a two-card infinite with something already in the
+    # list, and on the deck that prompted this the intersection sat at 7%
+    # inclusion -- below any default bar, reachable only by lowering it, which
+    # is exactly when nobody thinks to add a flag. Opt-in would have put the
+    # check behind the decision it exists to inform.
+    #
+    # A Spellbook outage must not take `ceiling` down with it, and must not
+    # quietly turn into "no combos found" either -- an unrun check and a clean
+    # result are the same empty column.
+    completions, combo_note = {}, None
+    if combos:
+        try:
+            completions = combo_completions(spellbook(cmdr, entries), cmdr,
+                                            entries)
+        except SystemExit as e:
+            combo_note = str(e)
     a = ceiling_audit(cmdr, entries, rows, capped, load_collection(), scry,
-                      threshold, sort)
+                      threshold, sort, completions)
     print(f"  {a['considered']} cards ranked; bar is {threshold:.0f}% inclusion"
           f", sorted by {sort}")
     print(f"\n  {'card':34s} {'incl':>7} {'syn':>7} {'n/of':>13} {'own':>4}  price")
@@ -280,11 +324,36 @@ def report_ceiling(cmdr, entries, scry, cache=None, rec_cache=None, cedh=False,
         syn = "-" if m.get("synergy") is None else f"{m['synergy']:+.3f}"
         print(f"  {m['name'][:34]:34s} {m['inclusion']:6.1f}% {syn:>7} {n_of:>13} "
               f"{m['owned']:>4}  {price}")
+        for c in m["combos"][:COMBO_LINES]:
+            print(f"      {_combo_line(c)}")
+        if len(m["combos"]) > COMBO_LINES:
+            # Never a silent cap. A row saying "2 combos" when it has nine is
+            # a smaller number than the truth, printed with confidence.
+            print(f"      ...and {len(m['combos']) - COMBO_LINES} more combo"
+                  f"{'' if len(m['combos']) - COMBO_LINES == 1 else 's'}")
     if not a["missing"]:
         print("  (nothing above the bar is missing from this list)")
     print(f"\n  {len(a['missing'])} missing above the bar, "
           f"{a['owned_count']} already owned; "
           f"buy total ${a['buy_total']:.2f}")
+    if combo_note:
+        # Absence of a check is not a clean result. Said out loud, or the
+        # empty combo column reads as "nothing here interacts".
+        print(f"  COMBO CROSS-CHECK DID NOT RUN: {combo_note}")
+        print("  The rows above are NOT known to be free of combos with this "
+              "list.")
+    elif combos:
+        print(f"  {a['combo_rows']} row"
+              f"{'' if a['combo_rows'] == 1 else 's'} interact with cards "
+              f"already in the list (Commander Spellbook).")
+        if a["combo_rows"]:
+            # Deliberately not "recommended". The interaction that prompted
+            # this feature was a card forming a FORCED DRAW with two cards in
+            # the deck -- a combo is a fact about the list, and whether it is
+            # an argument for or against the card is not Spellbook's to say.
+            print("  A combo is a fact, not a recommendation: verify the "
+                  "pieces against oracle\n  text and decide which direction "
+                  "it argues in.")
     # A capped list is the difference between "this card is unplayed" and
     # "this page did not tell us". Never printed as 0%.
     for header in capped:

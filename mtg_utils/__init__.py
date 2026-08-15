@@ -62,7 +62,8 @@ from mtg_utils.primer import LINK_RE, parse_primer_links, unclosed_openers
 from mtg_utils.roster import (ANY_COLOUR, PAIR_CYCLES, TRIPLE_CYCLES, WUBRG,
                               identity_pairs, pair_key, roster_names, roster_status)
 from mtg_utils.analysis import (CURVE_TOP, SKELETON_TYPES, analyse_mana,
-                                ceiling_audit, collapse_temps, commander_lines,
+                                ceiling_audit, collapse_temps,
+                                combo_completions, commander_lines,
                                 compare_swap, deck_base_name, deck_skeleton,
                                 mean_spread, opening_hand_floor, primer_audit,
                                 replicate_playsim, split_budget, t95,

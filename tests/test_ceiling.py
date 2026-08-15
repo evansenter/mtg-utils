@@ -273,9 +273,15 @@ def _no_network(monkeypatch):
     monkeypatch.setattr(subprocess, "run", boom)
 
 
-def _run_ceiling(mm, monkeypatch, tmp_path, **kw):
+def _run_ceiling(mm, monkeypatch, tmp_path, spellbook=None, **kw):
     import mtg_utils.report as report
     monkeypatch.setattr(report, "load_collection", load_fixture_collection)
+    # The Commander Spellbook cross-check is ON by default, so EVERY report
+    # test now drives it. Patched here rather than in each case: left to the
+    # no-network guard it would surface as an AssertionError from inside
+    # curl, several frames from the cause, in tests about something else.
+    monkeypatch.setattr(report, "spellbook",
+                        spellbook or (lambda c, e: _combos()))
     _no_network(monkeypatch)
     # scry_fetch rewrites its cache on every run, so the committed fixture is
     # copied first -- the same trap the golden harness already handles.
@@ -482,3 +488,211 @@ def test_the_report_prints_unknown_synergy_as_a_dash(mm, monkeypatch, tmp_path,
                  threshold=90.0)
     out = capsys.readouterr().out
     assert "0.000" not in out
+
+
+# --- the combo cross-check --------------------------------------------
+# A ceiling row is ranked on how often other people play the card. That says
+# nothing about what it does with THIS list. On the deck that prompted this,
+# the two rows that form infinites with cards already in the deck sit at 7.9%
+# and 6.8% inclusion -- below any default bar, reachable only by lowering it,
+# which is exactly when nobody thinks to add a flag. Hence: on by default.
+COMBOS = os.path.join(FIXTURES, "ceiling.combos.json")
+
+
+def _combos():
+    with open(COMBOS, encoding="utf-8") as f:
+        return json.load(f)
+
+
+def test_a_completion_is_keyed_on_the_front_face(mm):
+    """Spellbook is the THIRD naming convention here -- it returns full DFC
+    names, where EDHREC returns front faces. Unnormalised, a DFC combo piece
+    never joins to the ceiling row it belongs to and the annotation silently
+    never appears."""
+    res = {"almostIncluded": [{"uses": [
+        {"card": {"name": "Sink into Stupor // Soporific Springs"}},
+        {"card": {"name": "Sol Ring"}}]}]}
+    got = mm.combo_completions(res, "Cmdr", {"Sol Ring": 1})
+    assert list(got) == ["sink into stupor"]
+    assert got["sink into stupor"][0]["with"] == ["Sol Ring"]
+
+
+def test_a_dfc_the_deck_holds_is_not_offered_as_a_completion(mm):
+    """The other half of the front-face rule, and the one with teeth.
+
+    The decklist spells out "Commit // Memory"; Spellbook names the piece
+    "Commit". Compare those as written and a card sitting in the deck reads as
+    a card that would COMPLETE a combo -- so the row is annotated with an
+    interaction the deck already has, and the count of interacting rows goes
+    up by one for a purchase nobody needs to make.
+
+    Distinct from the keying case above: that one pins the dict key, this one
+    pins the membership test, and a fix to either alone leaves the other
+    broken.
+    """
+    res = {"almostIncluded": [{"uses": [{"card": {"name": "Commit"}},
+                                        {"card": {"name": "Basalt Monolith"}}]}]}
+    got = mm.combo_completions(res, "Cmdr", {"Commit // Memory": 1})
+    assert list(got) == ["basalt monolith"]
+    assert got["basalt monolith"][0]["with"] == ["Commit"]
+
+
+def test_a_card_already_in_the_deck_is_not_a_completion(mm):
+    """It is a piece the deck HOLDS. Listed as a completion it would annotate
+    a ceiling row that, by construction, cannot exist -- and inflate the count
+    of rows that interact."""
+    res = {"almostIncluded": [{"uses": [{"card": {"name": "Sol Ring"}},
+                                        {"card": {"name": "Basalt Monolith"}}]}]}
+    got = mm.combo_completions(res, "Cmdr", {"Sol Ring": 1})
+    assert list(got) == ["basalt monolith"]
+
+
+def test_a_combo_needing_two_more_cards_says_so(mm):
+    """"Almost included" means at LEAST one piece missing, not exactly one. A
+    row annotated COMBO that in fact needs two more cards overstates a case
+    the reader cannot check from the table."""
+    res = {"almostIncluded": [{"uses": [{"card": {"name": "Sol Ring"}},
+                                        {"card": {"name": "Displacer Kitten"}},
+                                        {"card": {"name": "Dark Ritual"}}]}]}
+    got = mm.combo_completions(res, "Cmdr", {"Sol Ring": 1})
+    assert got["displacer kitten"][0]["also_missing"] == ["Dark Ritual"]
+    assert got["dark ritual"][0]["also_missing"] == ["Displacer Kitten"]
+
+
+def test_a_template_counts_as_a_piece(mm):
+    """"Permanent Castable for {C}" is a real card the deck has to supply.
+    Left out of the count, a three-piece line reads as a two-card combo --
+    which is the difference between a plan and a coincidence."""
+    res = {"almostIncluded": [{
+        "uses": [{"card": {"name": "Sol Ring"}},
+                 {"card": {"name": "Hullbreaker Horror"}}],
+        "requires": [{"template": {"name": "Permanent Castable for {C}"}}]}]}
+    got = mm.combo_completions(res, "Cmdr", {"Sol Ring": 1})
+    assert got["hullbreaker horror"][0]["pieces"] == 3
+    assert got["hullbreaker horror"][0]["templates"] == \
+        ["Permanent Castable for {C}"]
+
+
+def test_combos_this_card_finishes_alone_sort_first(mm):
+    """A combo the card completes on its own is a different proposition from
+    one that needs two more purchases, and the first line under a row is the
+    one that gets read."""
+    res = {"almostIncluded": [
+        {"uses": [{"card": {"name": "Kitten"}}, {"card": {"name": "Sol Ring"}},
+                  {"card": {"name": "Absent Two"}}]},
+        {"uses": [{"card": {"name": "Kitten"}}, {"card": {"name": "Sol Ring"}}]}]}
+    got = mm.combo_completions(res, "Cmdr", {"Sol Ring": 1})["kitten"]
+    assert got[0]["also_missing"] == []
+    assert got[1]["also_missing"] == ["Absent Two"]
+
+
+def test_the_audit_attaches_combos_to_the_right_row(mm):
+    rows = [{"name": "Hullbreaker Horror", "num_decks": 9, "potential_decks": 10,
+             "inclusion": 90.0, "synergy": 0.1, "cardlist": "x"},
+            {"name": "Force of Will", "num_decks": 8, "potential_decks": 10,
+             "inclusion": 80.0, "synergy": 0.1, "cardlist": "x"}]
+    completions = {"hullbreaker horror": [{"with": ["Sol Ring"], "templates": [],
+                                           "also_missing": [], "produces": [],
+                                           "pieces": 2}]}
+    a = mm.ceiling_audit("Cmdr", {}, rows, [], {}, {}, completions=completions)
+    by = {m["name"]: m for m in a["missing"]}
+    assert len(by["Hullbreaker Horror"]["combos"]) == 1
+    assert by["Force of Will"]["combos"] == []
+    assert a["combo_rows"] == 1
+
+
+def test_the_fixture_deck_has_the_two_real_intersections(mm):
+    """Verbatim find-my-combos output for the partner fixture deck. Both rows
+    are FAR below the 50% default bar, which is the whole argument for the
+    check being on by default rather than behind a flag."""
+    cmdr, entries = mm.read_decklist(os.path.join(FIXTURES, "partner.txt"))
+    got = mm.combo_completions(_combos(), cmdr, entries)
+    rows, _ = mm.parse_commander_page(_rec_page())
+    ranked = {r["name"].lower(): r["inclusion"] for r in rows}
+    hits = {k: ranked[k] for k in got if k in ranked}
+    assert set(hits) == {"displacer kitten", "hullbreaker horror"}
+    assert all(v < 50.0 for v in hits.values()), hits
+    # Hullbreaker Horror + Sol Ring is real, and Sol Ring is in the fixture
+    # deck.
+    assert "Sol Ring" in got["hullbreaker horror"][0]["with"]
+
+
+# --- the report -------------------------------------------------------
+def test_the_report_flags_a_combo_row_inline(mm, monkeypatch, tmp_path, capsys):
+    """The acceptance criterion: the annotation sits under the row it belongs
+    to, so it cannot be read as applying to a different card."""
+    _run_ceiling(mm, monkeypatch, tmp_path, rec_cache=REC, threshold=6.0)
+    out = capsys.readouterr().out.split("\n")
+    i = next(n for n, l in enumerate(out) if "Hullbreaker Horror" in l)
+    assert "COMBO with Sol Ring" in out[i + 1]
+    assert "Permanent Castable for {C} (template)" in out[i + 1]
+    assert "Infinite colorless mana" in out[i + 1]
+
+
+def test_the_report_never_calls_a_combo_a_recommendation(mm, monkeypatch,
+                                                         tmp_path, capsys):
+    """The interaction that prompted this feature was a card forming a FORCED
+    DRAW with two cards already in the deck. Whether a combo argues for or
+    against a card is not Spellbook's to say, and a tool that phrased it as a
+    recommendation would have recommended the draw."""
+    _run_ceiling(mm, monkeypatch, tmp_path, rec_cache=REC, threshold=6.0)
+    out = capsys.readouterr().out
+    assert "a fact, not a recommendation" in out
+    assert "recommended" not in out.lower().replace("not a recommendation", "")
+
+
+def test_a_row_with_many_combos_says_how_many_it_dropped(mm, monkeypatch,
+                                                         tmp_path, capsys):
+    """No silent caps. "2 combos" on a row that has nine is a smaller number
+    than the truth, printed with confidence."""
+    res = {"almostIncluded": [
+        {"uses": [{"card": {"name": "Deathrite Shaman"}},
+                  {"card": {"name": f"Piece {i}"}},
+                  {"card": {"name": "Sol Ring"}}]} for i in range(5)]}
+    _run_ceiling(mm, monkeypatch, tmp_path, spellbook=lambda c, e: res,
+                 rec_cache=REC, threshold=75.0)
+    out = capsys.readouterr().out
+    assert "...and 3 more combos" in out
+
+
+def test_a_spellbook_outage_is_announced_not_silently_clean(mm, monkeypatch,
+                                                            tmp_path, capsys):
+    """An unrun check and a clean result are the same empty column. This is
+    the same rule the capped-cardlist note follows: absence of data is never
+    reported as a finding of none."""
+    def boom(cmdr, entries):
+        raise SystemExit("Commander Spellbook find-my-combos failed after retries")
+    a = _run_ceiling(mm, monkeypatch, tmp_path, spellbook=boom,
+                     rec_cache=REC, threshold=75.0)
+    out = capsys.readouterr().out
+    assert "COMBO CROSS-CHECK DID NOT RUN" in out
+    assert "NOT known to be free of combos" in out
+    # and the audit still produced its rows -- an outage in one source must
+    # not take the whole command down
+    assert a["missing"]
+
+
+def test_no_combos_skips_the_call_without_claiming_a_clean_result(
+        mm, monkeypatch, tmp_path, capsys):
+    """--no-combos must not print the "0 rows interact" line: the check did
+    not run, and saying nothing interacts would be the claim it declined to
+    make."""
+    def boom(cmdr, entries):
+        raise AssertionError("--no-combos still called Commander Spellbook")
+
+    _run_ceiling(mm, monkeypatch, tmp_path, spellbook=boom, rec_cache=REC,
+                 threshold=75.0, combos=False)
+    out = capsys.readouterr().out
+    assert "interact with cards already in the list" not in out
+    assert "COMBO CROSS-CHECK DID NOT RUN" not in out
+
+
+def test_a_clean_cross_check_says_it_ran(mm, monkeypatch, tmp_path, capsys):
+    """The mirror of the outage case: "0 rows interact" is a result, and it
+    has to be distinguishable from the check not running."""
+    _run_ceiling(mm, monkeypatch, tmp_path,
+                 spellbook=lambda c, e: {"almostIncluded": []},
+                 rec_cache=REC, threshold=75.0)
+    out = capsys.readouterr().out
+    assert "0 rows interact with cards already in the list" in out
+    assert "COMBO CROSS-CHECK DID NOT RUN" not in out
