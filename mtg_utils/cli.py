@@ -51,8 +51,19 @@ def main():
     ap.add_argument("target", nargs="?", default=None,
                     help="decklist path, or deck id for `moxfield`; unused by `selftest`")
     ap.add_argument("--cache", default="scry.json")
-    ap.add_argument("--sims", type=int, default=8000)
-    ap.add_argument("--trials", type=int, default=20000)
+    # sims/trials are the budget for the WHOLE measurement, split across
+    # --reps. Defaults are unchanged from before replicates existed, so the
+    # default run does the same work and the reported mean is exactly as
+    # precise as it was -- the error bar comes from re-slicing, not from
+    # doing more.
+    ap.add_argument("--sims", type=int, default=8000,
+                    help="total sources-model sims, split across --reps")
+    ap.add_argument("--trials", type=int, default=20000,
+                    help="total play-sim trials, split across --reps")
+    ap.add_argument("--reps", type=int, default=3,
+                    help="replicates used to estimate the +/- on each figure")
+    ap.add_argument("--seed", type=int, default=17,
+                    help="base RNG seed; replicate i uses seed+i")
     ap.add_argument("--out", default=None)
     ap.add_argument("--decks", default="", help="comma-separated Moxfield ids")
     ap.add_argument("--lands", default="-2,0,2",
@@ -122,13 +133,14 @@ def main():
         if v["total"] != 100:
             print(f"  *** DECK IS {v['total']} CARDS, COMMANDER IS 100 ***")
     if a.cmd in ("mana", "audit"):
-        report_mana(cmdr, entries, scry, a.sims, a.trials)
+        report_mana(cmdr, entries, scry, a.sims, a.trials, a.seed, reps=a.reps)
     if a.cmd in ("roster", "audit"):
         report_roster(cmdr, entries, scry, a.cache)
     if a.cmd == "variants":
         report_variants(cmdr, entries, scry,
                         [int(x) for x in a.lands.split(",")],
-                        [int(x) for x in a.accel.split(",")], a.trials)
+                        [int(x) for x in a.accel.split(",")], a.trials,
+                        a.seed, a.reps)
     if a.cmd in ("combos", "audit"):
         report_combos(cmdr, entries)
     if a.cmd in ("own", "audit"):

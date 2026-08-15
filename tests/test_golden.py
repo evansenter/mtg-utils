@@ -158,9 +158,14 @@ def test_colourless_worst_lines_is_not_empty(candidate, tmp_path):
     Zhulodok costs {5}{C}, so the commander's own line carries the pip.
     """
     out = _output(candidate, "cand", "colourless", "mana", str(tmp_path))
-    body = out.split("--- sources model (colour), worst lines ---")[1]
+    # Split on the header's stable PREFIX: it now carries the sims/reps/seed
+    # provenance after this point, and matching the whole line meant a
+    # format change turned this guard into an IndexError rather than into a
+    # failure that says what broke. splitlines()[1:] drops the rest of the
+    # header line, which is what the old exact match consumed.
+    body = out.split("--- sources model (colour), worst lines")[1]
     body = body.split("--- play simulation")[0]
-    rows = [l for l in body.splitlines() if l.strip()]
+    rows = [l for l in body.splitlines()[1:] if l.strip()]
     assert rows, "colourless deck reported no coloured lines at all"
     assert all("{C}" in l for l in rows), rows
     assert "Zhulodok, Void Gorger on curve" in out

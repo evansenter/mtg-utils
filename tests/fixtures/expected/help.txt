@@ -1,6 +1,7 @@
 usage: mana_model.py [-h] [--cache CACHE] [--sims SIMS] [--trials TRIALS]
-                     [--out OUT] [--decks DECKS] [--lands LANDS]
-                     [--accel ACCEL] [--adds ADDS] [--cuts CUTS]
+                     [--reps REPS] [--seed SEED] [--out OUT] [--decks DECKS]
+                     [--lands LANDS] [--accel ACCEL] [--adds ADDS]
+                     [--cuts CUTS]
                      {fetch,verify,mana,variants,combos,own,contention,moxfield,write,audit,roster,diff,selftest,calibrate}
                      [target]
 
@@ -48,8 +49,10 @@ positional arguments:
 options:
   -h, --help            show this help message and exit
   --cache CACHE
-  --sims SIMS
-  --trials TRIALS
+  --sims SIMS           total sources-model sims, split across --reps
+  --trials TRIALS       total play-sim trials, split across --reps
+  --reps REPS           replicates used to estimate the +/- on each figure
+  --seed SEED           base RNG seed; replicate i uses seed+i
   --out OUT
   --decks DECKS         comma-separated Moxfield ids
   --lands LANDS         land count deltas, e.g. -2,0,2 (leading minus needs

@@ -122,7 +122,26 @@ five points; `KNOWN_ISSUES.md` #13 records them instead.
 | `selftest` | Run the test suite |
 
 Flags: `--cache` (default `scry.json`), `--sims` (8000), `--trials` (20000),
-`--out`, `--decks`, `--lands`, `--accel`, `--adds`, `--cuts`.
+`--reps` (3), `--seed` (17), `--out`, `--decks`, `--lands`, `--accel`,
+`--adds`, `--cuts`.
+
+### Every figure carries its own noise
+
+`mana` and `variants` print `72.3±0.2%`, and the header names the budget, the
+replicate count and the seed that produced it. The bar is the standard error
+of the **reported** figure — the mean of `--reps` replicates — not the spread
+of the replicates themselves, which would overstate it by `sqrt(reps)`.
+
+**A gap smaller than the two bars beside it is noise, not a finding.** Without
+this, a 0.4-point difference between two manabases read exactly like a
+4-point one, and separating them meant running seeds by hand and computing the
+spread outside the tool.
+
+`--sims` and `--trials` are the budget for the whole measurement, **split
+across `--reps`, not multiplied by it**. A default run therefore does the same
+work it always did and its mean is exactly as precise as it was; the error bar
+comes out of re-slicing that budget. `--reps=1` reproduces the pre-replicate
+numbers exactly at the same seed, and prints `±0.0`.
 
 `audit` deliberately does **not** run `variants` — the sweep is the expensive
 part and is wasted work on a settled base. Run it explicitly when a manabase is

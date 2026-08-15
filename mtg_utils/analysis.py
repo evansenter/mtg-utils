@@ -1,4 +1,5 @@
 """Compute, no printing. The report_* wrappers only format what these return."""
+import math
 import random
 import re
 
@@ -106,8 +107,79 @@ def commander_lines(cmdr, scry):
     return out
 
 
-def analyse_mana(cmdr, entries, scry, sims, trials, seed=17, lines=None):
-    """The whole section 6 measurement, as data. report_mana only prints it."""
+# ============================================================ Monte Carlo noise
+def split_budget(total, reps):
+    """Divide a Monte Carlo budget across replicates, preserving the total.
+
+    `--sims` and `--trials` are the budget for the whole measurement, not per
+    replicate, so turning replicates on does not silently triple the work or
+    change how precise the reported figure is. The mean of R replicates at
+    T/R trials has exactly the variance of one run at T trials -- the error
+    bar comes out of re-slicing the same work, not out of doing more of it.
+
+    reps=1 returns [total], so a single-replicate run at a given seed is
+    bit-identical to the code before replicates existed. That is what pins
+    this as a re-slicing rather than a change of method.
+    """
+    if reps < 1:
+        raise SystemExit(f"reps must be at least 1, got {reps}")
+    base, extra = divmod(total, reps)
+    if base < 1:
+        raise SystemExit(
+            f"cannot split a budget of {total} across {reps} replicates: each "
+            f"would get fewer than one trial. Raise --sims/--trials or lower "
+            f"--reps.")
+    return [base + (1 if i < extra else 0) for i in range(reps)]
+
+
+def mean_spread(values):
+    """(mean, standard error of the mean) over replicate measurements.
+
+    The spread reported is the wobble of the REPORTED figure, which is the
+    mean of the replicates -- not the spread of the replicates themselves.
+    The mean of R replicates moves 1/sqrt(R) as much as any one of them, so
+    quoting the replicate spread would overstate the uncertainty of the
+    printed number by exactly that factor. An error bar that is wrong in a
+    plausible direction is worse than no error bar, which is the whole reason
+    this repo does not let a number ship unlabelled.
+    """
+    n = len(values)
+    m = sum(values) / n
+    if n < 2:
+        return m, 0.0
+    var = sum((v - m) ** 2 for v in values) / (n - 1)
+    return m, math.sqrt(var / n)
+
+
+def replicate_playsim(lands, accels, deck_size, lines, trials, seed, reps):
+    """playsim_report over `reps` replicates, aggregated to (mean, spread).
+
+    Shapes deliberately differ from playsim_report's, so a caller cannot read
+    an aggregated figure as a raw one by accident:
+
+        generic[turn] -> (mean, spread)
+        lines[label]  -> (mean, turn, spread)
+    """
+    per = [playsim_report(lands, accels, deck_size, lines, t, random.Random(seed + i))
+           for i, t in enumerate(split_budget(trials, reps))]
+    out = {}
+    for side in ("play", "draw"):
+        generic, labelled = {}, {}
+        for t in per[0][side]["generic"]:
+            generic[t] = mean_spread([r[side]["generic"][t] for r in per])
+        for label in per[0][side]["lines"]:
+            m, sp = mean_spread([r[side]["lines"][label][0] for r in per])
+            labelled[label] = (m, per[0][side]["lines"][label][1], sp)
+        out[side] = {"generic": generic, "lines": labelled}
+    return out
+
+
+def analyse_mana(cmdr, entries, scry, sims, trials, seed=17, lines=None, reps=3):
+    """The whole section 6 measurement, as data. report_mana only prints it.
+
+    `sims` and `trials` are totals across `reps` replicates -- see
+    split_budget. Rows carry their spread as a sixth element.
+    """
     ncmdr = len(as_cmdrs(cmdr))
     names = flat(cmdr, entries)[ncmdr:]
     lands = build_land_profiles(names, scry)
@@ -117,11 +189,32 @@ def analyse_mana(cmdr, entries, scry, sims, trials, seed=17, lines=None):
     # not 99. Drawing from a library one card too large dilutes it with an
     # extra non-source and biases every figure the same way.
     deck_size = len(names)
-    rows = worst_lines(names, scry, lands, accels, sims, random.Random(seed),
-                       deck_size=deck_size)
+    # top=None, then take the worst five from the AGGREGATE. Letting each
+    # replicate pick its own top five would average different questions: the
+    # fifth-worst line is not stable across seeds, so the mean of five rows
+    # could mix a line measured three times with one measured once. The
+    # candidate set itself is RNG-free -- it comes from the decklist -- so
+    # every replicate returns the identical key set, and no extra work is
+    # done: probability() is already called for every candidate before the
+    # old top=5 slice threw most of them away.
+    acc = {}
+    for i, s in enumerate(split_budget(sims, reps)):
+        for p, turn, mv, req, cards in worst_lines(
+                names, scry, lands, accels, s, random.Random(seed + i),
+                top=None, deck_size=deck_size):
+            acc.setdefault((turn, mv, req), (cards, []))[1].append(p)
+    rows = []
+    for (turn, mv, req), (cards, ps) in acc.items():
+        m, sp = mean_spread(ps)
+        rows.append((m, turn, mv, req, cards, sp))
+    # Sort on the first five fields only: that is the whole of the old
+    # 5-tuple, so at reps=1 the ordering here is the ordering rows.sort()
+    # produced before the spread was appended.
+    rows.sort(key=lambda r: r[:5])
+    rows = rows[:5]
     if lines is None:
         lines, seen = [], set()
-        for p, turn, mv, req, cards in rows:
+        for p, turn, mv, req, cards, sp in rows:
             key = (mv, tuple(req))
             if key in seen:
                 continue
@@ -129,9 +222,10 @@ def analyse_mana(cmdr, entries, scry, sims, trials, seed=17, lines=None):
             lines.append((f"{cards[0]} T{turn}", mv,
                           "".join("{%s}" % x for x in req)))
         lines += commander_lines(cmdr, scry)
-    res = playsim_report(lands, accels, deck_size, lines, trials, random.Random(seed))
+    res = replicate_playsim(lands, accels, deck_size, lines, trials, seed, reps)
     return {"verify": v, "lands": lands, "accels": accels,
-            "rows": rows, "lines": lines, "sim": res}
+            "rows": rows, "lines": lines, "sim": res,
+            "sims": sims, "trials": trials, "seed": seed, "reps": reps}
 
 
 def deck_base_name(name):
