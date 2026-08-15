@@ -9,8 +9,9 @@ from mtg_utils.analysis import verify
 from mtg_utils.decklist import (as_cmdrs, flat, parse_swaps, read_decklist,
                                 write_deck)
 from mtg_utils.report import (report_calibrate, report_combos, report_contention,
-                              report_diff, report_mana, report_own, report_roster,
-                              report_swap, report_variants)
+                              report_ceiling, report_diff, report_mana,
+                              report_own, report_roster, report_swap,
+                              report_variants)
 from mtg_utils.sources.moxfield import moxfield_deck
 from mtg_utils.sources.scryfall import scry_fetch
 
@@ -48,7 +49,7 @@ def main():
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("cmd", choices=["fetch", "verify", "mana", "variants", "combos",
                                     "own", "contention", "moxfield", "write", "audit",
-                                    "roster", "diff", "selftest", "calibrate"])
+                                    "roster", "diff", "selftest", "calibrate", "ceiling"])
     ap.add_argument("target", nargs="?", default=None,
                     help="decklist path, or deck id for `moxfield`; unused by `selftest`")
     ap.add_argument("--cache", default="scry.json")
@@ -72,6 +73,12 @@ def main():
     ap.add_argument("--accel", default="0,2", help="accelerant count deltas")
     ap.add_argument("--adds", default="")
     ap.add_argument("--cuts", default="")
+    ap.add_argument("--rec-cache", default="edhrec.json",
+                    help="ceiling: on-disk cache for EDHREC / edhtop16 pages")
+    ap.add_argument("--cedh", action="store_true",
+                    help="ceiling: use edhtop16 tournament data instead of EDHREC")
+    ap.add_argument("--bar", type=float, default=50.0,
+                    help="ceiling: inclusion %% above which a missing card is reported")
     ap.add_argument("--swap", default="",
                     help="variants: measure named swaps, 'Cut->Add,Cut2->Add2' "
                          "(use ';' between pairs if a name contains a comma)")
@@ -143,6 +150,9 @@ def main():
             print(f"  *** DECK IS {v['total']} CARDS, COMMANDER IS 100 ***")
     if a.cmd in ("mana", "audit"):
         report_mana(cmdr, entries, scry, a.sims, a.trials, a.seed, reps=a.reps)
+    if a.cmd == "ceiling":
+        report_ceiling(cmdr, entries, scry, a.cache, a.rec_cache, a.cedh,
+                       a.bar)
     if a.cmd in ("roster", "audit"):
         report_roster(cmdr, entries, scry, a.cache)
     if a.cmd == "variants":

@@ -1,0 +1,1809 @@
+{
+"edhtop16/100/Thrasios, Triton Hero / Tymna the Weaver": {
+"name": "Thrasios, Triton Hero / Tymna the Weaver",
+"entries": {
+"edges": [
+{
+"node": {
+"maindeck": [
+{
+"name": "Command Tower"
+},
+{
+"name": "Exotic Orchard"
+},
+{
+"name": "Sol Ring"
+},
+{
+"name": "Lotus Petal"
+},
+{
+"name": "City of Brass"
+},
+{
+"name": "Pact of Negation"
+},
+{
+"name": "Mox Amber"
+},
+{
+"name": "Wooded Foothills"
+},
+{
+"name": "Force of Negation"
+},
+{
+"name": "Esper Sentinel"
+},
+{
+"name": "Fierce Guardianship"
+},
+{
+"name": "Scalding Tarn"
+},
+{
+"name": "Mental Misstep"
+},
+{
+"name": "Verdant Catacombs"
+},
+{
+"name": "Faerie Mastermind"
+},
+{
+"name": "Demonic Tutor"
+},
+{
+"name": "Dark Ritual"
+},
+{
+"name": "Chrome Mox"
+},
+{
+"name": "Mockingbird"
+},
+{
+"name": "Tundra"
+},
+{
+"name": "Flusterstorm"
+},
+{
+"name": "Misty Rainforest"
+},
+{
+"name": "Mox Diamond"
+},
+{
+"name": "Ancient Tomb"
+},
+{
+"name": "Otawara, Soaring City"
+},
+{
+"name": "Polluted Delta"
+},
+{
+"name": "Smothering Tithe"
+},
+{
+"name": "Vampiric Tutor"
+},
+{
+"name": "Borne Upon a Wind"
+},
+{
+"name": "Enlightened Tutor"
+},
+{
+"name": "Gemstone Caverns"
+},
+{
+"name": "Ranger-Captain of Eos"
+},
+{
+"name": "Rhystic Study"
+},
+{
+"name": "Mindbreak Trap"
+},
+{
+"name": "Scrubland"
+},
+{
+"name": "Underground Sea"
+},
+{
+"name": "Marsh Flats"
+},
+{
+"name": "Mystic Remora"
+},
+{
+"name": "Flooded Strand"
+},
+{
+"name": "Tataru Taru"
+},
+{
+"name": "Force of Will"
+},
+{
+"name": "An Offer You Can't Refuse"
+},
+{
+"name": "Swan Song"
+},
+{
+"name": "Imperial Seal"
+},
+{
+"name": "Silence"
+},
+{
+"name": "Windswept Heath"
+},
+{
+"name": "Mana Vault"
+},
+{
+"name": "Lotho, Corrupt Shirriff"
+},
+{
+"name": "Mana Confluence"
+},
+{
+"name": "Sink into Stupor // Soporific Springs"
+},
+{
+"name": "Mirrormade"
+},
+{
+"name": "Starting Town"
+},
+{
+"name": "Wan Shi Tong, Librarian"
+},
+{
+"name": "Tarnished Citadel"
+},
+{
+"name": "Misdirection"
+},
+{
+"name": "Orim's Chant"
+},
+{
+"name": "City of Traitors"
+},
+{
+"name": "Beseech the Mirror"
+},
+{
+"name": "Orcish Bowmasters"
+},
+{
+"name": "Emergence Zone"
+},
+{
+"name": "Dispel"
+},
+{
+"name": "Timetwister"
+},
+{
+"name": "Commandeer"
+},
+{
+"name": "Copy Enchantment"
+},
+{
+"name": "Bayou"
+},
+{
+"name": "Gaea's Cradle"
+},
+{
+"name": "Veil of Summer"
+},
+{
+"name": "Clever Impersonator"
+},
+{
+"name": "Birds of Paradise"
+},
+{
+"name": "Finale of Devastation"
+},
+{
+"name": "Deathrite Shaman"
+},
+{
+"name": "Boseiju, Who Endures"
+},
+{
+"name": "Elvish Spirit Guide"
+},
+{
+"name": "High Fae Trickster"
+},
+{
+"name": "Deadly Rollick"
+},
+{
+"name": "Tropical Island"
+},
+{
+"name": "Gilded Drake"
+},
+{
+"name": "Nature's Rhythm"
+},
+{
+"name": "Survival of the Fittest"
+},
+{
+"name": "Eldritch Evolution"
+},
+{
+"name": "Crop Rotation"
+},
+{
+"name": "Chord of Calling"
+},
+{
+"name": "Neoform"
+},
+{
+"name": "Endurance"
+},
+{
+"name": "Savannah"
+},
+{
+"name": "Devoted Druid"
+},
+{
+"name": "Archivist of Oghma"
+},
+{
+"name": "Volatile Stormdrake"
+},
+{
+"name": "Green Sun's Zenith"
+},
+{
+"name": "Kinnan, Bonder Prodigy"
+},
+{
+"name": "Noble Hierarch"
+},
+{
+"name": "The Cabbage Merchant"
+},
+{
+"name": "Hazel's Brewmaster"
+},
+{
+"name": "Teferi, Mage of Zhalfir"
+},
+{
+"name": "Training Grounds"
+},
+{
+"name": "Biomancer's Familiar"
+},
+{
+"name": "Permission Denied"
+},
+{
+"name": "Flash Photography"
+}
+]
+}
+},
+{
+"node": {
+"maindeck": [
+{
+"name": "Command Tower"
+},
+{
+"name": "Exotic Orchard"
+},
+{
+"name": "Sol Ring"
+},
+{
+"name": "Lotus Petal"
+},
+{
+"name": "City of Brass"
+},
+{
+"name": "Pact of Negation"
+},
+{
+"name": "Mox Amber"
+},
+{
+"name": "Wooded Foothills"
+},
+{
+"name": "Force of Negation"
+},
+{
+"name": "Esper Sentinel"
+},
+{
+"name": "Fierce Guardianship"
+},
+{
+"name": "Scalding Tarn"
+},
+{
+"name": "Mental Misstep"
+},
+{
+"name": "Verdant Catacombs"
+},
+{
+"name": "Faerie Mastermind"
+},
+{
+"name": "Demonic Tutor"
+},
+{
+"name": "Dark Ritual"
+},
+{
+"name": "Chrome Mox"
+},
+{
+"name": "Mockingbird"
+},
+{
+"name": "Tundra"
+},
+{
+"name": "Flusterstorm"
+},
+{
+"name": "Misty Rainforest"
+},
+{
+"name": "Mox Diamond"
+},
+{
+"name": "Ancient Tomb"
+},
+{
+"name": "Otawara, Soaring City"
+},
+{
+"name": "Polluted Delta"
+},
+{
+"name": "Smothering Tithe"
+},
+{
+"name": "Vampiric Tutor"
+},
+{
+"name": "Borne Upon a Wind"
+},
+{
+"name": "Enlightened Tutor"
+},
+{
+"name": "Gemstone Caverns"
+},
+{
+"name": "Ranger-Captain of Eos"
+},
+{
+"name": "Rhystic Study"
+},
+{
+"name": "Mindbreak Trap"
+},
+{
+"name": "Scrubland"
+},
+{
+"name": "Underground Sea"
+},
+{
+"name": "Marsh Flats"
+},
+{
+"name": "Mystic Remora"
+},
+{
+"name": "Flooded Strand"
+},
+{
+"name": "Tataru Taru"
+},
+{
+"name": "Force of Will"
+},
+{
+"name": "An Offer You Can't Refuse"
+},
+{
+"name": "Swan Song"
+},
+{
+"name": "Imperial Seal"
+},
+{
+"name": "Silence"
+},
+{
+"name": "Windswept Heath"
+},
+{
+"name": "Mana Vault"
+},
+{
+"name": "Lotho, Corrupt Shirriff"
+},
+{
+"name": "Mana Confluence"
+},
+{
+"name": "Sink into Stupor // Soporific Springs"
+},
+{
+"name": "Mirrormade"
+},
+{
+"name": "Starting Town"
+},
+{
+"name": "Wan Shi Tong, Librarian"
+},
+{
+"name": "Tarnished Citadel"
+},
+{
+"name": "Misdirection"
+},
+{
+"name": "Orim's Chant"
+},
+{
+"name": "City of Traitors"
+},
+{
+"name": "Beseech the Mirror"
+},
+{
+"name": "Orcish Bowmasters"
+},
+{
+"name": "Emergence Zone"
+},
+{
+"name": "Dispel"
+},
+{
+"name": "Timetwister"
+},
+{
+"name": "Commandeer"
+},
+{
+"name": "Copy Enchantment"
+},
+{
+"name": "Bayou"
+},
+{
+"name": "Gaea's Cradle"
+},
+{
+"name": "Veil of Summer"
+},
+{
+"name": "Clever Impersonator"
+},
+{
+"name": "Birds of Paradise"
+},
+{
+"name": "Finale of Devastation"
+},
+{
+"name": "Deathrite Shaman"
+},
+{
+"name": "Boseiju, Who Endures"
+},
+{
+"name": "Elvish Spirit Guide"
+},
+{
+"name": "High Fae Trickster"
+},
+{
+"name": "Deadly Rollick"
+},
+{
+"name": "Tropical Island"
+},
+{
+"name": "Gilded Drake"
+},
+{
+"name": "Nature's Rhythm"
+},
+{
+"name": "Survival of the Fittest"
+},
+{
+"name": "Eldritch Evolution"
+},
+{
+"name": "Crop Rotation"
+},
+{
+"name": "Chord of Calling"
+},
+{
+"name": "Neoform"
+},
+{
+"name": "Endurance"
+},
+{
+"name": "Savannah"
+},
+{
+"name": "Devoted Druid"
+},
+{
+"name": "Archivist of Oghma"
+},
+{
+"name": "Volatile Stormdrake"
+},
+{
+"name": "Green Sun's Zenith"
+},
+{
+"name": "Kinnan, Bonder Prodigy"
+},
+{
+"name": "Noble Hierarch"
+},
+{
+"name": "The Cabbage Merchant"
+},
+{
+"name": "Hazel's Brewmaster"
+},
+{
+"name": "Teferi, Mage of Zhalfir"
+},
+{
+"name": "Training Grounds"
+},
+{
+"name": "Biomancer's Familiar"
+},
+{
+"name": "Permission Denied"
+},
+{
+"name": "Flash Photography"
+}
+]
+}
+},
+{
+"node": {
+"maindeck": [
+{
+"name": "Arcane Signet"
+},
+{
+"name": "Command Tower"
+},
+{
+"name": "Exotic Orchard"
+},
+{
+"name": "Sol Ring"
+},
+{
+"name": "Lotus Petal"
+},
+{
+"name": "City of Brass"
+},
+{
+"name": "Lion's Eye Diamond"
+},
+{
+"name": "Pact of Negation"
+},
+{
+"name": "Culling the Weak"
+},
+{
+"name": "Tainted Pact"
+},
+{
+"name": "Cavern of Souls"
+},
+{
+"name": "Chain of Vapor"
+},
+{
+"name": "Mox Amber"
+},
+{
+"name": "Wooded Foothills"
+},
+{
+"name": "Mystical Tutor"
+},
+{
+"name": "Force of Negation"
+},
+{
+"name": "Necropotence"
+},
+{
+"name": "Esper Sentinel"
+},
+{
+"name": "Fierce Guardianship"
+},
+{
+"name": "Scalding Tarn"
+},
+{
+"name": "Valley Floodcaller"
+},
+{
+"name": "Voice of Victory"
+},
+{
+"name": "Mental Misstep"
+},
+{
+"name": "Verdant Catacombs"
+},
+{
+"name": "Faerie Mastermind"
+},
+{
+"name": "Demonic Tutor"
+},
+{
+"name": "Dark Ritual"
+},
+{
+"name": "Chrome Mox"
+},
+{
+"name": "Mockingbird"
+},
+{
+"name": "Rain of Filth"
+},
+{
+"name": "Tundra"
+},
+{
+"name": "Flusterstorm"
+},
+{
+"name": "Misty Rainforest"
+},
+{
+"name": "Mox Diamond"
+},
+{
+"name": "Cabal Ritual"
+},
+{
+"name": "Ancient Tomb"
+},
+{
+"name": "Otawara, Soaring City"
+},
+{
+"name": "Polluted Delta"
+},
+{
+"name": "Vampiric Tutor"
+},
+{
+"name": "Borne Upon a Wind"
+},
+{
+"name": "Enlightened Tutor"
+},
+{
+"name": "Gemstone Caverns"
+},
+{
+"name": "Demonic Consultation"
+},
+{
+"name": "Rhystic Study"
+},
+{
+"name": "Mindbreak Trap"
+},
+{
+"name": "Scrubland"
+},
+{
+"name": "Underground Sea"
+},
+{
+"name": "Bloodstained Mire"
+},
+{
+"name": "Marsh Flats"
+},
+{
+"name": "Mystic Remora"
+},
+{
+"name": "Mox Opal"
+},
+{
+"name": "Flooded Strand"
+},
+{
+"name": "Wishclaw Talisman"
+},
+{
+"name": "Force of Will"
+},
+{
+"name": "Ad Nauseam"
+},
+{
+"name": "Thassa's Oracle"
+},
+{
+"name": "Grand Abolisher"
+},
+{
+"name": "An Offer You Can't Refuse"
+},
+{
+"name": "Swan Song"
+},
+{
+"name": "Imperial Seal"
+},
+{
+"name": "Silence"
+},
+{
+"name": "Windswept Heath"
+},
+{
+"name": "Mana Vault"
+},
+{
+"name": "Lotho, Corrupt Shirriff"
+},
+{
+"name": "Mana Confluence"
+},
+{
+"name": "Dramatic Reversal"
+},
+{
+"name": "Starting Town"
+},
+{
+"name": "Wan Shi Tong, Librarian"
+},
+{
+"name": "Springleaf Drum"
+},
+{
+"name": "Isochron Scepter"
+},
+{
+"name": "Orim's Chant"
+},
+{
+"name": "Beseech the Mirror"
+},
+{
+"name": "Orcish Bowmasters"
+},
+{
+"name": "Emergence Zone"
+},
+{
+"name": "Culling Ritual"
+},
+{
+"name": "Bayou"
+},
+{
+"name": "Veil of Summer"
+},
+{
+"name": "Birds of Paradise"
+},
+{
+"name": "Deathrite Shaman"
+},
+{
+"name": "Boseiju, Who Endures"
+},
+{
+"name": "Elvish Spirit Guide"
+},
+{
+"name": "Tropical Island"
+},
+{
+"name": "Crop Rotation"
+},
+{
+"name": "Talon Gates of Madara"
+},
+{
+"name": "Savannah"
+},
+{
+"name": "Vexing Bauble"
+},
+{
+"name": "Devoted Druid"
+},
+{
+"name": "Peat Bog"
+},
+{
+"name": "Six"
+},
+{
+"name": "Summoner's Pact"
+},
+{
+"name": "Green Sun's Zenith"
+},
+{
+"name": "Swift Reconfiguration"
+},
+{
+"name": "Yawgmoth's Will"
+},
+{
+"name": "Noble Hierarch"
+},
+{
+"name": "The Cabbage Merchant"
+},
+{
+"name": "Retraction Helix"
+},
+{
+"name": "Necrodominance"
+},
+{
+"name": "Krosan Wayfarer"
+}
+]
+}
+},
+{
+"node": {
+"maindeck": [
+{
+"name": "Command Tower"
+},
+{
+"name": "Exotic Orchard"
+},
+{
+"name": "Sol Ring"
+},
+{
+"name": "Lotus Petal"
+},
+{
+"name": "City of Brass"
+},
+{
+"name": "Lion's Eye Diamond"
+},
+{
+"name": "Pact of Negation"
+},
+{
+"name": "Tainted Pact"
+},
+{
+"name": "Mox Amber"
+},
+{
+"name": "Wooded Foothills"
+},
+{
+"name": "Mystical Tutor"
+},
+{
+"name": "Esper Sentinel"
+},
+{
+"name": "Fierce Guardianship"
+},
+{
+"name": "Scalding Tarn"
+},
+{
+"name": "Voice of Victory"
+},
+{
+"name": "Mental Misstep"
+},
+{
+"name": "Verdant Catacombs"
+},
+{
+"name": "Demonic Tutor"
+},
+{
+"name": "Dark Ritual"
+},
+{
+"name": "Chrome Mox"
+},
+{
+"name": "Mockingbird"
+},
+{
+"name": "Tundra"
+},
+{
+"name": "Flusterstorm"
+},
+{
+"name": "Misty Rainforest"
+},
+{
+"name": "Mox Diamond"
+},
+{
+"name": "Otawara, Soaring City"
+},
+{
+"name": "Polluted Delta"
+},
+{
+"name": "Smothering Tithe"
+},
+{
+"name": "Vampiric Tutor"
+},
+{
+"name": "Watery Grave"
+},
+{
+"name": "Enlightened Tutor"
+},
+{
+"name": "Gemstone Caverns"
+},
+{
+"name": "Demonic Consultation"
+},
+{
+"name": "Ranger-Captain of Eos"
+},
+{
+"name": "Rhystic Study"
+},
+{
+"name": "Mindbreak Trap"
+},
+{
+"name": "Scrubland"
+},
+{
+"name": "Underground Sea"
+},
+{
+"name": "Bloodstained Mire"
+},
+{
+"name": "Marsh Flats"
+},
+{
+"name": "Mystic Remora"
+},
+{
+"name": "Flooded Strand"
+},
+{
+"name": "Tataru Taru"
+},
+{
+"name": "Force of Will"
+},
+{
+"name": "Thassa's Oracle"
+},
+{
+"name": "Grand Abolisher"
+},
+{
+"name": "An Offer You Can't Refuse"
+},
+{
+"name": "Swan Song"
+},
+{
+"name": "Imperial Seal"
+},
+{
+"name": "Silence"
+},
+{
+"name": "Windswept Heath"
+},
+{
+"name": "Mana Vault"
+},
+{
+"name": "Lotho, Corrupt Shirriff"
+},
+{
+"name": "Mana Confluence"
+},
+{
+"name": "Cyclonic Rift"
+},
+{
+"name": "Mistrise Village"
+},
+{
+"name": "The One Ring"
+},
+{
+"name": "Snap"
+},
+{
+"name": "Orcish Bowmasters"
+},
+{
+"name": "Delney, Streetwise Lookout"
+},
+{
+"name": "Culling Ritual"
+},
+{
+"name": "Bayou"
+},
+{
+"name": "Gaea's Cradle"
+},
+{
+"name": "Veil of Summer"
+},
+{
+"name": "Birds of Paradise"
+},
+{
+"name": "Finale of Devastation"
+},
+{
+"name": "Deathrite Shaman"
+},
+{
+"name": "Breeding Pool"
+},
+{
+"name": "Boseiju, Who Endures"
+},
+{
+"name": "Seedborn Muse"
+},
+{
+"name": "Delighted Halfling"
+},
+{
+"name": "Deadly Rollick"
+},
+{
+"name": "Abrupt Decay"
+},
+{
+"name": "Tropical Island"
+},
+{
+"name": "Demonic Counsel"
+},
+{
+"name": "Nature's Rhythm"
+},
+{
+"name": "Shifting Woodland"
+},
+{
+"name": "Survival of the Fittest"
+},
+{
+"name": "Eternal Witness"
+},
+{
+"name": "Eldritch Evolution"
+},
+{
+"name": "Crop Rotation"
+},
+{
+"name": "Neoform"
+},
+{
+"name": "Spellseeker"
+},
+{
+"name": "Savannah"
+},
+{
+"name": "Swords to Plowshares"
+},
+{
+"name": "Devoted Druid"
+},
+{
+"name": "Entomb"
+},
+{
+"name": "Elves of Deep Shadow"
+},
+{
+"name": "Cloud of Faeries"
+},
+{
+"name": "Reanimate"
+},
+{
+"name": "Agatha's Soul Cauldron"
+},
+{
+"name": "Animate Dead"
+},
+{
+"name": "Razaketh, the Foulblooded"
+},
+{
+"name": "Noble Hierarch"
+},
+{
+"name": "Hazel's Brewmaster"
+},
+{
+"name": "Gifts Ungiven"
+},
+{
+"name": "Psychic Frog"
+},
+{
+"name": "Life // Death"
+}
+]
+}
+},
+{
+"node": {
+"maindeck": [
+{
+"name": "Arcane Signet"
+},
+{
+"name": "Command Tower"
+},
+{
+"name": "Sol Ring"
+},
+{
+"name": "Fellwar Stone"
+},
+{
+"name": "Lotus Petal"
+},
+{
+"name": "City of Brass"
+},
+{
+"name": "Lion's Eye Diamond"
+},
+{
+"name": "Pact of Negation"
+},
+{
+"name": "Culling the Weak"
+},
+{
+"name": "Tainted Pact"
+},
+{
+"name": "Chain of Vapor"
+},
+{
+"name": "Mox Amber"
+},
+{
+"name": "Wooded Foothills"
+},
+{
+"name": "Mystical Tutor"
+},
+{
+"name": "Necropotence"
+},
+{
+"name": "Esper Sentinel"
+},
+{
+"name": "Fierce Guardianship"
+},
+{
+"name": "Valley Floodcaller"
+},
+{
+"name": "Voice of Victory"
+},
+{
+"name": "Mental Misstep"
+},
+{
+"name": "Verdant Catacombs"
+},
+{
+"name": "Mnemonic Betrayal"
+},
+{
+"name": "Demonic Tutor"
+},
+{
+"name": "Dark Ritual"
+},
+{
+"name": "Chrome Mox"
+},
+{
+"name": "Mockingbird"
+},
+{
+"name": "Rain of Filth"
+},
+{
+"name": "Tundra"
+},
+{
+"name": "Flusterstorm"
+},
+{
+"name": "Misty Rainforest"
+},
+{
+"name": "Mox Diamond"
+},
+{
+"name": "Cabal Ritual"
+},
+{
+"name": "Ancient Tomb"
+},
+{
+"name": "Polluted Delta"
+},
+{
+"name": "Smothering Tithe"
+},
+{
+"name": "Vampiric Tutor"
+},
+{
+"name": "Borne Upon a Wind"
+},
+{
+"name": "Enlightened Tutor"
+},
+{
+"name": "Gemstone Caverns"
+},
+{
+"name": "Demonic Consultation"
+},
+{
+"name": "Rhystic Study"
+},
+{
+"name": "Mindbreak Trap"
+},
+{
+"name": "Scrubland"
+},
+{
+"name": "Underground Sea"
+},
+{
+"name": "Bloodstained Mire"
+},
+{
+"name": "Marsh Flats"
+},
+{
+"name": "Mystic Remora"
+},
+{
+"name": "Mox Opal"
+},
+{
+"name": "Flooded Strand"
+},
+{
+"name": "Tataru Taru"
+},
+{
+"name": "Wishclaw Talisman"
+},
+{
+"name": "Force of Will"
+},
+{
+"name": "Ad Nauseam"
+},
+{
+"name": "Thassa's Oracle"
+},
+{
+"name": "Grand Abolisher"
+},
+{
+"name": "An Offer You Can't Refuse"
+},
+{
+"name": "Imperial Seal"
+},
+{
+"name": "Silence"
+},
+{
+"name": "Windswept Heath"
+},
+{
+"name": "Mana Vault"
+},
+{
+"name": "Lotho, Corrupt Shirriff"
+},
+{
+"name": "Mana Confluence"
+},
+{
+"name": "Dramatic Reversal"
+},
+{
+"name": "Starting Town"
+},
+{
+"name": "Orim's Chant"
+},
+{
+"name": "City of Traitors"
+},
+{
+"name": "Beseech the Mirror"
+},
+{
+"name": "Emergence Zone"
+},
+{
+"name": "Noxious Revival"
+},
+{
+"name": "Culling Ritual"
+},
+{
+"name": "Bayou"
+},
+{
+"name": "Veil of Summer"
+},
+{
+"name": "Worldly Tutor"
+},
+{
+"name": "Birds of Paradise"
+},
+{
+"name": "Deathrite Shaman"
+},
+{
+"name": "Overgrown Tomb"
+},
+{
+"name": "Elvish Spirit Guide"
+},
+{
+"name": "Delighted Halfling"
+},
+{
+"name": "Tropical Island"
+},
+{
+"name": "Lim-D\u00fbl's Vault"
+},
+{
+"name": "Grim Monolith"
+},
+{
+"name": "Phantasmal Image"
+},
+{
+"name": "Praetor's Grasp"
+},
+{
+"name": "Carpet of Flowers"
+},
+{
+"name": "Crop Rotation"
+},
+{
+"name": "Savannah"
+},
+{
+"name": "Vexing Bauble"
+},
+{
+"name": "Devoted Druid"
+},
+{
+"name": "Summoner's Pact"
+},
+{
+"name": "Elves of Deep Shadow"
+},
+{
+"name": "Forbidden Orchard"
+},
+{
+"name": "Swift Reconfiguration"
+},
+{
+"name": "Yawgmoth's Will"
+},
+{
+"name": "The Cabbage Merchant"
+},
+{
+"name": "Necrodominance"
+},
+{
+"name": "Emerald Charm"
+},
+{
+"name": "Autumn's Veil"
+},
+{
+"name": "Repeal"
+}
+]
+}
+},
+{
+"node": {
+"maindeck": [
+{
+"name": "Arcane Signet"
+},
+{
+"name": "Command Tower"
+},
+{
+"name": "Sol Ring"
+},
+{
+"name": "Fellwar Stone"
+},
+{
+"name": "Lotus Petal"
+},
+{
+"name": "City of Brass"
+},
+{
+"name": "Lion's Eye Diamond"
+},
+{
+"name": "Pact of Negation"
+},
+{
+"name": "Culling the Weak"
+},
+{
+"name": "Tainted Pact"
+},
+{
+"name": "Chain of Vapor"
+},
+{
+"name": "Mox Amber"
+},
+{
+"name": "Wooded Foothills"
+},
+{
+"name": "Mystical Tutor"
+},
+{
+"name": "Necropotence"
+},
+{
+"name": "Esper Sentinel"
+},
+{
+"name": "Fierce Guardianship"
+},
+{
+"name": "Valley Floodcaller"
+},
+{
+"name": "Voice of Victory"
+},
+{
+"name": "Mental Misstep"
+},
+{
+"name": "Verdant Catacombs"
+},
+{
+"name": "Mnemonic Betrayal"
+},
+{
+"name": "Demonic Tutor"
+},
+{
+"name": "Dark Ritual"
+},
+{
+"name": "Chrome Mox"
+},
+{
+"name": "Mockingbird"
+},
+{
+"name": "Rain of Filth"
+},
+{
+"name": "Tundra"
+},
+{
+"name": "Flusterstorm"
+},
+{
+"name": "Misty Rainforest"
+},
+{
+"name": "Mox Diamond"
+},
+{
+"name": "Cabal Ritual"
+},
+{
+"name": "Ancient Tomb"
+},
+{
+"name": "Polluted Delta"
+},
+{
+"name": "Smothering Tithe"
+},
+{
+"name": "Vampiric Tutor"
+},
+{
+"name": "Borne Upon a Wind"
+},
+{
+"name": "Enlightened Tutor"
+},
+{
+"name": "Gemstone Caverns"
+},
+{
+"name": "Demonic Consultation"
+},
+{
+"name": "Rhystic Study"
+},
+{
+"name": "Mindbreak Trap"
+},
+{
+"name": "Scrubland"
+},
+{
+"name": "Underground Sea"
+},
+{
+"name": "Bloodstained Mire"
+},
+{
+"name": "Marsh Flats"
+},
+{
+"name": "Mystic Remora"
+},
+{
+"name": "Mox Opal"
+},
+{
+"name": "Flooded Strand"
+},
+{
+"name": "Tataru Taru"
+},
+{
+"name": "Wishclaw Talisman"
+},
+{
+"name": "Force of Will"
+},
+{
+"name": "Ad Nauseam"
+},
+{
+"name": "Thassa's Oracle"
+},
+{
+"name": "Grand Abolisher"
+},
+{
+"name": "An Offer You Can't Refuse"
+},
+{
+"name": "Imperial Seal"
+},
+{
+"name": "Silence"
+},
+{
+"name": "Windswept Heath"
+},
+{
+"name": "Mana Vault"
+},
+{
+"name": "Lotho, Corrupt Shirriff"
+},
+{
+"name": "Mana Confluence"
+},
+{
+"name": "Dramatic Reversal"
+},
+{
+"name": "Starting Town"
+},
+{
+"name": "Orim's Chant"
+},
+{
+"name": "City of Traitors"
+},
+{
+"name": "Beseech the Mirror"
+},
+{
+"name": "Emergence Zone"
+},
+{
+"name": "Noxious Revival"
+},
+{
+"name": "Culling Ritual"
+},
+{
+"name": "Bayou"
+},
+{
+"name": "Veil of Summer"
+},
+{
+"name": "Worldly Tutor"
+},
+{
+"name": "Birds of Paradise"
+},
+{
+"name": "Deathrite Shaman"
+},
+{
+"name": "Overgrown Tomb"
+},
+{
+"name": "Boseiju, Who Endures"
+},
+{
+"name": "Elvish Spirit Guide"
+},
+{
+"name": "Delighted Halfling"
+},
+{
+"name": "Tropical Island"
+},
+{
+"name": "Lim-D\u00fbl's Vault"
+},
+{
+"name": "Grim Monolith"
+},
+{
+"name": "Phantasmal Image"
+},
+{
+"name": "Praetor's Grasp"
+},
+{
+"name": "Carpet of Flowers"
+},
+{
+"name": "Crop Rotation"
+},
+{
+"name": "Savannah"
+},
+{
+"name": "Vexing Bauble"
+},
+{
+"name": "Devoted Druid"
+},
+{
+"name": "Summoner's Pact"
+},
+{
+"name": "Elves of Deep Shadow"
+},
+{
+"name": "Forbidden Orchard"
+},
+{
+"name": "Swift Reconfiguration"
+},
+{
+"name": "Yawgmoth's Will"
+},
+{
+"name": "The Cabbage Merchant"
+},
+{
+"name": "Necrodominance"
+},
+{
+"name": "Emerald Charm"
+},
+{
+"name": "Autumn's Veil"
+}
+]
+}
+}
+]
+}
+}
+}

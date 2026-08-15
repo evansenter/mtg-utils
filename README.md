@@ -143,6 +143,38 @@ work it always did and its mean is exactly as precise as it was; the error bar
 comes out of re-slicing that budget. `--reps=1` reproduces the pre-replicate
 numbers exactly at the same seed, and prints `±0.0`.
 
+### `ceiling` — what is above the bar and missing
+
+```
+python3 mana_model.py ceiling deck.txt --rec-cache edhrec.json --bar 65
+python3 mana_model.py ceiling deck.txt --cedh          # edhtop16 instead
+```
+
+Which cards above the inclusion bar for this commander are **not** in the list,
+whether they are already owned, and what the rest cost. **Network** on a cache
+miss, like `calibrate`; the frozen fixtures under `tests/fixtures/` keep the
+suite offline.
+
+Four things this encodes so they are not rediscovered:
+
+- **The EDHREC slug drops apostrophes, it does not hyphenate them.**
+  `yshtola-nights-blessed` resolves; `y-shtola-nights-blessed` returns **403**,
+  so a wrong slug reads as a block rather than as a typo.
+- **A partner pair is one page, in alphabetical order.** The wrong order is not
+  a 404 — it is a 200 carrying `{"redirect": ...}` and no cardlists, which
+  parses as zero ranked cards and reports a deck with nothing missing. The
+  command refuses to print an all-clear from a page that ranked nothing.
+- **Cardlists are capped at 50.** Absence from a capped list is unknown
+  inclusion, never 0%, and the report says so.
+- **The two sources disagree about names in opposite directions** — EDHREC
+  returns front faces (`Agadeem's Awakening`), edhtop16 returns full names
+  (`Sink into Stupor // Soporific Springs`). Everything is keyed to the front
+  face; getting this wrong once reported an in-deck card as missing.
+
+With `--cedh`, the tournament entry count is printed beside every percentage,
+and below five entries **no percentage is quoted at all** — at four entries
+every card is 25%, 50%, 75% or 100%.
+
 ### Measuring a named swap
 
 ```

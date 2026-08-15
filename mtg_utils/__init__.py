@@ -21,6 +21,8 @@ Subcommands
   verify      count, legality, colour identity, Game Changers, MV, tapped classes
   mana        sources model + play simulation (the full section 6 pass)
   roster      section 6 roster walk: every cycle slot, IN / benched / buy
+  ceiling     EDHREC (or --cedh edhtop16) inclusion: what is above the bar
+              and missing from the list, with ownership and price
   variants    opt-in land/accelerant sweep; slow, run when the base is unsettled
   combos      Commander Spellbook full-deck audit
   own         ownership vs ManaBox + grouped buy list
@@ -55,16 +57,21 @@ from mtg_utils.decklist import (apply_swaps, as_cmdrs, diff_multiset, flat,
                                 parse_swaps, read_decklist, write_deck)
 from mtg_utils.roster import (ANY_COLOUR, PAIR_CYCLES, TRIPLE_CYCLES, WUBRG,
                               identity_pairs, pair_key, roster_names, roster_status)
-from mtg_utils.analysis import (analyse_mana, collapse_temps, commander_lines,
-                                compare_swap, deck_base_name, mean_spread,
-                                replicate_playsim, split_budget, t95, verify,
-                                worst_lines)
+from mtg_utils.analysis import (analyse_mana, ceiling_audit, collapse_temps,
+                                commander_lines, compare_swap, deck_base_name,
+                                mean_spread, replicate_playsim, split_budget,
+                                t95, verify, worst_lines)
 from mtg_utils.sources import UA_BROWSER, UA_TOOL
 from mtg_utils.sources.collection import COLLECTION, load_collection
 from mtg_utils.sources.moxfield import (moxfield_deck, moxfield_user_decks,
                                         parse_moxfield)
+from mtg_utils.sources.edhrec import (PAGE_CAP, edhrec_fetch, edhrec_slug,
+                                      parse_commander_page)
+from mtg_utils.sources.edhtop16 import (MIN_ENTRIES, edhtop16_commander_name,
+                                        edhtop16_fetch, parse_edhtop16)
 from mtg_utils.sources.scryfall import scry_fetch
 from mtg_utils.sources.spellbook import spellbook
 from mtg_utils.report import (report_calibrate, report_combos, report_contention,
-                              report_diff, report_mana, report_own, report_roster,
-                              report_swap, report_variants)
+                              report_ceiling, report_diff, report_mana,
+                              report_own, report_roster, report_swap,
+                              report_variants)
