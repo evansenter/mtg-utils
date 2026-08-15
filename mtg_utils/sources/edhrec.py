@@ -157,4 +157,9 @@ def parse_commander_page(data):
                     "name": name, "num_decks": num, "potential_decks": pot,
                     "inclusion": pct, "synergy": cv.get("synergy"),
                     "cardlist": cl.get("header") or "?"}
-    return sorted(rows.values(), key=lambda r: -r["inclusion"]), capped
+    # Total order: ties break by name. Insertion order happens to be stable
+    # here because the page JSON is, but relying on that makes the ordering
+    # an accident of the source rather than a property of this function --
+    # and the edhtop16 parser had exactly that bug.
+    return sorted(rows.values(),
+                  key=lambda r: (-r["inclusion"], r["name"])), capped

@@ -26,7 +26,7 @@ import shutil
 
 import pytest
 
-from conftest import FIXTURES, load_fixture_collection
+from conftest import FIXTURES, load_fixture_collection, patch_everywhere
 
 REC = os.path.join(FIXTURES, "ceiling.rec.json")
 TOP16 = os.path.join(FIXTURES, "ceiling.top16.json")
@@ -276,13 +276,17 @@ def _no_network(monkeypatch):
 def _run_ceiling(mm, monkeypatch, tmp_path, spellbook=None,
                  scry_fixture=None, **kw):
     import mtg_utils.report as report
-    monkeypatch.setattr(report, "load_collection", load_fixture_collection)
+    # patch_everywhere, not setattr(report, ...): a module-level function
+    # resolves in the globals of the module that DEFINES it, so patching the
+    # package a printer used to live in keeps "succeeding" after the printer
+    # moves to a submodule -- while the real, networked function runs.
+    patch_everywhere(monkeypatch, "load_collection", load_fixture_collection)
     # The Commander Spellbook cross-check is ON by default, so EVERY report
     # test now drives it. Patched here rather than in each case: left to the
     # no-network guard it would surface as an AssertionError from inside
     # curl, several frames from the cause, in tests about something else.
-    monkeypatch.setattr(report, "spellbook",
-                        spellbook or (lambda c, e: _combos()))
+    patch_everywhere(monkeypatch, "spellbook",
+                     spellbook or (lambda c, e: _combos()))
     _no_network(monkeypatch)
     # scry_fetch rewrites its cache on every run, so the committed fixture is
     # copied first -- the same trap the golden harness already handles.
@@ -865,3 +869,37 @@ def test_a_land_row_is_annotated_never_suppressed(mm, monkeypatch, tmp_path,
     names = [m["name"] for m in a["missing"]]
     assert "Glacial Fortress" in names
     assert "Canopy Vista" in names
+# --- deterministic order ----------------------------------------------
+def test_edhtop16_rows_have_a_total_order(mm):
+    """Rows tie constantly and the tiebreak must not be an accident.
+
+    A six-entry sample puts a dozen cards at exactly 100%, and the order of
+    equal rows used to fall out of set iteration -- which Python randomises
+    per process, so `ceiling --cedh` printed a different ranking on every
+    run and whichever card floated to the top read as the strongest signal.
+    Found by snapshotting the printer and watching the snapshot fail on its
+    second run.
+    """
+    rows, _ = mm.parse_edhtop16(_top16_data())
+    assert rows == sorted(rows, key=lambda r: (-r["inclusion"], r["name"]))
+    ties = [r["name"] for r in rows if r["inclusion"] == rows[0]["inclusion"]]
+    assert len(ties) > 1, "fixture no longer exercises the tie case"
+
+
+def test_edhrec_rows_have_a_total_order(mm):
+    """The EDHREC parser was stable only because the page JSON happens to
+    be, which makes the ordering a property of the source rather than of
+    this function."""
+    rows, _ = mm.parse_commander_page(_rec_page())
+    assert rows == sorted(rows, key=lambda r: (-r["inclusion"], r["name"]))
+
+
+@pytest.mark.parametrize("sort", ["inclusion", "synergy"],
+                         ids=["order/by inclusion", "order/by synergy"])
+def test_the_audit_has_a_total_order(mm, sort):
+    """Both orderings end on the name, so a rerun prints the same table."""
+    rows = [{"name": n, "num_decks": 9, "potential_decks": 10,
+             "inclusion": 90.0, "synergy": 0.5, "cardlist": "x"}
+            for n in ("Zzz Card", "Aaa Card", "Mmm Card")]
+    a = mm.ceiling_audit("Cmdr", {}, rows, [], {}, {}, threshold=50.0, sort=sort)
+    assert [m["name"] for m in a["missing"]] == ["Aaa Card", "Mmm Card", "Zzz Card"]

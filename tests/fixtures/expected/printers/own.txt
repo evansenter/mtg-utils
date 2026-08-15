@@ -1,0 +1,95 @@
+
+=== BUY LIST (absent from ManaBox_Collection.csv) ===
+
+Creatures (10)
+  (BUY) Academy Manufactor                 $   7.58  EDHREC #263
+  (BUY) Etali, Primal Storm                $   0.52  EDHREC #262
+  (BUY) Foundry Inspector                  $   0.38  EDHREC #252
+  (BUY) Magda, Brazen Outlaw               $   8.64  EDHREC #1297
+  (BUY) Ornithopter of Paradise            $   1.93  EDHREC #220
+  (BUY) Professional Face-Breaker          $   6.44  EDHREC #210
+  (BUY) Ragavan, Nimble Pilferer           $  42.36  EDHREC #273
+  (BUY) Roaming Throne                     $  48.63  EDHREC #132
+  (BUY) Solemn Simulacrum                  $   0.32  EDHREC #38
+  (BUY) Storm-Kiln Artist                  $   1.53  EDHREC #205
+
+Equipment (8)
+  (BUY) Basilisk Collar                    $   6.36  EDHREC #254
+  (BUY) Lightning Greaves                  $   4.52  EDHREC #13
+  (BUY) Mithril Coat                       $  31.41  EDHREC #239
+  (BUY) Shadowspear                        $  32.88  EDHREC #317
+  (BUY) Skullclamp                         $   5.62  EDHREC #40
+  (BUY) Swiftfoot Boots                    $    n/a  EDHREC #12
+  (BUY) Sword of the Animist               $   5.92  EDHREC #237
+  (BUY) Whispersilk Cloak                  $   1.52  EDHREC #332
+
+Artifacts (28)
+  (BUY) Arcane Signet                      $   0.44  EDHREC #3
+  (BUY) Ashnod's Altar                     $  14.78  EDHREC #133
+  (BUY) Chromatic Lantern                  $    n/a  EDHREC #85
+  (BUY) Chrome Mox                         $ 164.83  EDHREC #147
+  (BUY) Commander's Sphere                 $   0.34  EDHREC #50
+  (BUY) Decanter of Endless Water          $   4.80  EDHREC #309
+  (BUY) Everflowing Chalice                $   0.35  EDHREC #251
+  (BUY) Fellwar Stone                      $    n/a  EDHREC #17
+  (BUY) Herald's Horn                      $   5.09  EDHREC #148
+  (BUY) Idol of Oblivion                   $   1.72  EDHREC #195
+  (BUY) Jet Medallion                      $  12.00  EDHREC #275
+  (BUY) Lotus Petal                        $    n/a  EDHREC #120
+  (BUY) Mana Vault                         $ 118.26  EDHREC #146
+  (BUY) Mind Stone                         $    n/a  EDHREC #32
+  (BUY) Mox Amber                          $  79.81  EDHREC #206
+  (BUY) Mox Diamond                        $    n/a  EDHREC #249
+  (BUY) Mox Opal                           $ 243.50  EDHREC #241
+  (BUY) Panharmonicon                      $   7.27  EDHREC #264
+  (BUY) Patchwork Banner                   $   2.36  EDHREC #201
+  (BUY) Phyrexian Altar                    $  55.25  EDHREC #310
+  (BUY) Ruby Medallion                     $  13.41  EDHREC #294
+  (BUY) Sensei's Divining Top              $  42.81  EDHREC #227
+  (BUY) The One Ring                       $ 107.55  EDHREC #92
+  (BUY) The Ozolith                        $  64.82  EDHREC #302
+  (BUY) Thought Vessel                     $    n/a  EDHREC #21
+  (BUY) Thran Dynamo                       $   4.86  EDHREC #200
+  (BUY) Urza's Incubator                   $  19.58  EDHREC #315
+  (BUY) Wayfarer's Bauble                  $    n/a  EDHREC #123
+
+Enchantments (1)
+  (BUY) Impact Tremors                     $    n/a  EDHREC #191
+
+Instants / Sorceries (16)
+  (BUY) Abrade                             $   0.35  EDHREC #145
+  (BUY) Big Score                          $   0.36  EDHREC #144
+  (BUY) Blasphemous Act                    $   0.77  EDHREC #22
+  (BUY) Chaos Warp                         $    n/a  EDHREC #29
+  (BUY) Deflecting Swat                    $  66.05  EDHREC #75
+  (BUY) Faithless Looting                  $   0.38  EDHREC #96
+  (BUY) Gamble                             $  17.48  EDHREC #238
+  (BUY) Jeska's Will                       $  41.56  EDHREC #103
+  (BUY) Lightning Bolt                     $   0.81  EDHREC #160
+  (BUY) Mana Geyser                        $   1.25  EDHREC #296
+  (BUY) Seething Song                      $  12.54  EDHREC #313
+  (BUY) Shatterskull Smashing              $   9.29  EDHREC #1381
+  (BUY) Thrill of Possibility              $   0.22  EDHREC #209
+  (BUY) Unexpected Windfall                $   3.56  EDHREC #281
+  (BUY) Untimely Malfunction               $   8.54  EDHREC #277
+  (BUY) Vandalblast                        $   1.07  EDHREC #100
+
+Lands (15)
+  (BUY) Blast Zone                         $   0.38  EDHREC #1632
+  (BUY) Bloodstained Mire                  $  18.70  EDHREC #43
+  (BUY) Buried Ruin                        $   0.38  EDHREC #194
+  (BUY) Castle Embereth                    $   0.29  EDHREC #1071
+  (BUY) Cavern of Souls                    $  49.39  EDHREC #113
+  (BUY) City of Brass                      $  11.85  EDHREC #97
+  (BUY) Exotic Orchard                     $    n/a  EDHREC #9
+  (BUY) Mana Confluence                    $  33.06  EDHREC #119
+  (BUY) Path of Ancestry                   $    n/a  EDHREC #14
+  (BUY) Plaza of Heroes                    $   4.68  EDHREC #495
+  (BUY) Prismatic Vista                    $  31.25  EDHREC #197
+  (BUY) Reflecting Pool                    $  15.05  EDHREC #173
+  (BUY) Rogue's Passage                    $   0.35  EDHREC #18
+  (BUY) Unclaimed Territory                $   0.32  EDHREC #245
+  (BUY) Wooded Foothills                   $  17.63  EDHREC #46
+
+  total listed USD (nulls excluded): $1,517.95
+  Null usd (Reserved List / promo): re-query !"Name" with order=eur&unique=prints

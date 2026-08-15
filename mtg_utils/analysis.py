@@ -343,8 +343,11 @@ def compare_swap(cmdr, entries, scry, swaps, sims, trials, seed=17, reps=3):
                   for p, t, mv, req, _c, sp in after["rows"]}
     cards = {(t, mv, req): c for p, t, mv, req, c, sp in base["rows"]}
     sources = []
+    # `&` yields a SET, whose iteration order Python randomises per process,
+    # so equal probabilities used to come out in a different order each run.
+    # The key includes the key tuple itself to make the order total.
     for key in sorted(base_rows.keys() & after_rows.keys(),
-                      key=lambda k: base_rows[k][0]):
+                      key=lambda k: (base_rows[k][0], k)):
         turn, mv, req = key
         label = f"T{turn} " + "".join("{%s}" % x for x in req)
         r = row(label, base_rows[key], after_rows[key])
@@ -413,11 +416,15 @@ def ceiling_audit(cmdr, entries, rows, capped, owned, scry, threshold=50.0,
     # than at zero. Unknown is not "no synergy": every --cedh row is unknown,
     # and floating them through the middle of the table on a 0.0 they were
     # never measured at is how the column would start lying.
+    # Every sort here ends on the name, so the order is total and a rerun
+    # prints the same table. Rows tie constantly -- a --cedh sample of six
+    # decks puts a dozen cards at exactly 100%.
     if sort == "synergy":
         missing.sort(key=lambda r: (r.get("synergy") is None,
-                                    -(r.get("synergy") or 0.0), -r["inclusion"]))
+                                    -(r.get("synergy") or 0.0),
+                                    -r["inclusion"], r["name"]))
     else:
-        missing.sort(key=lambda r: -r["inclusion"])
+        missing.sort(key=lambda r: (-r["inclusion"], r["name"]))
     return {"missing": missing, "threshold": threshold, "capped": capped,
             "sort": sort,
             "combo_rows": sum(1 for m in missing if m["combos"]),

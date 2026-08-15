@@ -119,5 +119,11 @@ def parse_edhtop16(data):
              "inclusion": 100.0 * k / n, "synergy": None,
              "cardlist": "edhtop16"}
             for name, k in counts.items()] if n else []
-    rows.sort(key=lambda r: -r["inclusion"])
+    # Ties are broken by NAME so the order is total. Without a
+    # tiebreaker the order of equal-inclusion rows falls out of dict or
+    # set iteration, which Python randomises per process -- so the table
+    # printed a different ranking on every run. At six tournament
+    # entries most cards tie at 100%, and whichever one floated to the
+    # top read as the strongest signal in the report.
+    rows.sort(key=lambda r: (-r["inclusion"], r["name"]))
     return rows, n
