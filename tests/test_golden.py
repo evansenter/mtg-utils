@@ -88,21 +88,37 @@ def test_reference_matches_candidate(reference, candidate, deck, cmd, tmp_path,
             == _output(candidate, "cand", deck, cmd, str(tmp_path)))
 
 
-def test_help_text_is_unchanged(reference, candidate, tmp_path, request):
-    """--help prints the module docstring via argparse's `description`. Moving
-    that docstring into a package without passing it explicitly silently
-    replaces the whole banner with a different module's docstring."""
+def _help_snapshot():
+    with open(os.path.join(EXPECTED, "help.txt"), encoding="utf-8") as f:
+        return f.read()
+
+
+def test_reference_help_matches_snapshot(reference, tmp_path, request):
+    """Provenance for the help snapshot. Skips once reference/ is gone."""
     ref = run_cli(reference, ["--help"], str(tmp_path))
     if request.config.getoption("--regen-golden"):
         os.makedirs(EXPECTED, exist_ok=True)
         with open(os.path.join(EXPECTED, "help.txt"), "w", encoding="utf-8") as f:
             f.write(ref)
         pytest.skip("regenerated")
-    with open(os.path.join(EXPECTED, "help.txt"), encoding="utf-8") as f:
-        snapshot = f.read()
-    cand = run_cli(candidate, ["--help"], str(tmp_path))
-    assert ref == snapshot
-    assert cand == snapshot
+    assert ref == _help_snapshot()
+
+
+def test_help_text_is_unchanged(candidate, tmp_path, request):
+    """--help prints the banner via argparse's `description`.
+
+    Moving that text into a package without passing it explicitly silently
+    replaces the whole banner with whichever module's docstring argparse
+    happens to see.
+
+    Deliberately does NOT depend on the reference fixture: this is one of the
+    assertions that has to outlive reference/, and a test that skips is not a
+    test. Splitting it out was prompted by running the suite with reference/
+    moved aside and finding --help checked by nothing at all.
+    """
+    if request.config.getoption("--regen-golden"):
+        pytest.skip("regenerating from the reference, not the candidate")
+    assert run_cli(candidate, ["--help"], str(tmp_path)) == _help_snapshot()
 
 
 def test_analyse_mana_returns_identical_data(reference, candidate, tmp_path):

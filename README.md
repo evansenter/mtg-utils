@@ -285,11 +285,22 @@ number into a document someone acted on, and a refactor that moves a
 probability by half a point is worse than no refactor, because the number still
 looks plausible.
 
-`tests/test_golden.py` enforces it: it runs the current code and a frozen
-reference copy over checked-in fixtures with a fixed seed and asserts the stdout
-is byte-identical, for `verify`, `mana`, `roster` and `--help`, on three decks.
-The expected outputs are committed, so the invariant survives the reference copy
-being deleted.
+`tests/test_golden.py` enforces it: it runs the current code over checked-in
+fixtures with a fixed seed and asserts the stdout is byte-identical to committed
+snapshots, for `verify`, `mana`, `roster` and `--help`, on three decks.
+
+Those snapshots were produced by the original single-file version, which lived
+at `reference/mana_model_v0.py` through the refactor. While it existed the suite
+asserted three ways — reference against snapshot, current against snapshot, and
+reference directly against current — so the snapshots are provably the original
+program's bytes and not something typed to make a test pass. The reference copy
+is gone; the snapshots carry the invariant, and the tests that compared against
+it skip with a message saying so.
+
+**The snapshots can no longer be regenerated, and that is the point.** They are
+the definition of correct output. If you intend to change what the tool prints,
+change them in the same commit, say so in the message, and say what moved and
+why.
 
 ### The three deck shapes
 
