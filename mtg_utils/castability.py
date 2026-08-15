@@ -104,11 +104,7 @@ def _hall(units, subsets, nreq):
 
 
 def _req_constraints(req_masks):
-    """(union mask, pips demanded) for every subset of the distinct pip masks.
-
-    Precomputed once per solve because the pips do not change while the
-    filter-land search below tries one pairing after another.
-    """
+    """(union mask, pips demanded) for every subset of the distinct pip masks."""
     groups = {}
     for m in req_masks:
         groups[m] = groups.get(m, 0) + 1
@@ -124,6 +120,19 @@ def _req_constraints(req_masks):
                 need += c
         out.append((um, need))
     return out
+
+
+# A whole deck asks about a few dozen distinct costs, so the constraints get
+# built a few dozen times over rather than once per solve.
+_REQ_CACHE = {}
+
+
+def _constraints(req_key):
+    c = _REQ_CACHE.get(req_key)
+    if c is None:
+        masks = [_mask(r) for r in req_key]
+        c = _REQ_CACHE[req_key] = (_req_constraints(masks), len(masks))
+    return c
 
 
 def _match(units, req):
@@ -181,12 +190,12 @@ def _sig_id(p):
 _CASTABLE_MEMO = {}
 
 
-def _ask(sids, req, req_key):
+def _ask(sids, req_key):
     """Memoised feasibility for an already-interned, already-sorted hand."""
     key = (sids, req_key)
     hit = _CASTABLE_MEMO.get(key)
     if hit is None:
-        hit = _CASTABLE_MEMO[key] = _solve(sids, req)
+        hit = _CASTABLE_MEMO[key] = _solve(sids, req_key)
     return hit
 
 
@@ -207,37 +216,67 @@ def castable(sources, req, mv):
     # `req` is sorted because the answer is a bipartite matching, which does
     # not care what order the pips arrive in. {W}{U} and {U}{W} are the same
     # question and now share an entry.
-    return _ask(tuple(sorted([_sig_id(p) for p in sources])), req,
-                tuple(sorted(req)))
+    return _ask(tuple(sorted([_sig_id(p) for p in sources])), tuple(sorted(req)))
 
 
-def _solve(sids, req):
+# What a hand of sources offers before any cost is named: the mana it makes,
+# and the filter lands whose pairing has to be searched. Derived once per
+# distinct hand rather than once per (hand, cost) -- the same seven sources
+# get asked about several different spells.
+_HAND_CACHE = {}
+
+
+def _hand(sids):
+    """(units, ocols, oamt, fpair) for a hand of interned signature ids.
+
+    `units` is the finished mana when no filter land is present -- the
+    ordinary case, which then skips the search entirely. It is None when
+    there is one, and the other three feed the search.
+    """
+    h = _HAND_CACHE.get(sids)
+    if h is None:
+        data = [_SIG_DATA[s] for s in sids]
+        omni = 0
+        for d in data:
+            omni |= d[4]
+        others, filters = [], []
+        for d in data:
+            (filters if d[2] else others).append(d)
+        # Urborg makes every LAND a Swamp; Yavimaya every land a Forest.
+        # Neither says anything about a mana rock, and applying the omni
+        # colour to every source had a colourless rock producing black.
+        if omni:
+            ocols = [(d[0] | omni) if d[5] else d[0] for d in others]
+        else:
+            ocols = [d[0] for d in others]
+        oamt = [d[3] for d in others]
+        if filters:
+            h = (None, ocols, oamt, [d[1] for d in filters])
+        else:
+            units = {}
+            for j, m in enumerate(ocols):
+                units[m] = units.get(m, 0) + oamt[j]
+            h = (units, None, None, None)
+        _HAND_CACHE[sids] = h
+    return h
+
+
+def _solve(sids, req_key):
     """Feasibility for a hand given as interned signature ids.
 
     Same search as before -- try each filter land unpaired, then paired with
     each source that shares one of its colours -- with the units carried as
     bitmasks rather than sets. The pairing search is exponential in the
     number of filter lands in hand, which is why it sits behind the memo.
+
+    Takes the SORTED pips, not the raw list: a matching does not care what
+    order they arrive in, and this is the tuple the memo is keyed on anyway.
     """
-    data = [_SIG_DATA[s] for s in sids]
-    omni = 0
-    for d in data:
-        omni |= d[4]
-    others, filters = [], []
-    for d in data:
-        (filters if d[2] else others).append(d)
-    # Urborg makes every LAND a Swamp; Yavimaya every land a Forest. Neither
-    # says anything about a mana rock, and applying the omni colour to every
-    # source had a colourless rock producing black.
-    if omni:
-        ocols = [(d[0] | omni) if d[5] else d[0] for d in others]
-    else:
-        ocols = [d[0] for d in others]
-    oamt = [d[3] for d in others]
-    fpair = [d[1] for d in filters]
-    nf, no = len(filters), len(others)
-    subsets = _req_constraints([_mask(r) for r in req])
-    nreq = len(req)
+    subsets, nreq = _constraints(req_key)
+    units, ocols, oamt, fpair = _hand(sids)
+    if units is not None:
+        return _hall(units, subsets, nreq)
+    nf, no = len(fpair), len(ocols)
     activated = set()
 
     def recurse(idx, used):
@@ -356,6 +395,10 @@ def _shuffle_plan(n, m):
 
 
 # ============================================================ sources model
+# (turn, mv, pips, cap) -> {what was drawn: could it pay}. See `answered`.
+_DRAW_MEMO = {}
+
+
 def probability(lands, accels, deck_size, req, mv, turn, sims, rng,
                 max_combos=250, count_restricted=False):
     """P(can pay req for a spell of value mv on turn `turn`).
@@ -407,7 +450,7 @@ def probability(lands, accels, deck_size, req, mv, turn, sims, rng,
             key = (tuple(sorted(map(sid_of, c))), req_key)
             r = memo.get(key)
             if r is None:
-                r = memo[key] = _solve(key[0], req)
+                r = memo[key] = _solve(key[0], req_key)
             if r:
                 return True
         return False
@@ -417,7 +460,15 @@ def probability(lands, accels, deck_size, req, mv, turn, sims, rng,
     # same hand comes up constantly. Only sound while no combo is discarded:
     # once the count passes max_combos the answer depends on which 250 the
     # generator picked, which is a different question every time.
-    answered = {}
+    #
+    # Kept between calls, because `--reps` asks the identical question three
+    # times over at three seeds, and `variants` asks it again of a deck that
+    # differs by three cards. The signature ids the draws are keyed on are
+    # global, so a hand recognised once is recognised everywhere.
+    dm_key = (turn, mv, req_key, max_combos)
+    answered = _DRAW_MEMO.get(dm_key)
+    if answered is None:
+        answered = _DRAW_MEMO[dm_key] = {}
     hits = 0
     for _ in range(sims):
         got = _sample_hits(getrandbits, pool_n, seen, nsrc)
@@ -693,7 +744,7 @@ def playsim_report(lands, accels, deck_size, lines, trials, rng, turns=7):
                     k = (sids, req_key)
                     r = memo.get(k)
                     if r is None:
-                        r = memo[k] = _solve(sids, req)
+                        r = memo[k] = _solve(sids, req_key)
                     if r:
                         hits += 1
             elif mode[turn] == _MODE_KEYED:
