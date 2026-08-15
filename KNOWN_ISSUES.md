@@ -491,7 +491,7 @@ the top of CLAUDE.md, not an exception to it.
 
 ---
 
-## 16. `variants` crashes on a commander past turn seven — OPEN, not fixed here
+## 16. `variants` crashed on a commander past turn seven — FIXED
 
 ```
 python3 mana_model.py variants deck.txt --cache=scry.json
@@ -501,23 +501,42 @@ KeyError: 'cmdr'
 `report_variants` asks `replicate_playsim` for one line, the commander on
 curve, then reads it back by label. `playsim_report` drops any line whose turn
 is past the seven it simulates, so for a commander of mana value eight or more
-the label is never in the result and the read raises a bare `KeyError` with
-nothing in it naming the cause. Reproduced on Emrakul, the Aeons Torn, and
-verified to predate the optimisation pass (it raises identically at 4db2aa5).
+the label was never in the result and the read raised a bare `KeyError` with
+nothing in it naming the commander, its mana value, or the limit. Reproduced on
+Emrakul, the Aeons Torn, and verified to predate the optimisation pass — it
+raised identically at 4db2aa5.
 
-**Cost:** the command is unusable on those decks, and fails in a way that
-reads as a bug in the simulator rather than as "this commander is off the end
-of the table".
+The same two lines hid a second one. `commander_lines` skips a name Scryfall
+cannot resolve, so `_cl[0]` on an empty list raised `IndexError: list index out
+of range`. The CLI prints SCRYFALL NOT FOUND and carries on, so a typo'd
+commander line reaches this code routinely.
 
-**Deliberately left open.** Fixing it is a decision about what the table
-should say, not a bug to patch quietly: either raise with a message naming the
-commander and its mana value, or extend the simulation past turn seven for
-that deck — and the second changes what a "variants" row means. Either way it
-is its own commit. It is recorded here because it was found while measuring,
-and a finding that lives only in scrollback is a finding that gets
-rediscovered.
+**Cost:** the command was unusable on those decks, and failed in a way that
+read as a bug in the simulator rather than as a statement about the deck.
 
-Note for whoever takes it: `report_variants` now caps the turns it simulates
-at `min(commander turn, 7)`. The cap is what keeps this behaviour identical to
-before rather than silently starting to work, so removing the `min` is the
-one-line version of the second option above — and it needs the snapshot diff.
+**Fixed by raising, not by simulating further.** Both columns of the sweep are
+read at the commander's own turn, so once that turn is off the end there is no
+row left to print — this is not a table with one column missing. Quoting the
+turn-seven figure under a "commander on curve" heading would have been a
+different question wearing this one's label, which is the exact failure the
+rule at the top of CLAUDE.md exists to prevent. So both guards fail loudly and
+by name, matching the "cannot add lands to a deck with no untapped
+colour-producing land to copy" guard a dozen lines above them, and they fire
+before the sweep spends 240,000 trials finding out.
+
+`mana` was checked before the message was written to say so: it handles such a
+deck without raising, dropping the commander line and reporting the rest, so
+"`mana` still covers turns one to seven for this deck" is advice that holds.
+The test asserts that too, because a message that recommends something broken
+is worse than one that recommends nothing.
+
+The limit itself is now `PLAYSIM_TURNS` in `castability.py`, the default for
+both `playsim_report` and `replicate_playsim`. It was a bare 7 in three places
+— the simulation, the cap `report_variants` applies, and this guard — and a
+guard holding a different number from the thing it guards is how the crash
+comes back.
+
+**Not changed:** what `variants` does for a commander inside turn seven, and
+what any other command does for one outside it. `mana`, `skeleton` and
+`compare_swap` were all checked against a mana-value-15 commander and all
+complete.

@@ -782,7 +782,16 @@ def playsim(lands, accels, deck_size, turns, on_draw, trials, rng,
                          count_restricted, None)[0]
 
 
-def playsim_report(lands, accels, deck_size, lines, trials, rng, turns=7):
+# How far the play simulation runs. Seven turns is where a Commander game is
+# decided and where every table in this repo stops, but it is also a HARD edge:
+# a line whose turn is past it is dropped rather than measured, so a caller
+# that reads a line back by label has to know the limit. Defined once here so
+# that caller cannot hold a different number.
+PLAYSIM_TURNS = 7
+
+
+def playsim_report(lands, accels, deck_size, lines, trials, rng,
+                   turns=PLAYSIM_TURNS):
     """lines: list of (label, mana_value, pip_string like '{R}{R}')."""
     _bound_caches()
     specs = []

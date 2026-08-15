@@ -5,7 +5,7 @@ import re
 
 from mtg_utils.cards import (enters_tapped, front, front_name, has_land_back,
                              is_front_land, land_face)
-from mtg_utils.castability import (at_least_in_draw, castable_faces,
+from mtg_utils.castability import (PLAYSIM_TURNS, at_least_in_draw, castable_faces,
                                    pips_from_cost, playsim_report, probability)
 from mtg_utils.decklist import apply_swaps, as_cmdrs, flat
 from mtg_utils.primer import parse_primer_links, unclosed_openers
@@ -154,7 +154,7 @@ def mean_spread(values):
 
 
 def replicate_playsim(lands, accels, deck_size, lines, trials, seed, reps,
-                      turns=7):
+                      turns=PLAYSIM_TURNS):
     """playsim_report over `reps` replicates, aggregated to (mean, spread).
 
     Shapes deliberately differ from playsim_report's, so a caller cannot read

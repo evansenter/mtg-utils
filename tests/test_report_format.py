@@ -317,6 +317,87 @@ def test_variants_refuses_to_clone_a_land_it_does_not_have(report, capsys):
     capsys.readouterr()
 
 
+def _big_commander_scry(cmc):
+    return {"emrakul, the aeons torn":
+            {"name": "Emrakul, the Aeons Torn", "cmc": cmc,
+             "type_line": "Legendary Creature — Eldrazi", "mana_cost": "{%d}" % cmc,
+             "oracle_text": "", "color_identity": [],
+             "legalities": {"commander": "legal"}},
+            "island": {"name": "Island", "type_line": "Basic Land — Island",
+                       "cmc": 0, "oracle_text": "", "produced_mana": ["U"],
+                       "color_identity": [], "legalities": {"commander": "legal"}}}
+
+
+def test_variants_refuses_a_commander_past_the_last_turn_simulated(report, capsys):
+    """variants/a commander off the end of the table fails by name
+
+    Both columns of the sweep are read at the commander's own turn.
+    `playsim_report` drops any line whose turn is past the seven it simulates,
+    so for a commander of mana value eight or more the label was simply not in
+    the result and reading it back raised a bare `KeyError: 'cmdr'` with
+    nothing in it naming Emrakul, the mana value, or the limit.
+
+    Raising is the fix rather than simulating further: quoting the turn-seven
+    figure under a "commander on curve" heading would be a different question
+    wearing this one's label, which is the failure this whole repo is built
+    against. `mana` still reports turns one to seven for such a deck, and is
+    checked here so the message's advice is true rather than merely soothing.
+    """
+    from collections import Counter
+    scry = _big_commander_scry(15)
+    with pytest.raises(SystemExit) as e:
+        report.report_variants("Emrakul, the Aeons Torn", Counter({"Island": 99}),
+                               scry, [0], [0], 60)
+    msg = str(e.value)
+    assert "Emrakul, the Aeons Torn" in msg
+    assert "turn 15" in msg          # its own turn, not a generic complaint
+    assert "turn 7" in msg           # and the limit it fell off
+    capsys.readouterr()
+    # The advice has to hold: `mana` really does still run on this deck.
+    report.report_mana("Emrakul, the Aeons Torn", Counter({"Island": 99}),
+                       scry, 60, 60)
+    assert "MANA BASE" in capsys.readouterr().out
+
+
+def test_variants_accepts_a_commander_on_the_last_turn_simulated(report, capsys):
+    """variants/turn seven exactly is still measured
+
+    The other side of the guard, and the one an off-by-one would break
+    silently: a seven-drop is the last commander the table can report, and a
+    `>=` here would retire it with a message instead of measuring it.
+    """
+    from collections import Counter
+    with pytest.raises(SystemExit):
+        report.report_variants("Emrakul, the Aeons Torn",
+                               Counter({"Island": 99}), _big_commander_scry(8),
+                               [0], [0], 60)
+    capsys.readouterr()
+    report.report_variants("Emrakul, the Aeons Torn", Counter({"Island": 99}),
+                           _big_commander_scry(7), [0], [0], 60)
+    out = capsys.readouterr().out
+    assert "VARIANTS SWEEP" in out
+    assert len([l for l in out.splitlines() if "lands," in l]) == 1
+
+
+def test_variants_refuses_a_commander_the_cache_cannot_resolve(report, capsys):
+    """variants/an unresolved commander fails by name
+
+    `commander_lines` skips a name Scryfall does not know, so the list came
+    back empty and `_cl[0]` raised IndexError. The CLI prints SCRYFALL NOT
+    FOUND and carries on, so a typo'd commander line reaches here routinely --
+    and "list index out of range" says nothing about which name was wrong.
+    """
+    from collections import Counter
+    scry = {"island": {"name": "Island", "type_line": "Basic Land — Island",
+                       "cmc": 0, "oracle_text": "", "produced_mana": ["U"],
+                       "color_identity": [], "legalities": {"commander": "legal"}}}
+    with pytest.raises(SystemExit) as e:
+        report.report_variants("Nonesuch, the Typo", Counter({"Island": 99}),
+                               scry, [0], [0], 60)
+    assert "Nonesuch, the Typo" in str(e.value)
+    capsys.readouterr()
+
+
 def test_variants_still_works_when_there_is_a_land_to_clone(report, capsys, mm):
     """variants/the guard does not block the normal case"""
     import json

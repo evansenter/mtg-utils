@@ -27,12 +27,10 @@ at full budget would cost the suite more than everything else in it together.
 - **Claiming a change is behaviour-preserving?** Run it and diff. Do not reason
   about the code.
 
-`KNOWN_ISSUES.md` is the durable record of things that look wrong. Entries are
-marked **FIXED**, **RESOLVED** — resolved meaning the behaviour was examined and
-deliberately kept, with the reasoning written down — or **OPEN**. One is
-currently open: #16, `variants` raising a bare `KeyError` on a commander whose
-curve turn is past seven. It is open rather than fixed because closing it is a
-decision about what that table should say, not a patch.
+`KNOWN_ISSUES.md` is the durable record of things that look wrong. Every entry
+in it is marked **FIXED** or **RESOLVED** — resolved meaning the behaviour was
+examined and deliberately kept, with the reasoning written down. Nothing in it
+is currently outstanding.
 
 Its job did not end when the list emptied. It exists because "a finding that
 lives only in scrollback is a finding that gets rediscovered", so when you
