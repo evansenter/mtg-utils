@@ -136,12 +136,20 @@ def playable_set(chosen):
 
 # ============================================================ sources model
 def probability(lands, accels, deck_size, req, mv, turn, sims, rng,
-                max_combos=250, count_restricted=False):
+                max_combos=250, count_restricted=False, count_triggered=False):
     """P(can pay req for a spell of value mv on turn `turn`).
 
     Requires at least one land and at least `turn` mana sources present.
     """
-    accels = [a for a in accels if count_restricted or not a.get("restricted")]
+    # An EVENT-triggered source is excluded from generic totals by default,
+    # for the same reason restricted mana is: it is real mana that this model
+    # cannot promise. Lotus Cobra makes a mana when a land enters, and neither
+    # model simulates land drops as an event -- counting it as a flat source
+    # would inflate every figure it appears in. A PHASE-triggered source is
+    # kept: it fires on its own, every turn, and is as reliable as a rock.
+    accels = [a for a in accels
+              if (count_restricted or not a.get("restricted"))
+              and (count_triggered or a.get("trigger") != "event")]
     lands = [l for l in lands if count_restricted or not l.get("restricted")]
     pool_idx = list(range(len(lands) + len(accels)))
     allp = lands + accels
@@ -197,11 +205,13 @@ def at_least_in_draw(k, sources, cards_seen, deck=99):
 
 # ============================================================ play simulation
 def playsim(lands, accels, deck_size, turns, on_draw, trials, rng,
-            count_restricted=False):
+            count_restricted=False, count_triggered=False):
     """Draw seven (+1 on the draw), draw one per turn, play a land if you have
     one, deploy the cheapest affordable accelerant, then read off available
     mana. Returns per-turn lists of (available source profiles, total mana)."""
-    accels = [a for a in accels if count_restricted or not a.get("restricted")]
+    accels = [a for a in accels
+              if (count_restricted or not a.get("restricted"))
+              and (count_triggered or a.get("trigger") != "event")]
     lands = [l for l in lands if count_restricted or not l.get("restricted")]
     entries = ([{"t": "land", "p": p} for p in lands] +
                [{"t": "accel", "p": a} for a in accels])
@@ -236,7 +246,16 @@ def playsim(lands, accels, deck_size, turns, on_draw, trials, rng,
                     srcs.append(L["p"])
                 for R in rocks:
                     p = R["p"]
-                    if R["entered"] == t and (p["tapped"] or p.get("creature")):
+                    # A phase trigger is offline the turn it enters, for the
+                    # same reason a mana creature is: "at the beginning of
+                    # your first main phase" has already happened by the time
+                    # you cast it. Both Hulking Raptor and Abstract Paintmage
+                    # are creatures and were covered by the clause beside
+                    # this one, but a phase-triggered ARTIFACT would otherwise
+                    # come online a turn early -- the one direction this model
+                    # must never err in.
+                    if R["entered"] == t and (p["tapped"] or p.get("creature")
+                                              or p.get("trigger") == "phase"):
                         continue
                     srcs.append(p)
                 return srcs

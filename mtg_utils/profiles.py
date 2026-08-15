@@ -126,6 +126,46 @@ REMINDER_TEXT = re.compile(r"\([^)]*\)")
 MANA_ABILITY = re.compile(r":[^.]*\badd\b")
 
 
+# A TRIGGERED mana ability is the third category, and until now it was the
+# invisible one: MANA_ABILITY requires a colon, so a card whose mana arrives
+# off a trigger matched nothing and was dropped from the accelerant list
+# entirely. Lotus Cobra and Nissa, Resurgent Animist are both MV<=3, both
+# make mana, and neither was counted.
+#
+# The two shapes are NOT equally reliable, and collapsing them would be the
+# whole mistake:
+#
+#   phase  "At the beginning of your first main phase, add {G}{G}."
+#          Fires on its own, every turn, once it is on the battlefield. As
+#          reliable as a rock.
+#   event  "Landfall -- Whenever a land you control enters, add one mana of
+#          any color."
+#          Fires only when something happens that neither model simulates.
+#
+# Anchored on the trigger word so the clause has to BE the trigger: a card
+# that merely mentions adding mana in a later sentence does not qualify, and
+# the produced_mana gate below still has the final say either way.
+TRIGGERED_PHASE = re.compile(r"at the beginning of [^.]*?,\s*add\b")
+TRIGGERED_EVENT = re.compile(r"whenever [^.]*?,\s*add\b")
+
+
+def triggered_mana(txt):
+    """"phase", "event", or None for oracle text with no triggered mana.
+
+    Phase is tested first, but that order is a TIE-BREAK NO PRINTED CARD
+    CURRENTLY EXERCISES -- a Scryfall search for oracle text carrying both
+    shapes returns nothing. It is written down rather than left implicit so
+    that if such a card is ever printed the tool picks the reliable reading
+    instead of whichever branch happened to be first, but there is no test
+    for it, because there is no card to write one against.
+    """
+    if TRIGGERED_PHASE.search(txt):
+        return "phase"
+    if TRIGGERED_EVENT.search(txt):
+        return "event"
+    return None
+
+
 def build_accel_profiles(deck_names, scry, max_mv=3):
     """Cheap accelerants: non-land, MV <= max_mv, taps for mana.
 
@@ -150,8 +190,15 @@ def build_accel_profiles(deck_names, scry, max_mv=3):
         # whose Treasures go to the OPPONENT, and it counted as a source.
         if not any(t in c["type_line"].split("//")[0] for t in PERMANENT_TYPES):
             continue
-        if not MANA_ABILITY.search(REMINDER_TEXT.sub(" ", txt)):
-            continue
+        # Reminder text is stripped for the triggered check too, and for the
+        # same reason: a Treasure token's reminder text describes an ability
+        # the TOKEN has, not one this card has.
+        stripped = REMINDER_TEXT.sub(" ", txt)
+        trigger = None
+        if not MANA_ABILITY.search(stripped):
+            trigger = triggered_mana(stripped)
+            if not trigger:
+                continue
         pm = set(x for x in (c.get("produced_mana") or []) if x in MANA_SYMBOLS)
         if not pm and re.search(r"add \{c\}", txt):
             pm = {"C"}
@@ -165,6 +212,9 @@ def build_accel_profiles(deck_names, scry, max_mv=3):
             "cost": int(mv),
             "tapped": tapped, "cond_tap": cond,
             "restricted": "spend this mana only" in txt,
+            # None for an ordinary activated ability. "phase" and "event"
+            # are consumed differently by both models -- see castability.
+            "trigger": trigger,
             "creature": "Creature" in c["type_line"].split("//")[0],
             "mdfc": False,
         })

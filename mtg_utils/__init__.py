@@ -51,8 +51,9 @@ from mtg_utils.cards import (BASIC_TYPE_COLOUR, COLOURS, CONDITIONAL_TAP_MARKERS
                              enters_tapped, faces, fetch_targets, front,
                              front_name, has_land_back, is_front_land, land_face,
                              mana_amount)
-from mtg_utils.profiles import (FILTER_LANDS, OMNI_TYPE, build_accel_profiles,
-                                build_land_profiles)
+from mtg_utils.profiles import (FILTER_LANDS, OMNI_TYPE, TRIGGERED_EVENT,
+                                TRIGGERED_PHASE, build_accel_profiles,
+                                build_land_profiles, triggered_mana)
 from mtg_utils.castability import (_match, at_least_in_draw, castable,
                                    castable_faces, pips_from_cost, playable_set,
                                    playsim, playsim_report, probability)
