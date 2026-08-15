@@ -489,6 +489,37 @@ speedup and each changes a reported number, which makes it a modelling change
 that must arrive as its own commit with the snapshot diff shown — the rule at
 the top of CLAUDE.md, not an exception to it.
 
+**And one that would NOT change a number, declined anyway.** `variants` sweeps
+six configurations against the same seed and the same 99-card library, and a
+Fisher-Yates shuffle permutes positions without looking at what it is moving —
+so all six draw the identical permutation, six times over. Sharing it is sound
+and it is not small: measured at **1.07s of a 2.1–2.8s run**, the largest
+single win left anywhere in the repo.
+
+It was declined on legibility. Taking it means `_playsim_core` gains a third
+mode — consume a deal you were handed, rather than draw one — in the hottest
+loop here, and it means inverting `report_variants` so all six configurations
+are in flight at once against one deal stream, with six interleaved
+accumulators where there is now an obvious `for each config: measure it`. The
+current loop is correct at a glance. That one would not be, and this is a
+repository whose entire thesis is that a plausible-looking number is more
+dangerous than an obvious error. One second on a command whose own docstring
+says "Slow; opt-in" does not buy that.
+
+For whoever revisits it, the analysis is done and the shape is known. Deal the
+positions rather than the cards: `_playsim_core` builds `list(range(nL + nA)) +
+[-1] * rest` and shuffles it, but shuffling `range(deck_size)` gives the same
+permutation and lets each configuration classify a position itself
+(`p < nL` a land, `p < nL + nA` an accelerant, else a spell), which drops the
+`-1` sentinel and makes the shared path fall out rather than fork. The
+aggregation has to stay `100.0 * hits / trials` per replicate and then
+`mean_spread` over replicates in index order, or the floats move in the last
+place. And it needs one new test the repo does not have: that a shuffle's
+permutation is independent of what is being shuffled. That is the invariant the
+whole idea rests on, it is true of Fisher-Yates, and it is five lines to pin —
+but unpinned it is exactly the assumption that stays true until someone makes
+the shuffle look at the deck.
+
 ---
 
 ## 16. `variants` crashed on a commander past turn seven — FIXED
