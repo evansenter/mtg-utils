@@ -104,6 +104,32 @@ def load_fixture_collection(path=os.path.join(FIXTURES, "collection.csv")):
     return owned
 
 
+def _patch_everywhere(name, replacement):
+    """Rebind `name` on every loaded module that defines a function of that name.
+
+    A module-level function is looked up in the globals of the module that
+    DEFINES it, not the one that calls it. Patching only `mana_model.<name>`
+    works while everything lives in one file and silently stops working the
+    moment the definition moves into a package -- the call would go to the real
+    loader and read /mnt/project. Patching by name across sys.modules covers
+    both shapes, so the reference and the candidate are treated identically.
+
+    Returns the undo list.
+    """
+    undo = []
+    for mod in list(sys.modules.values()):
+        if mod is None:
+            continue
+        try:
+            cur = getattr(mod, name, None)
+        except Exception:            # module with an exotic __getattr__
+            continue
+        if callable(cur) and getattr(cur, "__name__", None) == name:
+            undo.append((mod, cur))
+            setattr(mod, name, replacement)
+    return undo
+
+
 def run_cli(mod, argv, tmpdir):
     """Run `mod.main()` with argv and return everything it printed.
 
@@ -120,10 +146,10 @@ def run_cli(mod, argv, tmpdir):
             argv[i] = f"--cache={dst}"
 
     old_argv = sys.argv
-    old_loader = mod.load_collection
     # prog is derived from sys.argv[0] and appears in --help output
     sys.argv = ["mana_model.py"] + argv
-    mod.load_collection = load_fixture_collection
+    undo = _patch_everywhere("load_collection", load_fixture_collection)
+    assert undo, "load_collection was not found anywhere -- patch target moved"
     buf = io.StringIO()
     try:
         with redirect_stdout(buf), redirect_stderr(buf):
@@ -134,7 +160,8 @@ def run_cli(mod, argv, tmpdir):
                     buf.write(f"\n[exit {e.code}]\n")
     finally:
         sys.argv = old_argv
-        mod.load_collection = old_loader
+        for target, original in undo:
+            setattr(target, "load_collection", original)
     return buf.getvalue()
 
 
