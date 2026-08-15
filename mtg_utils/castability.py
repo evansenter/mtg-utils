@@ -166,6 +166,19 @@ _SIG_IDS = {}
 #   (colour mask, filter mask, is a filter, amount, omni mask, is a land)
 _SIG_DATA = []
 
+# A HAND is a multiset of signatures, and every cache below is keyed on one.
+# It is carried as a single integer, six bits per signature holding how many
+# of it are in play, so a source coming online is one addition and comparing
+# two hands is one integer compare -- where a sorted tuple meant an insertion,
+# a rebuild, and a hash proportional to the hand at every lookup.
+#
+# Six bits counts to 63. Nothing either model builds comes near that -- a hand
+# is a dozen sources -- and `castable` refuses to pack a list that could,
+# rather than let one signature's count carry into the next one's bits.
+_SIG_STRIDE = 6
+_SIG_LIMIT = (1 << _SIG_STRIDE) - 1
+_SIG_POW = []
+
 
 def _sig_id(p):
     """Intern the fields `castable` actually reads, as a small int.
@@ -181,6 +194,7 @@ def _sig_id(p):
     sid = _SIG_IDS.get(sig)
     if sid is None:
         sid = _SIG_IDS[sig] = len(_SIG_DATA)
+        _SIG_POW.append(1 << (_SIG_STRIDE * sid))
         _SIG_DATA.append((_mask(sig[0]), _mask(filt) if filt else 0, bool(filt),
                           sig[2], _mask(sig[3]) if sig[3] else 0,
                           sig[4] == "land"))
@@ -190,12 +204,25 @@ def _sig_id(p):
 _CASTABLE_MEMO = {}
 
 
-def _ask(sids, req_key):
-    """Memoised feasibility for an already-interned, already-sorted hand."""
-    key = (sids, req_key)
+def _unpack(hand):
+    """A packed hand back into its signature ids. Only ever on a cache miss."""
+    sids = []
+    sid = 0
+    while hand:
+        n = hand & _SIG_LIMIT
+        if n:
+            sids += [sid] * n
+        hand >>= _SIG_STRIDE
+        sid += 1
+    return sids
+
+
+def _ask(hand, req_key):
+    """Memoised feasibility for a packed hand."""
+    key = (hand, req_key)
     hit = _CASTABLE_MEMO.get(key)
     if hit is None:
-        hit = _CASTABLE_MEMO[key] = _solve(sids, req_key)
+        hit = _CASTABLE_MEMO[key] = _solve(hand, req_key)
     return hit
 
 
@@ -216,7 +243,19 @@ def castable(sources, req, mv):
     # `req` is sorted because the answer is a bipartite matching, which does
     # not care what order the pips arrive in. {W}{U} and {U}{W} are the same
     # question and now share an entry.
-    return _ask(tuple(sorted([_sig_id(p) for p in sources])), tuple(sorted(req)))
+    sids = [_sig_id(p) for p in sources]
+    req_key = tuple(sorted(req))
+    if len(sids) > _SIG_LIMIT:
+        # More sources than a packed hand can count. Neither model builds a
+        # hand this size, so rather than widen the packing for a case that
+        # cannot arise, this one is solved directly and not cached: a hand
+        # that overflowed its field would collide with a different hand and
+        # then answer for it.
+        return _search(_derive(sids), *_constraints(req_key))
+    hand = 0
+    for sid in sids:
+        hand += _SIG_POW[sid]
+    return _ask(hand, req_key)
 
 
 # What a hand of sources offers before any cost is named: the mana it makes,
@@ -226,54 +265,59 @@ def castable(sources, req, mv):
 _HAND_CACHE = {}
 
 
-def _hand(sids):
+def _derive(sids):
     """(units, ocols, oamt, fpair) for a hand of interned signature ids.
 
     `units` is the finished mana when no filter land is present -- the
     ordinary case, which then skips the search entirely. It is None when
     there is one, and the other three feed the search.
     """
-    h = _HAND_CACHE.get(sids)
+    data = [_SIG_DATA[s] for s in sids]
+    omni = 0
+    for d in data:
+        omni |= d[4]
+    others, filters = [], []
+    for d in data:
+        (filters if d[2] else others).append(d)
+    # Urborg makes every LAND a Swamp; Yavimaya every land a Forest. Neither
+    # says anything about a mana rock, and applying the omni colour to every
+    # source had a colourless rock producing black.
+    if omni:
+        ocols = [(d[0] | omni) if d[5] else d[0] for d in others]
+    else:
+        ocols = [d[0] for d in others]
+    oamt = [d[3] for d in others]
+    if filters:
+        return None, ocols, oamt, [d[1] for d in filters]
+    units = {}
+    for j, m in enumerate(ocols):
+        units[m] = units.get(m, 0) + oamt[j]
+    return units, None, None, None
+
+
+def _hand(hand):
+    h = _HAND_CACHE.get(hand)
     if h is None:
-        data = [_SIG_DATA[s] for s in sids]
-        omni = 0
-        for d in data:
-            omni |= d[4]
-        others, filters = [], []
-        for d in data:
-            (filters if d[2] else others).append(d)
-        # Urborg makes every LAND a Swamp; Yavimaya every land a Forest.
-        # Neither says anything about a mana rock, and applying the omni
-        # colour to every source had a colourless rock producing black.
-        if omni:
-            ocols = [(d[0] | omni) if d[5] else d[0] for d in others]
-        else:
-            ocols = [d[0] for d in others]
-        oamt = [d[3] for d in others]
-        if filters:
-            h = (None, ocols, oamt, [d[1] for d in filters])
-        else:
-            units = {}
-            for j, m in enumerate(ocols):
-                units[m] = units.get(m, 0) + oamt[j]
-            h = (units, None, None, None)
-        _HAND_CACHE[sids] = h
+        h = _HAND_CACHE[hand] = _derive(_unpack(hand))
     return h
 
 
-def _solve(sids, req_key):
-    """Feasibility for a hand given as interned signature ids.
+def _solve(hand, req_key):
+    """Feasibility for a packed hand against the SORTED pips.
 
-    Same search as before -- try each filter land unpaired, then paired with
-    each source that shares one of its colours -- with the units carried as
-    bitmasks rather than sets. The pairing search is exponential in the
-    number of filter lands in hand, which is why it sits behind the memo.
-
-    Takes the SORTED pips, not the raw list: a matching does not care what
-    order they arrive in, and this is the tuple the memo is keyed on anyway.
+    Sorted rather than raw: a matching does not care what order the pips
+    arrive in, and this is the tuple the memo is keyed on anyway.
     """
-    subsets, nreq = _constraints(req_key)
-    units, ocols, oamt, fpair = _hand(sids)
+    return _search(_hand(hand), *_constraints(req_key))
+
+
+def _search(derived, subsets, nreq):
+    """Same search as before -- try each filter land unpaired, then paired
+    with each source that shares one of its colours -- with the units carried
+    as bitmasks rather than sets. The pairing search is exponential in the
+    number of filter lands in hand, which is why it sits behind the memo.
+    """
+    units, ocols, oamt, fpair = derived
     if units is not None:
         return _hall(units, subsets, nreq)
     nf, no = len(fpair), len(ocols)
@@ -399,12 +443,33 @@ def _shuffle_plan(n, m):
 _DRAW_MEMO = {}
 
 
+# Every cache in this module is pure: dropping one costs time and can never
+# cost correctness. Left unbounded they grow with each deck a long-lived run
+# touches -- `calibrate` walks a whole collection -- so they are dropped
+# wholesale past a watermark set above what one deck's full measurement needs,
+# which is where the hits actually are. The interning tables are NOT dropped:
+# _SIG_DATA is indexed by the ids every key is built from, and resetting it
+# under a live caller would repoint them.
+_CACHE_LIMIT = 300_000
+
+
+def _bound_caches():
+    held = len(_CASTABLE_MEMO) + len(_HAND_CACHE)
+    for v in _DRAW_MEMO.values():
+        held += len(v)
+    if held > _CACHE_LIMIT:
+        _CASTABLE_MEMO.clear()
+        _HAND_CACHE.clear()
+        _DRAW_MEMO.clear()
+
+
 def probability(lands, accels, deck_size, req, mv, turn, sims, rng,
                 max_combos=250, count_restricted=False):
     """P(can pay req for a spell of value mv on turn `turn`).
 
     Requires at least one land and at least `turn` mana sources present.
     """
+    _bound_caches()
     accels = [a for a in accels if count_restricted or not a.get("restricted")]
     lands = [l for l in lands if count_restricted or not l.get("restricted")]
     allp = lands + accels
@@ -425,7 +490,7 @@ def probability(lands, accels, deck_size, req, mv, turn, sims, rng,
     # recognisable as the same question.
     code = [(sids[i] << 2) | (2 if i in land_idx else 0)
             | (0 if i in untapped else 1) for i in range(nsrc)]
-    sid_of = sids.__getitem__
+    pow_of = [_SIG_POW[s] for s in sids].__getitem__
     amt_of = amts.__getitem__
     code_of = code.__getitem__
     req_key = tuple(sorted(req))
@@ -447,7 +512,7 @@ def probability(lands, accels, deck_size, req, mv, turn, sims, rng,
                 continue
             if not req_key:
                 return True
-            key = (tuple(sorted(map(sid_of, c))), req_key)
+            key = (sum(map(pow_of, c)), req_key)
             r = memo.get(key)
             if r is None:
                 r = memo[key] = _solve(key[0], req_key)
@@ -578,9 +643,16 @@ def _playsim_core(lands, accels, deck_size, turns, on_draw, trials, rng,
     shape = mode is None
     track = (not shape) and _MODE_KEYED in mode
     if track:
-        l_sid = [_sig_id(p) for p in lands]
-        a_sid = [_sig_id(p) for p in accels]
+        # The packed contribution of each source, so coming online is one add.
+        l_sid = [_SIG_POW[_sig_id(p)] for p in lands]
+        a_sid = [_SIG_POW[_sig_id(p)] for p in accels]
     insort = bisect.insort
+    # The cards this trial ever looks at, taken off the top in one slice
+    # rather than one index at a time. `pop()` takes from the end, so the top
+    # of the library is the tail of the list, read backwards.
+    top = deck_size - 1
+    open_sl = slice(top, top - opening if opening < deck_size else None, -1)
+    draw_at = [0, 0] + [top - opening - (t - 2) for t in range(2, turns + 1)]
     x = deck[:]
     for _ in range(trials):
         x[:] = deck
@@ -593,54 +665,53 @@ def _playsim_core(lands, accels, deck_size, turns, on_draw, trials, rng,
             j = getrandbits(b)
             while j >= k:
                 j = getrandbits(b)
-        pos = deck_size - 1
+        # Each hand is kept in the order it would be picked from, so choosing
+        # is `[0]` rather than a scan. Entries carry their draw order and
+        # `insort` places equals last, so a tie still goes to whichever was
+        # drawn first -- which is what the stable sort and its `[0]` did.
         hand_l, hand_a = [], []
-        for _ in range(opening):
-            c = x[pos]
-            pos -= 1
+        seq = 0
+        for c in x[open_sl]:
             if c >= 0:
                 if c < nL:
-                    hand_l.append(c)
+                    insort(hand_l, (l_key[c], seq, c))
                 else:
-                    hand_a.append(c - nL)
+                    c -= nL
+                    insort(hand_a, (a_cost[c], seq, c))
+                seq += 1
         online_l = []                 # land profiles online, in play order
         rk_p, rk_ready = [], []       # rocks in deploy order, and from when
-        live = []                     # sids of everything online, kept sorted
+        live = 0                      # everything online, as a packed hand
         online_total = 0              # mana available right now
         pend_total = 0                # mana that comes online next turn
-        pend_land = None              # at most one: you play one land a turn
+        pend_land = -1                # at most one: you play one land a turn
         pend_rocks = []
         for t in range(1, turns + 1):
             if t > 1:
-                c = x[pos]
-                pos -= 1
+                c = x[draw_at[t]]
                 if c >= 0:
                     if c < nL:
-                        hand_l.append(c)
+                        insort(hand_l, (l_key[c], seq, c))
                     else:
-                        hand_a.append(c - nL)
+                        c -= nL
+                        insort(hand_a, (a_cost[c], seq, c))
+                    seq += 1
                 # Everything that entered last turn is online now.
-                if pend_land is not None:
+                if pend_land >= 0:
                     if shape:
                         online_l.append(lands[pend_land])
                     if track:
-                        insort(live, l_sid[pend_land])
-                    pend_land = None
+                        live += l_sid[pend_land]
+                    pend_land = -1
                 if pend_rocks:
                     if track:
                         for code in pend_rocks:
-                            insort(live, a_sid[code])
+                            live += a_sid[code]
                     pend_rocks = []
                 online_total += pend_total
                 pend_total = 0
             if hand_l:
-                best = 0
-                bk = l_key[hand_l[0]]
-                for idx in range(1, len(hand_l)):
-                    k2 = l_key[hand_l[idx]]
-                    if k2 < bk:
-                        best, bk = idx, k2
-                code = hand_l.pop(best)
+                code = hand_l.pop(0)[2]
                 if l_tap[code]:
                     pend_land = code
                     pend_total += l_amt[code]
@@ -649,7 +720,7 @@ def _playsim_core(lands, accels, deck_size, turns, on_draw, trials, rng,
                     if shape:
                         online_l.append(lands[code])
                     if track:
-                        insort(live, l_sid[code])
+                        live += l_sid[code]
 
             # Deploying an accelerant COSTS the mana it costs. Without
             # `spent`, each pass re-read the full total and two lands could
@@ -660,29 +731,30 @@ def _playsim_core(lands, accels, deck_size, turns, on_draw, trials, rng,
             # The rock's mana is still available the moment it lands (an
             # untapped, non-creature source is online the turn it enters), so
             # a turn-two Sol Ring off two lands correctly leaves 1 + 2 = 3.
-            spent = 0
-            for _pass in range(4):
-                avail = online_total - spent
-                best, bc = -1, 0
-                for idx in range(len(hand_a)):
-                    cost = a_cost[hand_a[idx]]
-                    if cost <= avail and (best < 0 or cost < bc):
-                        best, bc = idx, cost
-                if best < 0:
-                    break
-                code = hand_a.pop(best)
-                spent += bc
-                if shape:
-                    rk_p.append(accels[code])
-                if a_late[code]:
-                    rk_ready.append(t + 1)
-                    pend_rocks.append(code)
-                    pend_total += a_amt[code]
-                else:
-                    rk_ready.append(t)
-                    online_total += a_amt[code]
-                    if track:
-                        insort(live, a_sid[code])
+            # The cheapest rock in hand is the only one worth testing: if it
+            # is unaffordable then so is every other, which is what scanning
+            # for "affordable, then cheapest" worked out the long way round.
+            if hand_a:
+                spent = 0
+                for _pass in range(4):
+                    if hand_a[0][0] > online_total - spent:
+                        break
+                    pick = hand_a.pop(0)
+                    spent += pick[0]
+                    code = pick[2]
+                    if shape:
+                        rk_p.append(accels[code])
+                    if a_late[code]:
+                        rk_ready.append(t + 1)
+                        pend_rocks.append(code)
+                        pend_total += a_amt[code]
+                    else:
+                        rk_ready.append(t)
+                        online_total += a_amt[code]
+                        if track:
+                            live += a_sid[code]
+                    if not hand_a:
+                        break
 
             if online_total >= t:
                 ghits[t] += 1
@@ -692,12 +764,12 @@ def _playsim_core(lands, accels, deck_size, turns, on_draw, trials, rng,
                                               if r <= t])
                 else:
                     out[t].append(online_l[:])
-            else:
-                m = mode[t]
-                if m == _MODE_KEYED:
-                    out[t].append((online_total, tuple(live)))
-                elif m == _MODE_TOTAL:
-                    out[t].append(online_total)
+                continue
+            m = mode[t]
+            if m == _MODE_KEYED:
+                out[t].append((online_total, live))
+            elif m == _MODE_TOTAL:
+                out[t].append(online_total)
     return out, ghits
 
 
@@ -712,6 +784,7 @@ def playsim(lands, accels, deck_size, turns, on_draw, trials, rng,
 
 def playsim_report(lands, accels, deck_size, lines, trials, rng, turns=7):
     """lines: list of (label, mana_value, pip_string like '{R}{R}')."""
+    _bound_caches()
     specs = []
     for label, mv, pipstr in lines:
         req = pips_from_cost(pipstr)
@@ -738,19 +811,19 @@ def playsim_report(lands, accels, deck_size, lines, trials, rng, turns=7):
         for label, mv, req, req_key, turn in specs:
             hits = 0
             if req:
-                for total, sids in rows[turn]:
+                for total, hand in rows[turn]:
                     if total < mv:
                         continue
-                    k = (sids, req_key)
+                    k = (hand, req_key)
                     r = memo.get(k)
                     if r is None:
-                        r = memo[k] = _solve(sids, req_key)
+                        r = memo[k] = _solve(hand, req_key)
                     if r:
                         hits += 1
             elif mode[turn] == _MODE_KEYED:
                 # A colourless commander asks only "is there enough mana", on
                 # a turn some other line does ask a colour question about.
-                for total, _sids in rows[turn]:
+                for total, _hand in rows[turn]:
                     if total >= mv:
                         hits += 1
             else:
