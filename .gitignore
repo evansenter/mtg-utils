@@ -1,0 +1,11 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+
+# working artefacts: caches are fetched per deck, decklists are never stored
+# in the repo (project knowledge sec 3 -- Moxfield is the source of truth)
+/scry.json
+/final_deck.txt
+/deck.txt

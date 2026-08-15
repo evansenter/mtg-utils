@@ -67,6 +67,19 @@ def mm():
     return _load(os.path.join(REPO, "mana_model.py"), "_unit_mana_model")
 
 
+def card(**kw):
+    """Ported verbatim from selftest's `_card`."""
+    kw.setdefault("type_line", "Land")
+    kw.setdefault("oracle_text", "")
+    return kw
+
+
+def src(colours="", amount=1, filt=None, omni=None):
+    """Ported verbatim from selftest's `_src`."""
+    return {"colours": frozenset(colours), "amount": amount,
+            "filter": filt, "omni": omni}
+
+
 def load_fixture_collection(path=os.path.join(FIXTURES, "collection.csv")):
     """A stand-in for load_collection bound to the fixture CSV.
 
