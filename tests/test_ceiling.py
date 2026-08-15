@@ -26,7 +26,7 @@ import shutil
 
 import pytest
 
-from conftest import FIXTURES, load_fixture_collection
+from conftest import FIXTURES, load_fixture_collection, patch_everywhere
 
 REC = os.path.join(FIXTURES, "ceiling.rec.json")
 TOP16 = os.path.join(FIXTURES, "ceiling.top16.json")
@@ -273,16 +273,29 @@ def _no_network(monkeypatch):
     monkeypatch.setattr(subprocess, "run", boom)
 
 
-def _run_ceiling(mm, monkeypatch, tmp_path, **kw):
+def _run_ceiling(mm, monkeypatch, tmp_path, spellbook=None,
+                 scry_fixture=None, **kw):
     import mtg_utils.report as report
-    monkeypatch.setattr(report, "load_collection", load_fixture_collection)
+    # patch_everywhere, not setattr(report, ...): a module-level function
+    # resolves in the globals of the module that DEFINES it, so patching the
+    # package a printer used to live in keeps "succeeding" after the printer
+    # moves to a submodule -- while the real, networked function runs.
+    patch_everywhere(monkeypatch, "load_collection", load_fixture_collection)
+    # The Commander Spellbook cross-check is ON by default, so EVERY report
+    # test now drives it. Patched here rather than in each case: left to the
+    # no-network guard it would surface as an AssertionError from inside
+    # curl, several frames from the cause, in tests about something else.
+    patch_everywhere(monkeypatch, "spellbook",
+                     spellbook or (lambda c, e: _combos()))
     _no_network(monkeypatch)
     # scry_fetch rewrites its cache on every run, so the committed fixture is
     # copied first -- the same trap the golden harness already handles.
     scry_copy = os.path.join(str(tmp_path), "ceiling.scry.json")
-    shutil.copyfile(SCRY, scry_copy)
+    shutil.copyfile(scry_fixture or SCRY, scry_copy)
+    with open(scry_fixture or SCRY, encoding="utf-8") as f:
+        scry = json.load(f)
     cmdr, entries = mm.read_decklist(os.path.join(FIXTURES, "partner.txt"))
-    return report.report_ceiling(cmdr, entries, _scry(), scry_copy, **kw)
+    return report.report_ceiling(cmdr, entries, scry, scry_copy, **kw)
 
 
 def test_a_capped_list_is_reported_as_below_cutoff_never_as_zero(mm, monkeypatch,
@@ -482,3 +495,411 @@ def test_the_report_prints_unknown_synergy_as_a_dash(mm, monkeypatch, tmp_path,
                  threshold=90.0)
     out = capsys.readouterr().out
     assert "0.000" not in out
+
+
+# --- the combo cross-check --------------------------------------------
+# A ceiling row is ranked on how often other people play the card. That says
+# nothing about what it does with THIS list. On the deck that prompted this,
+# the two rows that form infinites with cards already in the deck sit at 7.9%
+# and 6.8% inclusion -- below any default bar, reachable only by lowering it,
+# which is exactly when nobody thinks to add a flag. Hence: on by default.
+COMBOS = os.path.join(FIXTURES, "ceiling.combos.json")
+
+
+def _combos():
+    with open(COMBOS, encoding="utf-8") as f:
+        return json.load(f)
+
+
+def test_a_completion_is_keyed_on_the_front_face(mm):
+    """Spellbook is the THIRD naming convention here -- it returns full DFC
+    names, where EDHREC returns front faces. Unnormalised, a DFC combo piece
+    never joins to the ceiling row it belongs to and the annotation silently
+    never appears."""
+    res = {"almostIncluded": [{"uses": [
+        {"card": {"name": "Sink into Stupor // Soporific Springs"}},
+        {"card": {"name": "Sol Ring"}}]}]}
+    got = mm.combo_completions(res, "Cmdr", {"Sol Ring": 1})
+    assert list(got) == ["sink into stupor"]
+    assert got["sink into stupor"][0]["with"] == ["Sol Ring"]
+
+
+def test_a_dfc_the_deck_holds_is_not_offered_as_a_completion(mm):
+    """The other half of the front-face rule, and the one with teeth.
+
+    The decklist spells out "Commit // Memory"; Spellbook names the piece
+    "Commit". Compare those as written and a card sitting in the deck reads as
+    a card that would COMPLETE a combo -- so the row is annotated with an
+    interaction the deck already has, and the count of interacting rows goes
+    up by one for a purchase nobody needs to make.
+
+    Distinct from the keying case above: that one pins the dict key, this one
+    pins the membership test, and a fix to either alone leaves the other
+    broken.
+    """
+    res = {"almostIncluded": [{"uses": [{"card": {"name": "Commit"}},
+                                        {"card": {"name": "Basalt Monolith"}}]}]}
+    got = mm.combo_completions(res, "Cmdr", {"Commit // Memory": 1})
+    assert list(got) == ["basalt monolith"]
+    assert got["basalt monolith"][0]["with"] == ["Commit"]
+
+
+def test_a_card_already_in_the_deck_is_not_a_completion(mm):
+    """It is a piece the deck HOLDS. Listed as a completion it would annotate
+    a ceiling row that, by construction, cannot exist -- and inflate the count
+    of rows that interact."""
+    res = {"almostIncluded": [{"uses": [{"card": {"name": "Sol Ring"}},
+                                        {"card": {"name": "Basalt Monolith"}}]}]}
+    got = mm.combo_completions(res, "Cmdr", {"Sol Ring": 1})
+    assert list(got) == ["basalt monolith"]
+
+
+def test_a_combo_needing_two_more_cards_says_so(mm):
+    """"Almost included" means at LEAST one piece missing, not exactly one. A
+    row annotated COMBO that in fact needs two more cards overstates a case
+    the reader cannot check from the table."""
+    res = {"almostIncluded": [{"uses": [{"card": {"name": "Sol Ring"}},
+                                        {"card": {"name": "Displacer Kitten"}},
+                                        {"card": {"name": "Dark Ritual"}}]}]}
+    got = mm.combo_completions(res, "Cmdr", {"Sol Ring": 1})
+    assert got["displacer kitten"][0]["also_missing"] == ["Dark Ritual"]
+    assert got["dark ritual"][0]["also_missing"] == ["Displacer Kitten"]
+
+
+def test_a_template_counts_as_a_piece(mm):
+    """"Permanent Castable for {C}" is a real card the deck has to supply.
+    Left out of the count, a three-piece line reads as a two-card combo --
+    which is the difference between a plan and a coincidence."""
+    res = {"almostIncluded": [{
+        "uses": [{"card": {"name": "Sol Ring"}},
+                 {"card": {"name": "Hullbreaker Horror"}}],
+        "requires": [{"template": {"name": "Permanent Castable for {C}"}}]}]}
+    got = mm.combo_completions(res, "Cmdr", {"Sol Ring": 1})
+    assert got["hullbreaker horror"][0]["pieces"] == 3
+    assert got["hullbreaker horror"][0]["templates"] == \
+        ["Permanent Castable for {C}"]
+
+
+def test_combos_this_card_finishes_alone_sort_first(mm):
+    """A combo the card completes on its own is a different proposition from
+    one that needs two more purchases, and the first line under a row is the
+    one that gets read."""
+    res = {"almostIncluded": [
+        {"uses": [{"card": {"name": "Kitten"}}, {"card": {"name": "Sol Ring"}},
+                  {"card": {"name": "Absent Two"}}]},
+        {"uses": [{"card": {"name": "Kitten"}}, {"card": {"name": "Sol Ring"}}]}]}
+    got = mm.combo_completions(res, "Cmdr", {"Sol Ring": 1})["kitten"]
+    assert got[0]["also_missing"] == []
+    assert got[1]["also_missing"] == ["Absent Two"]
+
+
+def test_the_audit_attaches_combos_to_the_right_row(mm):
+    rows = [{"name": "Hullbreaker Horror", "num_decks": 9, "potential_decks": 10,
+             "inclusion": 90.0, "synergy": 0.1, "cardlist": "x"},
+            {"name": "Force of Will", "num_decks": 8, "potential_decks": 10,
+             "inclusion": 80.0, "synergy": 0.1, "cardlist": "x"}]
+    completions = {"hullbreaker horror": [{"with": ["Sol Ring"], "templates": [],
+                                           "also_missing": [], "produces": [],
+                                           "pieces": 2}]}
+    a = mm.ceiling_audit("Cmdr", {}, rows, [], {}, {}, completions=completions)
+    by = {m["name"]: m for m in a["missing"]}
+    assert len(by["Hullbreaker Horror"]["combos"]) == 1
+    assert by["Force of Will"]["combos"] == []
+    assert a["combo_rows"] == 1
+
+
+def test_the_fixture_deck_has_the_two_real_intersections(mm):
+    """Verbatim find-my-combos output for the partner fixture deck. Both rows
+    are FAR below the 50% default bar, which is the whole argument for the
+    check being on by default rather than behind a flag."""
+    cmdr, entries = mm.read_decklist(os.path.join(FIXTURES, "partner.txt"))
+    got = mm.combo_completions(_combos(), cmdr, entries)
+    rows, _ = mm.parse_commander_page(_rec_page())
+    ranked = {r["name"].lower(): r["inclusion"] for r in rows}
+    hits = {k: ranked[k] for k in got if k in ranked}
+    assert set(hits) == {"displacer kitten", "hullbreaker horror"}
+    assert all(v < 50.0 for v in hits.values()), hits
+    # Hullbreaker Horror + Sol Ring is real, and Sol Ring is in the fixture
+    # deck.
+    assert "Sol Ring" in got["hullbreaker horror"][0]["with"]
+
+
+# --- the report -------------------------------------------------------
+def test_the_report_flags_a_combo_row_inline(mm, monkeypatch, tmp_path, capsys):
+    """The acceptance criterion: the annotation sits under the row it belongs
+    to, so it cannot be read as applying to a different card."""
+    _run_ceiling(mm, monkeypatch, tmp_path, rec_cache=REC, threshold=6.0)
+    out = capsys.readouterr().out.split("\n")
+    i = next(n for n, l in enumerate(out) if "Hullbreaker Horror" in l)
+    assert "COMBO with Sol Ring" in out[i + 1]
+    assert "Permanent Castable for {C} (template)" in out[i + 1]
+    assert "Infinite colorless mana" in out[i + 1]
+
+
+def test_the_report_never_calls_a_combo_a_recommendation(mm, monkeypatch,
+                                                         tmp_path, capsys):
+    """The interaction that prompted this feature was a card forming a FORCED
+    DRAW with two cards already in the deck. Whether a combo argues for or
+    against a card is not Spellbook's to say, and a tool that phrased it as a
+    recommendation would have recommended the draw."""
+    _run_ceiling(mm, monkeypatch, tmp_path, rec_cache=REC, threshold=6.0)
+    out = capsys.readouterr().out
+    assert "a fact, not a recommendation" in out
+    assert "recommended" not in out.lower().replace("not a recommendation", "")
+
+
+def test_a_row_with_many_combos_says_how_many_it_dropped(mm, monkeypatch,
+                                                         tmp_path, capsys):
+    """No silent caps. "2 combos" on a row that has nine is a smaller number
+    than the truth, printed with confidence."""
+    res = {"almostIncluded": [
+        {"uses": [{"card": {"name": "Deathrite Shaman"}},
+                  {"card": {"name": f"Piece {i}"}},
+                  {"card": {"name": "Sol Ring"}}]} for i in range(5)]}
+    _run_ceiling(mm, monkeypatch, tmp_path, spellbook=lambda c, e: res,
+                 rec_cache=REC, threshold=75.0)
+    out = capsys.readouterr().out
+    assert "...and 3 more combos" in out
+
+
+def test_a_spellbook_outage_is_announced_not_silently_clean(mm, monkeypatch,
+                                                            tmp_path, capsys):
+    """An unrun check and a clean result are the same empty column. This is
+    the same rule the capped-cardlist note follows: absence of data is never
+    reported as a finding of none."""
+    def boom(cmdr, entries):
+        raise SystemExit("Commander Spellbook find-my-combos failed after retries")
+    a = _run_ceiling(mm, monkeypatch, tmp_path, spellbook=boom,
+                     rec_cache=REC, threshold=75.0)
+    out = capsys.readouterr().out
+    assert "COMBO CROSS-CHECK DID NOT RUN" in out
+    assert "NOT known to be free of combos" in out
+    # and the audit still produced its rows -- an outage in one source must
+    # not take the whole command down
+    assert a["missing"]
+
+
+def test_no_combos_skips_the_call_without_claiming_a_clean_result(
+        mm, monkeypatch, tmp_path, capsys):
+    """--no-combos must not print the "0 rows interact" line: the check did
+    not run, and saying nothing interacts would be the claim it declined to
+    make."""
+    def boom(cmdr, entries):
+        raise AssertionError("--no-combos still called Commander Spellbook")
+
+    _run_ceiling(mm, monkeypatch, tmp_path, spellbook=boom, rec_cache=REC,
+                 threshold=75.0, combos=False)
+    out = capsys.readouterr().out
+    assert "interact with cards already in the list" not in out
+    assert "COMBO CROSS-CHECK DID NOT RUN" not in out
+
+
+def test_a_clean_cross_check_says_it_ran(mm, monkeypatch, tmp_path, capsys):
+    """The mirror of the outage case: "0 rows interact" is a result, and it
+    has to be distinguishable from the check not running."""
+    _run_ceiling(mm, monkeypatch, tmp_path,
+                 spellbook=lambda c, e: {"almostIncluded": []},
+                 rec_cache=REC, threshold=75.0)
+    out = capsys.readouterr().out
+    assert "0 rows interact with cards already in the list" in out
+    assert "COMBO CROSS-CHECK DID NOT RUN" not in out
+
+
+# --- the land roster cross-reference ----------------------------------
+# Inclusion is the right tool for spells and the wrong one for lands: EDHREC's
+# land data reflects the population playing the commander, which is a budget
+# population. The roster already enumerates every cycle slot per colour pair,
+# best-first, so it can answer what inclusion cannot -- is this land worse than
+# what is already filling that slot.
+LANDS_REC = os.path.join(FIXTURES, "ceiling.lands.rec.json")
+LANDS_SCRY = os.path.join(FIXTURES, "ceiling.lands.scry.json")
+
+
+def _lands_scry():
+    with open(LANDS_SCRY, encoding="utf-8") as f:
+        return json.load(f)
+
+
+@pytest.mark.parametrize("name,type_line,deck,cycle,better", [
+    ("Clifftop Retreat", "Land", ["Sacred Foundry"], "Checkland",
+     ["Sacred Foundry"]),
+    ("Cinder Glade", "Land — Mountain Forest", ["Taiga"], None, ["Taiga"]),
+    ("Jungle Shrine", "Land", ["Jetmir's Garden"], "Tri-land",
+     ["Jetmir's Garden"]),
+], ids=["roster/checkland below a shockland already in",
+        "roster/battle land is on NO cycle and ranks below every one",
+        "roster/tri-land below the Triome for the same identity"])
+def test_a_land_below_a_filled_slot_is_named(mm, name, type_line, deck, cycle,
+                                             better):
+    """The three ways a land can be worse than what is already in the list.
+
+    The battle land is the case that needed a second mechanism: it is on no
+    roster cycle at all, so its colour pair has to come off its BASIC LAND
+    TYPES instead. Without that it is indistinguishable from Gaea's Cradle --
+    a land with no pair, which the roster rightly has no opinion about.
+    """
+    note = mm.land_roster_note({"name": name, "type_line": type_line},
+                               {d.lower() for d in deck})
+    assert note["cycle"] == cycle
+    assert [card for _slot, card in note["better"]] == better
+
+
+@pytest.mark.parametrize("name,type_line,deck", [
+    ("Gaea's Cradle", "Legendary Land", ["Taiga", "Savannah"]),
+    ("Unclaimed Territory", "Land", ["Taiga", "Savannah"]),
+    ("Cinder Glade", "Land — Mountain Forest", ["Tundra", "Savannah"]),
+], ids=["roster/a land with no colour pair gets no verdict",
+        "roster/an any-colour slot has no quality ordering to rank it by",
+        "roster/a pair with nothing better in it is not a downgrade"])
+def test_the_roster_stays_quiet_when_it_has_no_opinion(mm, name, type_line,
+                                                       deck):
+    """The half that matters more than the verdicts.
+
+    Gaea's Cradle and Urza's Saga are lands with no colour pair, and they are
+    among the best rows the table will ever print -- annotating them "not on
+    the roster" would put a warning on exactly the cards worth buying. The
+    any-colour list has no quality ordering, so ranking against it would
+    manufacture a verdict out of nothing.
+    """
+    note = mm.land_roster_note({"name": name, "type_line": type_line},
+                               {d.lower() for d in deck})
+    assert note is None or not note["better"], note
+
+
+@pytest.mark.parametrize("name,cycle,key,rank", [
+    ("Taiga", "ABUR dual", "RG", 0),
+    ("Rootbound Crag", "Checkland", "RG", 7),
+    ("Jetmir's Garden", "Triome", "WRG", 0),
+    ("Jungle Shrine", "Tri-land", "WRG", 1),
+    ("Exotic Orchard", "Any-colour", None, None),
+    ("Sol Ring", None, None, None),
+], ids=["slot/best pair cycle is rank 0",
+        "slot/a later cycle carries its index as the rank",
+        "slot/the Triome is the better of the two three-colour rows",
+        "slot/the tri-land is the worse one",
+        "slot/an any-colour row is named but NOT ranked",
+        "slot/a non-roster card has no slot at all"])
+def test_roster_slot_reports_cycle_and_rank(mm, name, cycle, key, rank):
+    """PAIR_CYCLES is ordered best-first, and that ordering is now DATA: the
+    index is the rank a downgrade verdict is computed from. Reordering the
+    list changes what the tool reports, so the ranks are pinned here.
+
+    The any-colour row is the one to get right in the other direction: it is
+    named and deliberately carries no rank, because that list has no quality
+    ordering and inventing one would manufacture a verdict out of nothing.
+    """
+    slot = mm.roster_slot(name)
+    if cycle is None:
+        assert slot is None
+        return
+    assert (slot["cycle"], slot["key"], slot["rank"]) == (cycle, key, rank)
+
+
+def test_a_downgrade_names_every_better_slot_not_just_one(mm):
+    """"Already holds Tundra" and "already holds Tundra, Hallowed Fountain and
+    Flooded Strand" are different arguments -- the second says the slot is not
+    merely filled but three deep, which is what makes the row a non-decision.
+    """
+    note = mm.land_roster_note(
+        {"name": "Glacial Fortress", "type_line": "Land"},
+        {"tundra", "hallowed fountain", "flooded strand"})
+    assert [c for _s, c in note["better"]] == \
+        ["Tundra", "Hallowed Fountain", "Flooded Strand"]
+
+
+def test_a_better_slot_the_deck_does_not_hold_is_not_counted(mm):
+    """The roster walk is about what is IN the list, not what exists. A
+    checkland is not a downgrade to a shockland nobody owns."""
+    note = mm.land_roster_note({"name": "Glacial Fortress", "type_line": "Land"},
+                               {"hallowed fountain"})
+    assert [c for _s, c in note["better"]] == ["Hallowed Fountain"]
+
+
+def test_a_worse_slot_already_in_is_not_a_reason_to_reject(mm):
+    """The comparison is one-directional. Holding the WU Pathway does not make
+    the ABUR dual a downgrade -- it makes it the upgrade, and a symmetric
+    comparison would suppress exactly the row worth acting on."""
+    note = mm.land_roster_note({"name": "Tundra", "type_line": "Land — Plains Island"},
+                               {"hengegate pathway", "glacial fortress"})
+    assert note["better"] == []
+
+
+def test_the_report_annotates_land_rows_inline(mm, monkeypatch, tmp_path,
+                                               capsys):
+    """End to end. The partner fixture holds the ABUR duals, shocklands and
+    fetchlands for its four pairs, so a checkland or a battle land for any of
+    them is a slot it has already filled three deep."""
+    a = _run_ceiling(mm, monkeypatch, tmp_path, rec_cache=LANDS_REC,
+                     spellbook=lambda c, e: {"almostIncluded": []},
+                     scry_fixture=LANDS_SCRY, threshold=50.0)
+    out = capsys.readouterr().out.split("\n")
+    i = next(n for n, l in enumerate(out) if "Glacial Fortress" in l)
+    assert "ROSTER: WU already holds Tundra (ABUR dual)" in out[i + 1]
+    assert "this is the Checkland" in out[i + 1]
+    j = next(n for n, l in enumerate(out) if "Canopy Vista" in l)
+    assert "ROSTER: WG already holds Savannah (ABUR dual)" in out[j + 1]
+    assert "this is on no roster cycle" in out[j + 1]
+    assert "4 land rows sit below a roster slot" in "\n".join(out)
+    assert a["missing"]
+
+
+def test_the_report_leaves_unrankable_lands_alone(mm, monkeypatch, tmp_path,
+                                                  capsys):
+    """Gaea's Cradle, Unclaimed Territory and a Gruul battle land in a deck
+    with no red are all in the same fixture, above the same bar, and none of
+    them may collect a verdict. A check that fires on every land row is a
+    check that gets switched off."""
+    _run_ceiling(mm, monkeypatch, tmp_path, rec_cache=LANDS_REC,
+                 spellbook=lambda c, e: {"almostIncluded": []},
+                 scry_fixture=LANDS_SCRY, threshold=50.0)
+    out = capsys.readouterr().out.split("\n")
+    for name in ("Gaea's Cradle", "Unclaimed Territory", "Cinder Glade"):
+        i = next(n for n, l in enumerate(out) if name in l and "%" in l)
+        assert "ROSTER" not in out[i + 1], (name, out[i + 1])
+
+
+def test_a_land_row_is_annotated_never_suppressed(mm, monkeypatch, tmp_path,
+                                                  capsys):
+    """A suppressed row is indistinguishable from a row that was never ranked,
+    and a shorter table reads as less work to do -- the same reason a capped
+    cardlist is reported rather than dropped."""
+    a = _run_ceiling(mm, monkeypatch, tmp_path, rec_cache=LANDS_REC,
+                     spellbook=lambda c, e: {"almostIncluded": []},
+                     scry_fixture=LANDS_SCRY, threshold=50.0)
+    names = [m["name"] for m in a["missing"]]
+    assert "Glacial Fortress" in names
+    assert "Canopy Vista" in names
+# --- deterministic order ----------------------------------------------
+def test_edhtop16_rows_have_a_total_order(mm):
+    """Rows tie constantly and the tiebreak must not be an accident.
+
+    A six-entry sample puts a dozen cards at exactly 100%, and the order of
+    equal rows used to fall out of set iteration -- which Python randomises
+    per process, so `ceiling --cedh` printed a different ranking on every
+    run and whichever card floated to the top read as the strongest signal.
+    Found by snapshotting the printer and watching the snapshot fail on its
+    second run.
+    """
+    rows, _ = mm.parse_edhtop16(_top16_data())
+    assert rows == sorted(rows, key=lambda r: (-r["inclusion"], r["name"]))
+    ties = [r["name"] for r in rows if r["inclusion"] == rows[0]["inclusion"]]
+    assert len(ties) > 1, "fixture no longer exercises the tie case"
+
+
+def test_edhrec_rows_have_a_total_order(mm):
+    """The EDHREC parser was stable only because the page JSON happens to
+    be, which makes the ordering a property of the source rather than of
+    this function."""
+    rows, _ = mm.parse_commander_page(_rec_page())
+    assert rows == sorted(rows, key=lambda r: (-r["inclusion"], r["name"]))
+
+
+@pytest.mark.parametrize("sort", ["inclusion", "synergy"],
+                         ids=["order/by inclusion", "order/by synergy"])
+def test_the_audit_has_a_total_order(mm, sort):
+    """Both orderings end on the name, so a rerun prints the same table."""
+    rows = [{"name": n, "num_decks": 9, "potential_decks": 10,
+             "inclusion": 90.0, "synergy": 0.5, "cardlist": "x"}
+            for n in ("Zzz Card", "Aaa Card", "Mmm Card")]
+    a = mm.ceiling_audit("Cmdr", {}, rows, [], {}, {}, threshold=50.0, sort=sort)
+    assert [m["name"] for m in a["missing"]] == ["Aaa Card", "Mmm Card", "Zzz Card"]

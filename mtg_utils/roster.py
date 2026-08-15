@@ -10,7 +10,7 @@
 # misremembered cycle member surfaces as NOT FOUND or as a colour-identity
 # mismatch, never as a silently missing row.
 
-from mtg_utils.cards import front_name
+from mtg_utils.cards import BASIC_TYPE_COLOUR, front_name
 
 WUBRG = "WUBRG"
 
@@ -139,3 +139,58 @@ def roster_status(name, deck_names, owned):
         return "IN"
     q = owned.get(low, 0) or owned.get(front_name(low), 0)
     return f"BENCH x{q}" if q else "BUY"
+
+
+# PAIR_CYCLES is ordered BEST FIRST, and that ordering is now load-bearing
+# rather than cosmetic: `roster_slot` returns the index as a rank, and the
+# ceiling cross-reference calls a land a downgrade when a lower-indexed cycle
+# for the same pair is already in the list. Reordering this list therefore
+# changes reported verdicts -- it is data, not presentation.
+#
+# A land in NO cycle is ranked below all of them. That is the battle-land
+# case: Cinder Glade is on no roster cycle and is a documented downgrade to
+# every dual that is, so "absent from the roster" has to sort worse than
+# "present on the worst cycle", not better.
+OFF_ROSTER_RANK = len(PAIR_CYCLES)
+
+
+def roster_slot(name):
+    """Where a card sits on the roster walk: dict(cycle, key, rank) or None.
+
+    `rank` is the index into PAIR_CYCLES, so smaller is better. A triple-land
+    row carries rank 0 or 1 within its own three-colour key -- the two are
+    listed best-first as well -- and an any-colour row carries rank None,
+    because that list has no quality ordering and inventing one here would
+    manufacture a downgrade verdict out of nothing.
+    """
+    low = name.lower()
+    for rank, (slot, table) in enumerate(PAIR_CYCLES):
+        for pk, member in table.items():
+            if member.lower() == low:
+                return {"cycle": slot, "key": pk, "rank": rank}
+    for key, members in TRIPLE_CYCLES.items():
+        for rank, member in enumerate(members):
+            if member.lower() == low:
+                return {"cycle": "Triome" if rank == 0 else "Tri-land",
+                        "key": key, "rank": rank}
+    for slot, member in ANY_COLOUR:
+        if member.lower() == low:
+            return {"cycle": slot, "key": None, "rank": None}
+    return None
+
+
+def pair_from_type_line(type_line):
+    """The colour pair a dual land covers, read off its BASIC LAND TYPES.
+
+    'Land — Mountain Forest' -> 'RG'. This is what catches the cycles the
+    roster does not enumerate: a battle land carries basic types and no
+    roster slot, so without this it would be indistinguishable from Gaea's
+    Cradle -- a land with no pair at all, which the roster rightly has no
+    opinion about.
+
+    Returns None unless exactly two colours are named. A Triome names three
+    (it is on the roster by name anyway) and a fetchland names none.
+    """
+    low = (type_line or "").lower()
+    cols = {col for t, col in BASIC_TYPE_COLOUR.items() if t in low}
+    return pair_key(*cols) if len(cols) == 2 else None

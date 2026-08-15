@@ -7,9 +7,11 @@ from mtg_utils.cards import (enters_tapped, front, front_name, has_land_back,
                              is_front_land, land_face)
 from mtg_utils.castability import (PLAYSIM_TURNS, at_least_in_draw, castable_faces,
                                    pips_from_cost, playsim_report, probability)
-from mtg_utils.decklist import apply_swaps, as_cmdrs, flat
+from mtg_utils.decklist import apply_swaps, as_cmdrs, flat, read_decisions
 from mtg_utils.primer import parse_primer_links, unclosed_openers
 from mtg_utils.profiles import build_accel_profiles, build_land_profiles
+from mtg_utils.roster import (OFF_ROSTER_RANK, PAIR_CYCLES, TRIPLE_CYCLES,
+                              pair_from_type_line, roster_slot)
 
 # ============================================================ verify
 def verify(cmdr, entries, scry):
@@ -351,8 +353,11 @@ def compare_swap(cmdr, entries, scry, swaps, sims, trials, seed=17, reps=3):
                   for p, t, mv, req, _c, sp in after["rows"]}
     cards = {(t, mv, req): c for p, t, mv, req, c, sp in base["rows"]}
     sources = []
+    # `&` yields a SET, whose iteration order Python randomises per process,
+    # so equal probabilities used to come out in a different order each run.
+    # The key includes the key tuple itself to make the order total.
     for key in sorted(base_rows.keys() & after_rows.keys(),
-                      key=lambda k: base_rows[k][0]):
+                      key=lambda k: (base_rows[k][0], k)):
         turn, mv, req = key
         label = f"T{turn} " + "".join("{%s}" % x for x in req)
         r = row(label, base_rows[key], after_rows[key])
@@ -379,7 +384,7 @@ def compare_swap(cmdr, entries, scry, swaps, sims, trials, seed=17, reps=3):
 
 
 def ceiling_audit(cmdr, entries, rows, capped, owned, scry, threshold=50.0,
-                  sort="inclusion"):
+                  sort="inclusion", completions=None):
     """Which cards above the inclusion bar for this commander are missing.
 
     Pure compute; report_ceiling only formats it.
@@ -414,18 +419,25 @@ def ceiling_audit(cmdr, entries, rows, capped, owned, scry, threshold=50.0,
         price = (card or {}).get("prices", {}).get("usd")
         missing.append(dict(r, owned=owned.get(key, 0),
                             price=float(price) if price else None,
-                            type_line=(card or {}).get("type_line", "")))
+                            type_line=(card or {}).get("type_line", ""),
+                            combos=(completions or {}).get(key, [])))
+        missing[-1]["roster"] = land_roster_note(missing[-1], have)
     # A card with no synergy figure sorts LAST under --sort=synergy rather
     # than at zero. Unknown is not "no synergy": every --cedh row is unknown,
     # and floating them through the middle of the table on a 0.0 they were
     # never measured at is how the column would start lying.
+    # Every sort here ends on the name, so the order is total and a rerun
+    # prints the same table. Rows tie constantly -- a --cedh sample of six
+    # decks puts a dozen cards at exactly 100%.
     if sort == "synergy":
         missing.sort(key=lambda r: (r.get("synergy") is None,
-                                    -(r.get("synergy") or 0.0), -r["inclusion"]))
+                                    -(r.get("synergy") or 0.0),
+                                    -r["inclusion"], r["name"]))
     else:
-        missing.sort(key=lambda r: -r["inclusion"])
+        missing.sort(key=lambda r: (-r["inclusion"], r["name"]))
     return {"missing": missing, "threshold": threshold, "capped": capped,
             "sort": sort,
+            "combo_rows": sum(1 for m in missing if m["combos"]),
             "considered": len(rows),
             "owned_count": sum(1 for m in missing if m["owned"] > 0),
             "buy_total": sum(m["price"] for m in missing
@@ -578,3 +590,126 @@ def primer_audit(text, cmdr, entries, scry):
             "not_in_deck": not_in_deck,
             "ok": not (wrapped or not_found or not_in_deck
                        or unclosed_openers(text, links))}
+
+def combo_completions(results, cmdr, entries):
+    """Which cards NOT in the deck would complete a combo it already half-holds.
+
+    Pure compute over a Commander Spellbook find-my-combos payload; the caller
+    joins it onto whatever card list it is ranking.
+
+    Keyed on the FRONT FACE, lowercased, because that is the key every ranking
+    source here is already reduced to. Spellbook returns full names, so the
+    third naming convention in this codebase joins to the other two only if it
+    is normalised the same way.
+
+    `also_missing` is not decoration. Spellbook's "almost included" means the
+    deck is missing at least one piece, not exactly one, so a row annotated
+    COMBO that in fact needs two more cards would be overstating a case the
+    reader cannot check from the table. Sorted so the combos this one card
+    finishes on its own come first.
+    """
+    have = {front_name(n).lower() for n in flat(cmdr, entries)}
+    out = {}
+    for v in (results or {}).get("almostIncluded", []):
+        uses = [u["card"]["name"] for u in v.get("uses", []) if u.get("card")]
+        templates = [t["template"]["name"] for t in v.get("requires", [])
+                     if t.get("template")]
+        missing = [u for u in uses if front_name(u).lower() not in have]
+        present = [u for u in uses if front_name(u).lower() in have]
+        produces = [f["feature"]["name"] for f in v.get("produces", [])
+                    if f.get("feature")]
+        for m in missing:
+            out.setdefault(front_name(m).lower(), []).append({
+                "with": present,
+                "also_missing": [x for x in missing if x != m],
+                "templates": templates,
+                "produces": produces,
+                # A template ("Permanent Castable for {C}") is a real piece
+                # the deck has to supply. Left out of the count, a three-piece
+                # line reads as a two-card combo.
+                "pieces": len(uses) + len(templates),
+            })
+    for combos in out.values():
+        combos.sort(key=lambda c: (len(c["also_missing"]), c["pieces"]))
+    return out
+
+
+def land_roster_note(row, deck_names):
+    """What the roster already says about a ceiling row that is a land.
+
+    EDHREC's land data reflects the population playing the commander, which is
+    a budget population -- inclusion is the right tool for spells and the wrong
+    one for lands. The roster already enumerates, per colour pair, every cycle
+    slot best-first, so it answers the question inclusion cannot: is this land
+    worse than what is already filling that slot.
+
+    Returns None for anything the roster has no opinion about, and that is the
+    important half. Gaea's Cradle and Urza's Saga are lands with no colour pair
+    at all; annotating them "not on the roster" would put a warning on the best
+    rows in the table.
+
+    ANNOTATES, NEVER SUPPRESSES. A suppressed row is indistinguishable from a
+    row that was never ranked, and a shorter table reads as less work to do --
+    the same reason a capped cardlist is reported rather than dropped.
+    """
+    if "land" not in (row.get("type_line") or "").lower():
+        return None
+    slot = roster_slot(row["name"])
+    key = (slot or {}).get("key") or pair_from_type_line(row.get("type_line"))
+    if not key:
+        return None
+    # An any-colour row has a slot but no quality ordering, so it can be named
+    # and not ranked. Everything off the roster entirely ranks BELOW every
+    # cycle: a battle land is a downgrade to each dual it shares a pair with,
+    # and it appears on no cycle to say so.
+    rank = slot["rank"] if slot else OFF_ROSTER_RANK
+    better = []
+    if len(key) == 2 and rank is not None:
+        for cycle, table in PAIR_CYCLES[:rank]:
+            member = table.get(key)
+            if member and member.lower() in deck_names:
+                better.append((cycle, member))
+    elif len(key) == 3 and rank:
+        for member in TRIPLE_CYCLES.get(key, ())[:rank]:
+            if member.lower() in deck_names:
+                better.append(("Triome", member))
+    return {"cycle": (slot or {}).get("cycle"), "key": key, "better": better,
+            "on_roster": slot is not None}
+
+
+def decisions_audit(decisions, cmdr, entries):
+    """The decision notes, keyed for lookup, plus the two ways they go stale.
+
+    Pure compute; report_ceiling only formats it.
+
+    A note is a JUDGEMENT, not a measurement, and this repo does not store
+    measurements -- `report_calibrate` says so in as many words. What makes a
+    note storable is that it is falsifiable, and these are the two ways it
+    falsifies:
+
+    `readmitted` -- the note says CUT and the card is in the list. Someone
+                    changed their mind, or added it back without seeing the
+                    note. Either way the note is now arguing against the deck
+                    it ships with.
+    `stale`      -- the reason cites a card the deck no longer holds.
+                    "Destroys your own Craterhoof Behemoth" stops being true
+                    the moment Craterhoof is cut, and nothing about cutting
+                    Craterhoof touches this line.
+
+    That second one is the whole reason the reasons use [[...]]: a free-text
+    reason cannot be checked at all, and an unfalsifiable note is exactly the
+    stored row this repo refuses to quote.
+    """
+    have = {front_name(n).lower() for n in list(entries) + as_cmdrs(cmdr)}
+    by_card, readmitted, stale = {}, [], []
+    for d in decisions:
+        key = front_name(d["card"]).lower()
+        by_card.setdefault(key, []).append(d)
+        if d["verdict"] in ("CUT", "TRAP") and key in have:
+            readmitted.append(d)
+        gone = [l["name"] for l in parse_primer_links(d["reason"])
+                if front_name(l["name"]).lower() not in have]
+        if gone:
+            stale.append(dict(d, gone=gone))
+    return {"decisions": decisions, "by_card": by_card,
+            "readmitted": readmitted, "stale": stale}

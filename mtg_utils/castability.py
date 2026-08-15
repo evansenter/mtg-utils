@@ -464,13 +464,21 @@ def _bound_caches():
 
 
 def probability(lands, accels, deck_size, req, mv, turn, sims, rng,
-                max_combos=250, count_restricted=False):
+                max_combos=250, count_restricted=False, count_triggered=False):
     """P(can pay req for a spell of value mv on turn `turn`).
 
     Requires at least one land and at least `turn` mana sources present.
     """
     _bound_caches()
-    accels = [a for a in accels if count_restricted or not a.get("restricted")]
+    # An EVENT-triggered source is excluded from generic totals by default,
+    # for the same reason restricted mana is: it is real mana that this model
+    # cannot promise. Lotus Cobra makes a mana when a land enters, and neither
+    # model simulates land drops as an event -- counting it as a flat source
+    # would inflate every figure it appears in. A PHASE-triggered source is
+    # kept: it fires on its own, every turn, and is as reliable as a rock.
+    accels = [a for a in accels
+              if (count_restricted or not a.get("restricted"))
+              and (count_triggered or a.get("trigger") != "event")]
     lands = [l for l in lands if count_restricted or not l.get("restricted")]
     allp = lands + accels
     nsrc = len(allp)
@@ -598,12 +606,20 @@ _MODE_KEYED = 2            # per turn: available mana and the memo key
 
 
 def _playsim_core(lands, accels, deck_size, turns, on_draw, trials, rng,
-                  count_restricted, mode):
+                  count_restricted, count_triggered, mode):
     """mode: None for the profile lists, else a per-turn list of _MODE_*.
 
     Returns (per-turn records, per-turn count of trials with >= t mana).
     """
-    accels = [a for a in accels if count_restricted or not a.get("restricted")]
+    # An EVENT-triggered source is excluded from generic totals by default,
+    # for the same reason restricted mana is: it is real mana that this model
+    # cannot promise. Lotus Cobra makes a mana when a land enters, and neither
+    # model simulates land drops as an event -- counting it as a flat source
+    # would inflate every figure it appears in. A PHASE-triggered source is
+    # kept: it fires on its own, every turn, and is as reliable as a rock.
+    accels = [a for a in accels
+              if (count_restricted or not a.get("restricted"))
+              and (count_triggered or a.get("trigger") != "event")]
     lands = [l for l in lands if count_restricted or not l.get("restricted")]
     nL, nA = len(lands), len(accels)
     # Codes: 0..nL-1 a land, nL..nL+nA-1 an accelerant, -1 anything else. A
@@ -625,7 +641,15 @@ def _playsim_core(lands, accels, deck_size, turns, on_draw, trials, rng,
     # An untapped non-creature rock is online the turn it enters; anything
     # else waits a turn. This is `online()`'s `entered == t` test, decided
     # once per profile instead of once per pass.
-    a_late = [bool(p["tapped"] or p.get("creature")) for p in accels]
+    #
+    # A phase trigger waits too, for the same reason a mana creature does:
+    # "at the beginning of your first main phase" has already happened by the
+    # time you cast it. Both Hulking Raptor and Abstract Paintmage are
+    # creatures and are caught by the clause beside this one, but a
+    # phase-triggered ARTIFACT would otherwise come online a turn early --
+    # the one direction this model must never err in.
+    a_late = [bool(p["tapped"] or p.get("creature")
+                   or p.get("trigger") == "phase") for p in accels]
 
     out = [[] for _ in range(turns + 1)]
     ghits = [0] * (turns + 1)
@@ -774,12 +798,12 @@ def _playsim_core(lands, accels, deck_size, turns, on_draw, trials, rng,
 
 
 def playsim(lands, accels, deck_size, turns, on_draw, trials, rng,
-            count_restricted=False):
+            count_restricted=False, count_triggered=False):
     """Draw seven (+1 on the draw), draw one per turn, play a land if you have
     one, deploy the cheapest affordable accelerant, then read off available
     mana. Returns per-turn lists of (available source profiles, total mana)."""
     return _playsim_core(lands, accels, deck_size, turns, on_draw, trials, rng,
-                         count_restricted, None)[0]
+                         count_restricted, count_triggered, None)[0]
 
 
 # How far the play simulation runs. Seven turns is where a Commander game is
@@ -814,7 +838,7 @@ def playsim_report(lands, accels, deck_size, lines, trials, rng,
     memo = _CASTABLE_MEMO
     for on_draw in (False, True):
         rows, ghits = _playsim_core(lands, accels, deck_size, turns, on_draw,
-                                    trials, rng, False, mode)
+                                    trials, rng, False, False, mode)
         generic = {t: 100.0 * ghits[t] / trials for t in range(1, turns + 1)}
         labelled = {}
         for label, mv, req, req_key, turn in specs:

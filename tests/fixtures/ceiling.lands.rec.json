@@ -1,0 +1,57 @@
+{
+ "commanders/thrasios-triton-hero-tymna-the-weaver": {
+  "container": {
+   "json_dict": {
+    "cardlists": [
+     {
+      "header": "Lands",
+      "cardviews": [
+       {
+        "name": "Glacial Fortress",
+        "num_decks": 9000,
+        "potential_decks": 11360,
+        "synergy": 0.3
+       },
+       {
+        "name": "Canopy Vista",
+        "num_decks": 8900,
+        "potential_decks": 11360,
+        "synergy": 0.29
+       },
+       {
+        "name": "Sunken Hollow",
+        "num_decks": 8800,
+        "potential_decks": 11360,
+        "synergy": 0.27999999999999997
+       },
+       {
+        "name": "Bountiful Promenade",
+        "num_decks": 8700,
+        "potential_decks": 11360,
+        "synergy": 0.27
+       },
+       {
+        "name": "Cinder Glade",
+        "num_decks": 8600,
+        "potential_decks": 11360,
+        "synergy": 0.26
+       },
+       {
+        "name": "Unclaimed Territory",
+        "num_decks": 8500,
+        "potential_decks": 11360,
+        "synergy": 0.25
+       },
+       {
+        "name": "Gaea's Cradle",
+        "num_decks": 8400,
+        "potential_decks": 11360,
+        "synergy": 0.24
+       }
+      ]
+     }
+    ]
+   }
+  }
+ }
+}

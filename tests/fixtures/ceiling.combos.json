@@ -1,0 +1,1338 @@
+{
+ "almostIncluded": [
+  {
+   "bracketTag": "E",
+   "description": "Activate Sol Ring by tapping it, adding {C} {C}.\nCast the permanent that can be cast using {C} by paying its mana cost.\nHullbreaker Horror triggers, returning Sol Ring from the battlefield to your hand.\nCast Sol Ring by paying {1}. \nHullbreaker Horror triggers, returning the permanent cast in step 2 from the battlefield to your hand.\nRepeat.\nIf the permanent can be cast by paying {0}, this combo nets infinite colorless mana.",
+   "easyPrerequisites": "",
+   "id": "513-5034--46",
+   "identity": "U",
+   "includes": [
+    {
+     "id": 26301
+    },
+    {
+     "id": 26516
+    }
+   ],
+   "legalities": {
+    "alchemy": false,
+    "brawl": false,
+    "commander": true,
+    "competitiveBrawl": false,
+    "legacy": false,
+    "modern": false,
+    "oathbreaker": false,
+    "pauper": false,
+    "pauperCommander": false,
+    "pauperCommanderMain": false,
+    "pioneer": false,
+    "predh": false,
+    "premodern": false,
+    "standard": false,
+    "standardBrawl": false,
+    "vintage": true
+   },
+   "manaNeeded": "",
+   "manaValueNeeded": 0,
+   "notablePrerequisites": "",
+   "notes": "",
+   "of": [
+    {
+     "id": 26516
+    }
+   ],
+   "popularity": 338878,
+   "prices": {
+    "cardkingdom": "10.48",
+    "cardmarket": "4.32",
+    "tcgplayer": "6.13"
+   },
+   "produces": [
+    {
+     "feature": {
+      "id": 11,
+      "name": "Infinite colorless mana",
+      "status": "S",
+      "uncountable": true
+     },
+     "quantity": 1
+    },
+    {
+     "feature": {
+      "id": 17,
+      "name": "Infinite storm count",
+      "status": "H",
+      "uncountable": true
+     },
+     "quantity": 1
+    }
+   ],
+   "requires": [
+    {
+     "battlefieldCardState": "",
+     "exileCardState": "",
+     "graveyardCardState": "",
+     "libraryCardState": "",
+     "mustBeCommander": false,
+     "quantity": 1,
+     "template": {
+      "id": 46,
+      "name": "Permanent Castable for {C}",
+      "scryfallApi": "https://api.scryfall.com/cards/search?q=%28mv%3C%3D1+%28mana%3D%7B0%7D+or+mana%3D%7B1%7D+or+mana%3D%7BC%7D%29+is%3Apermanent%29+legal%3Acommander",
+      "scryfallQuery": "mv<=1 (mana={0} or mana={1} or mana={C}) is:permanent"
+     },
+     "zoneLocations": [
+      "H"
+     ]
+    }
+   ],
+   "spoiler": false,
+   "status": "OK",
+   "uses": [
+    {
+     "battlefieldCardState": "",
+     "card": {
+      "faces": 1,
+      "id": 513,
+      "imageUriBackArtCrop": null,
+      "imageUriBackLarge": null,
+      "imageUriBackNormal": null,
+      "imageUriBackPng": null,
+      "imageUriBackSmall": null,
+      "imageUriFrontArtCrop": "https://cards.scryfall.io/art_crop/front/1/3/137acb70-a1fd-4ea9-a5d9-f4b438eb5e82.jpg?1783908162",
+      "imageUriFrontLarge": "https://cards.scryfall.io/large/front/1/3/137acb70-a1fd-4ea9-a5d9-f4b438eb5e82.jpg?1783908162",
+      "imageUriFrontNormal": "https://cards.scryfall.io/normal/front/1/3/137acb70-a1fd-4ea9-a5d9-f4b438eb5e82.jpg?1783908162",
+      "imageUriFrontPng": "https://cards.scryfall.io/png/front/1/3/137acb70-a1fd-4ea9-a5d9-f4b438eb5e82.png?1783908162",
+      "imageUriFrontSmall": "https://cards.scryfall.io/small/front/1/3/137acb70-a1fd-4ea9-a5d9-f4b438eb5e82.jpg?1783908162",
+      "layoutRotationFront": null,
+      "name": "Hullbreaker Horror",
+      "oracleId": "d4a84e78-d9b9-4c67-8a4b-4329e65f0f15",
+      "spoiler": false,
+      "typeLine": "Creature \u2014 Kraken Horror"
+     },
+     "exileCardState": "",
+     "graveyardCardState": "",
+     "libraryCardState": "",
+     "mustBeCommander": false,
+     "quantity": 1,
+     "usedFace": null,
+     "zoneLocations": [
+      "B"
+     ]
+    },
+    {
+     "battlefieldCardState": "",
+     "card": {
+      "faces": 1,
+      "id": 5034,
+      "imageUriBackArtCrop": null,
+      "imageUriBackLarge": null,
+      "imageUriBackNormal": null,
+      "imageUriBackPng": null,
+      "imageUriBackSmall": null,
+      "imageUriFrontArtCrop": "https://cards.scryfall.io/art_crop/front/9/1/91fdb56b-54d5-4272-8319-505ff987fe9b.jpg?1783903215",
+      "imageUriFrontLarge": "https://cards.scryfall.io/large/front/9/1/91fdb56b-54d5-4272-8319-505ff987fe9b.jpg?1783903215",
+      "imageUriFrontNormal": "https://cards.scryfall.io/normal/front/9/1/91fdb56b-54d5-4272-8319-505ff987fe9b.jpg?1783903215",
+      "imageUriFrontPng": "https://cards.scryfall.io/png/front/9/1/91fdb56b-54d5-4272-8319-505ff987fe9b.png?1783903215",
+      "imageUriFrontSmall": "https://cards.scryfall.io/small/front/9/1/91fdb56b-54d5-4272-8319-505ff987fe9b.jpg?1783903215",
+      "layoutRotationFront": null,
+      "name": "Sol Ring",
+      "oracleId": "6ad8011d-3471-4369-9d68-b264cc027487",
+      "spoiler": false,
+      "typeLine": "Artifact"
+     },
+     "exileCardState": "",
+     "graveyardCardState": "",
+     "libraryCardState": "",
+     "mustBeCommander": false,
+     "quantity": 1,
+     "usedFace": null,
+     "zoneLocations": [
+      "B"
+     ]
+    }
+   ],
+   "variantCount": 1
+  },
+  {
+   "bracketTag": "P",
+   "description": "Activate Mana Vault by tapping it, adding {C}{C}{C}.\nCast the permanent that can be cast using {C}{C} from your hand by paying its mana cost.\nHullbreaker Horror triggers, returning Mana Vault from the battlefield to your hand.\nCast Mana Vault by paying {1}.\nHullbreaker Horror triggers, returning the permanent cast in step 2 from the battlefield to your hand.\nRepeat.\nIf the permanent can be cast using {C} or less, this combo nets infinite colorless mana.",
+   "easyPrerequisites": "",
+   "id": "513-2364--47",
+   "identity": "U",
+   "includes": [
+    {
+     "id": 26301
+    },
+    {
+     "id": 10718
+    }
+   ],
+   "legalities": {
+    "alchemy": false,
+    "brawl": false,
+    "commander": true,
+    "competitiveBrawl": false,
+    "legacy": false,
+    "modern": false,
+    "oathbreaker": false,
+    "pauper": false,
+    "pauperCommander": false,
+    "pauperCommanderMain": false,
+    "pioneer": false,
+    "predh": false,
+    "premodern": false,
+    "standard": false,
+    "standardBrawl": false,
+    "vintage": true
+   },
+   "manaNeeded": "",
+   "manaValueNeeded": 0,
+   "notablePrerequisites": "",
+   "notes": "",
+   "of": [
+    {
+     "id": 10718
+    }
+   ],
+   "popularity": 74269,
+   "prices": {
+    "cardkingdom": "117.98",
+    "cardmarket": "56.51",
+    "tcgplayer": "98.42"
+   },
+   "produces": [
+    {
+     "feature": {
+      "id": 11,
+      "name": "Infinite colorless mana",
+      "status": "S",
+      "uncountable": true
+     },
+     "quantity": 1
+    },
+    {
+     "feature": {
+      "id": 17,
+      "name": "Infinite storm count",
+      "status": "H",
+      "uncountable": true
+     },
+     "quantity": 1
+    }
+   ],
+   "requires": [
+    {
+     "battlefieldCardState": "",
+     "exileCardState": "",
+     "graveyardCardState": "",
+     "libraryCardState": "",
+     "mustBeCommander": false,
+     "quantity": 1,
+     "template": {
+      "id": 47,
+      "name": "Permanent Castable for {C}{C}",
+      "scryfallApi": "https://api.scryfall.com/cards/search?q=%28mv%3C%3D2+-t%3Aland+-t%3Aattraction+-mana%3A%7BX%7D%7BX%7D%7BX%7D+-t%3Asticker+-mana%3A%7BW%7D+-mana%3A%7BU%7D+-mana%3A%7BB%7D+-mana%3A%7BR%7D+-mana%3A%7BG%7D+-t%3Ainstant+-t%3Asorcery+-o%3A%22asmora%22%29+legal%3Acommander",
+      "scryfallQuery": "mv<=2 -t:land -t:attraction -mana:{X}{X}{X} -t:sticker -mana:{W} -mana:{U} -mana:{B} -mana:{R} -mana:{G} -t:instant -t:sorcery -o:\"asmora\""
+     },
+     "zoneLocations": [
+      "H"
+     ]
+    }
+   ],
+   "spoiler": false,
+   "status": "OK",
+   "uses": [
+    {
+     "battlefieldCardState": "",
+     "card": {
+      "faces": 1,
+      "id": 513,
+      "imageUriBackArtCrop": null,
+      "imageUriBackLarge": null,
+      "imageUriBackNormal": null,
+      "imageUriBackPng": null,
+      "imageUriBackSmall": null,
+      "imageUriFrontArtCrop": "https://cards.scryfall.io/art_crop/front/1/3/137acb70-a1fd-4ea9-a5d9-f4b438eb5e82.jpg?1783908162",
+      "imageUriFrontLarge": "https://cards.scryfall.io/large/front/1/3/137acb70-a1fd-4ea9-a5d9-f4b438eb5e82.jpg?1783908162",
+      "imageUriFrontNormal": "https://cards.scryfall.io/normal/front/1/3/137acb70-a1fd-4ea9-a5d9-f4b438eb5e82.jpg?1783908162",
+      "imageUriFrontPng": "https://cards.scryfall.io/png/front/1/3/137acb70-a1fd-4ea9-a5d9-f4b438eb5e82.png?1783908162",
+      "imageUriFrontSmall": "https://cards.scryfall.io/small/front/1/3/137acb70-a1fd-4ea9-a5d9-f4b438eb5e82.jpg?1783908162",
+      "layoutRotationFront": null,
+      "name": "Hullbreaker Horror",
+      "oracleId": "d4a84e78-d9b9-4c67-8a4b-4329e65f0f15",
+      "spoiler": false,
+      "typeLine": "Creature \u2014 Kraken Horror"
+     },
+     "exileCardState": "",
+     "graveyardCardState": "",
+     "libraryCardState": "",
+     "mustBeCommander": false,
+     "quantity": 1,
+     "usedFace": null,
+     "zoneLocations": [
+      "B"
+     ]
+    },
+    {
+     "battlefieldCardState": "",
+     "card": {
+      "faces": 1,
+      "id": 2364,
+      "imageUriBackArtCrop": null,
+      "imageUriBackLarge": null,
+      "imageUriBackNormal": null,
+      "imageUriBackPng": null,
+      "imageUriBackSmall": null,
+      "imageUriFrontArtCrop": "https://cards.scryfall.io/art_crop/front/c/1/c1a31d52-a407-4ded-bfca-cc812f11afa0.jpg?1783921790",
+      "imageUriFrontLarge": "https://cards.scryfall.io/large/front/c/1/c1a31d52-a407-4ded-bfca-cc812f11afa0.jpg?1783921790",
+      "imageUriFrontNormal": "https://cards.scryfall.io/normal/front/c/1/c1a31d52-a407-4ded-bfca-cc812f11afa0.jpg?1783921790",
+      "imageUriFrontPng": "https://cards.scryfall.io/png/front/c/1/c1a31d52-a407-4ded-bfca-cc812f11afa0.png?1783921790",
+      "imageUriFrontSmall": "https://cards.scryfall.io/small/front/c/1/c1a31d52-a407-4ded-bfca-cc812f11afa0.jpg?1783921790",
+      "layoutRotationFront": null,
+      "name": "Mana Vault",
+      "oracleId": "736892cb-a34b-4bb9-b56c-e26e3db207a2",
+      "spoiler": false,
+      "typeLine": "Artifact"
+     },
+     "exileCardState": "",
+     "graveyardCardState": "",
+     "libraryCardState": "",
+     "mustBeCommander": false,
+     "quantity": 1,
+     "usedFace": null,
+     "zoneLocations": [
+      "B"
+     ]
+    }
+   ],
+   "variantCount": 1
+  },
+  {
+   "bracketTag": "E",
+   "description": "Cast Dark Ritual by paying {B}.\nDisplacer Kitten triggers, blinking Eternal Witness.\nWhen Eternal Witness enters the battlefield, it triggers, returning the other instant or sorcery from your graveyard to your hand.\nResolve Dark Ritual, adding {B}{B}{B}.\nCast the other instant or sorcery by paying its mana cost.\nDisplacer Kitten triggers, blinking Eternal Witness.\nWhen Eternal Witness enters the battlefield, it triggers, returning Dark Ritual from your graveyard to your hand.\nResolve the instant or sorcery.\nRepeat.",
+   "easyPrerequisites": "",
+   "id": "864-1170-2701",
+   "identity": "BGU",
+   "includes": [
+    {
+     "id": 27470
+    },
+    {
+     "id": 24781
+    },
+    {
+     "id": 31074
+    }
+   ],
+   "legalities": {
+    "alchemy": false,
+    "brawl": true,
+    "commander": true,
+    "competitiveBrawl": true,
+    "legacy": true,
+    "modern": false,
+    "oathbreaker": false,
+    "pauper": false,
+    "pauperCommander": false,
+    "pauperCommanderMain": false,
+    "pioneer": false,
+    "predh": false,
+    "premodern": false,
+    "standard": false,
+    "standardBrawl": false,
+    "vintage": true
+   },
+   "manaNeeded": "{B}",
+   "manaValueNeeded": 1,
+   "notablePrerequisites": "You have an instant or sorcery card in your graveyard that has legal targets and that can be cast using {B}{B}.",
+   "notes": "",
+   "of": [
+    {
+     "id": 24781
+    }
+   ],
+   "popularity": 6189,
+   "prices": {
+    "cardkingdom": "39.27",
+    "cardmarket": "17.20",
+    "tcgplayer": "23.85"
+   },
+   "produces": [
+    {
+     "feature": {
+      "id": 108,
+      "name": "Infinite black mana",
+      "status": "S",
+      "uncountable": true
+     },
+     "quantity": 1
+    },
+    {
+     "feature": {
+      "id": 2298,
+      "name": "Cast a subset of spells in your graveyard",
+      "status": "C",
+      "uncountable": true
+     },
+     "quantity": 1
+    },
+    {
+     "feature": {
+      "id": 4,
+      "name": "Infinite creature ETB",
+      "status": "H",
+      "uncountable": true
+     },
+     "quantity": 1
+    },
+    {
+     "feature": {
+      "id": 3,
+      "name": "Infinite creature LTB",
+      "status": "H",
+      "uncountable": true
+     },
+     "quantity": 1
+    },
+    {
+     "feature": {
+      "id": 77,
+      "name": "Infinite magecraft triggers",
+      "status": "H",
+      "uncountable": true
+     },
+     "quantity": 1
+    },
+    {
+     "feature": {
+      "id": 17,
+      "name": "Infinite storm count",
+      "status": "H",
+      "uncountable": true
+     },
+     "quantity": 1
+    }
+   ],
+   "requires": [],
+   "spoiler": false,
+   "status": "OK",
+   "uses": [
+    {
+     "battlefieldCardState": "",
+     "card": {
+      "faces": 1,
+      "id": 1170,
+      "imageUriBackArtCrop": null,
+      "imageUriBackLarge": null,
+      "imageUriBackNormal": null,
+      "imageUriBackPng": null,
+      "imageUriBackSmall": null,
+      "imageUriFrontArtCrop": "https://cards.scryfall.io/art_crop/front/c/7/c7a401b8-29fb-46ef-a663-427f66724d5c.jpg?1783922795",
+      "imageUriFrontLarge": "https://cards.scryfall.io/large/front/c/7/c7a401b8-29fb-46ef-a663-427f66724d5c.jpg?1783922795",
+      "imageUriFrontNormal": "https://cards.scryfall.io/normal/front/c/7/c7a401b8-29fb-46ef-a663-427f66724d5c.jpg?1783922795",
+      "imageUriFrontPng": "https://cards.scryfall.io/png/front/c/7/c7a401b8-29fb-46ef-a663-427f66724d5c.png?1783922795",
+      "imageUriFrontSmall": "https://cards.scryfall.io/small/front/c/7/c7a401b8-29fb-46ef-a663-427f66724d5c.jpg?1783922795",
+      "layoutRotationFront": null,
+      "name": "Displacer Kitten",
+      "oracleId": "09ef446c-a13d-49d9-a94c-cd5f5a2d440b",
+      "spoiler": false,
+      "typeLine": "Creature \u2014 Cat Beast"
+     },
+     "exileCardState": "",
+     "graveyardCardState": "",
+     "libraryCardState": "",
+     "mustBeCommander": false,
+     "quantity": 1,
+     "usedFace": null,
+     "zoneLocations": [
+      "B"
+     ]
+    },
+    {
+     "battlefieldCardState": "",
+     "card": {
+      "faces": 1,
+      "id": 864,
+      "imageUriBackArtCrop": null,
+      "imageUriBackLarge": null,
+      "imageUriBackNormal": null,
+      "imageUriBackPng": null,
+      "imageUriBackSmall": null,
+      "imageUriFrontArtCrop": "https://cards.scryfall.io/art_crop/front/3/9/39704000-65d3-4d39-849e-a3b617376bbc.jpg?1783915632",
+      "imageUriFrontLarge": "https://cards.scryfall.io/large/front/3/9/39704000-65d3-4d39-849e-a3b617376bbc.jpg?1783915632",
+      "imageUriFrontNormal": "https://cards.scryfall.io/normal/front/3/9/39704000-65d3-4d39-849e-a3b617376bbc.jpg?1783915632",
+      "imageUriFrontPng": "https://cards.scryfall.io/png/front/3/9/39704000-65d3-4d39-849e-a3b617376bbc.png?1783915632",
+      "imageUriFrontSmall": "https://cards.scryfall.io/small/front/3/9/39704000-65d3-4d39-849e-a3b617376bbc.jpg?1783915632",
+      "layoutRotationFront": null,
+      "name": "Eternal Witness",
+      "oracleId": "30b24e8e-3b0e-4d8e-90f3-f66eb7c1858c",
+      "spoiler": false,
+      "typeLine": "Creature \u2014 Human Shaman"
+     },
+     "exileCardState": "",
+     "graveyardCardState": "",
+     "libraryCardState": "",
+     "mustBeCommander": false,
+     "quantity": 1,
+     "usedFace": null,
+     "zoneLocations": [
+      "B"
+     ]
+    },
+    {
+     "battlefieldCardState": "",
+     "card": {
+      "faces": 1,
+      "id": 2701,
+      "imageUriBackArtCrop": null,
+      "imageUriBackLarge": null,
+      "imageUriBackNormal": null,
+      "imageUriBackPng": null,
+      "imageUriBackSmall": null,
+      "imageUriFrontArtCrop": "https://cards.scryfall.io/art_crop/front/1/1/11e12a84-e7be-4afc-a230-c2e644743fa8.jpg?1783903013",
+      "imageUriFrontLarge": "https://cards.scryfall.io/large/front/1/1/11e12a84-e7be-4afc-a230-c2e644743fa8.jpg?1783903013",
+      "imageUriFrontNormal": "https://cards.scryfall.io/normal/front/1/1/11e12a84-e7be-4afc-a230-c2e644743fa8.jpg?1783903013",
+      "imageUriFrontPng": "https://cards.scryfall.io/png/front/1/1/11e12a84-e7be-4afc-a230-c2e644743fa8.png?1783903013",
+      "imageUriFrontSmall": "https://cards.scryfall.io/small/front/1/1/11e12a84-e7be-4afc-a230-c2e644743fa8.jpg?1783903013",
+      "layoutRotationFront": null,
+      "name": "Dark Ritual",
+      "oracleId": "53f7c868-b03e-4fc2-8dcf-a75bbfa3272b",
+      "spoiler": false,
+      "typeLine": "Instant"
+     },
+     "exileCardState": "",
+     "graveyardCardState": "",
+     "libraryCardState": "",
+     "mustBeCommander": false,
+     "quantity": 1,
+     "usedFace": null,
+     "zoneLocations": [
+      "H"
+     ]
+    }
+   ],
+   "variantCount": 1
+  },
+  {
+   "bracketTag": "E",
+   "description": "Cast Dark Ritual by paying {B}.\nDisplacer Kitten triggers, blinking Eternal Witness.\nWhen Eternal Witness enters the battlefield, it triggers, returning the other instant or sorcery from your graveyard to your hand.\nResolve Dark Ritual, adding {B}{B}{B}.\nCast the other instant or sorcery by paying its mana cost.\nDisplacer Kitten triggers, blinking Eternal Witness.\nWhen Eternal Witness enters the battlefield, it triggers, returning Dark Ritual from your graveyard to your hand.\nResolve the instant or sorcery.\nRepeat.\nCast Dark Ritual by paying {B}.\nDisplacer Kitten triggers, blinking Eternal Witness.\nWhen Eternal Witness enters the battlefield, it triggers, returning Frantic Search from your graveyard to your hand.\nResolve Dark Ritual, adding {B}{B}{B}.\nActivate up to three lands by tapping them, adding at least {U}.\nCast Frantic Search by paying {2}{B}.\nDisplacer Kitten triggers, blinking Eternal Witness.\nWhen Eternal Witness enters the battlefield, it triggers, returning Dark Ritual from your graveyard to your hand.\nResolve Frantic Search, causing you to loot twice and untap up to three lands.\nRepeat.",
+   "easyPrerequisites": "You control up to three lands that can tap to produce at least {U}.",
+   "id": "864-1170-2196-2701",
+   "identity": "BGU",
+   "includes": [
+    {
+     "id": 27470
+    },
+    {
+     "id": 26878
+    },
+    {
+     "id": 24781
+    },
+    {
+     "id": 29525
+    },
+    {
+     "id": 31074
+    }
+   ],
+   "legalities": {
+    "alchemy": false,
+    "brawl": true,
+    "commander": true,
+    "competitiveBrawl": true,
+    "legacy": false,
+    "modern": false,
+    "oathbreaker": false,
+    "pauper": false,
+    "pauperCommander": false,
+    "pauperCommanderMain": false,
+    "pioneer": false,
+    "predh": false,
+    "premodern": false,
+    "standard": false,
+    "standardBrawl": false,
+    "vintage": true
+   },
+   "manaNeeded": "{B}{B}",
+   "manaValueNeeded": 2,
+   "notablePrerequisites": "You have an instant or sorcery card in your graveyard that has legal targets and that can be cast using {B}{B}.",
+   "notes": "",
+   "of": [
+    {
+     "id": 29525
+    }
+   ],
+   "popularity": 322,
+   "prices": {
+    "cardkingdom": "41.06",
+    "cardmarket": "17.61",
+    "tcgplayer": "24.46"
+   },
+   "produces": [
+    {
+     "feature": {
+      "id": 3,
+      "name": "Infinite creature LTB",
+      "status": "H",
+      "uncountable": true
+     },
+     "quantity": 1
+    },
+    {
+     "feature": {
+      "id": 4,
+      "name": "Infinite creature ETB",
+      "status": "H",
+      "uncountable": true
+     },
+     "quantity": 1
+    },
+    {
+     "feature": {
+      "id": 17,
+      "name": "Infinite storm count",
+      "status": "H",
+      "uncountable": true
+     },
+     "quantity": 1
+    },
+    {
+     "feature": {
+      "id": 36,
+      "name": "Infinite self-discard triggers",
+      "status": "H",
+      "uncountable": true
+     },
+     "quantity": 1
+    },
+    {
+     "feature": {
+      "id": 60,
+      "name": "Near-infinite creature ETB",
+      "status": "H",
+      "uncountable": true
+     },
+     "quantity": 1
+    },
+    {
+     "feature": {
+      "id": 61,
+      "name": "Infinite draw triggers",
+      "status": "H",
+      "uncountable": true
+     },
+     "quantity": 1
+    },
+    {
+     "feature": {
+      "id": 62,
+      "name": "Infinite looting",
+      "status": "C",
+      "uncountable": true
+     },
+     "quantity": 1
+    },
+    {
+     "feature": {
+      "id": 68,
+      "name": "Near-infinite storm count",
+      "status": "H",
+      "uncountable": true
+     },
+     "quantity": 1
+    },
+    {
+     "feature": {
+      "id": 77,
+      "name": "Infinite magecraft triggers",
+      "status": "H",
+      "uncountable": true
+     },
+     "quantity": 1
+    },
+    {
+     "feature": {
+      "id": 79,
+      "name": "Near-infinite creature LTB",
+      "status": "H",
+      "uncountable": true
+     },
+     "quantity": 1
+    },
+    {
+     "feature": {
+      "id": 98,
+      "name": "Near-infinite mana lands you control can produce",
+      "status": "S",
+      "uncountable": true
+     },
+     "quantity": 1
+    },
+    {
+     "feature": {
+      "id": 108,
+      "name": "Infinite black mana",
+      "status": "S",
+      "uncountable": true
+     },
+     "quantity": 1
+    },
+    {
+     "feature": {
+      "id": 110,
+      "name": "Near-infinite magecraft triggers",
+      "status": "H",
+      "uncountable": true
+     },
+     "quantity": 1
+    },
+    {
+     "feature": {
+      "id": 268,
+      "name": "Near-infinite black mana",
+      "status": "S",
+      "uncountable": true
+     },
+     "quantity": 1
+    },
+    {
+     "feature": {
+      "id": 1050,
+      "name": "Near-infinite untap of lands you control",
+      "status": "C",
+      "uncountable": true
+     },
+     "quantity": 1
+    },
+    {
+     "feature": {
+      "id": 2298,
+      "name": "Cast a subset of spells in your graveyard",
+      "status": "C",
+      "uncountable": true
+     },
+     "quantity": 1
+    }
+   ],
+   "requires": [],
+   "spoiler": false,
+   "status": "OK",
+   "uses": [
+    {
+     "battlefieldCardState": "",
+     "card": {
+      "faces": 1,
+      "id": 1170,
+      "imageUriBackArtCrop": null,
+      "imageUriBackLarge": null,
+      "imageUriBackNormal": null,
+      "imageUriBackPng": null,
+      "imageUriBackSmall": null,
+      "imageUriFrontArtCrop": "https://cards.scryfall.io/art_crop/front/c/7/c7a401b8-29fb-46ef-a663-427f66724d5c.jpg?1783922795",
+      "imageUriFrontLarge": "https://cards.scryfall.io/large/front/c/7/c7a401b8-29fb-46ef-a663-427f66724d5c.jpg?1783922795",
+      "imageUriFrontNormal": "https://cards.scryfall.io/normal/front/c/7/c7a401b8-29fb-46ef-a663-427f66724d5c.jpg?1783922795",
+      "imageUriFrontPng": "https://cards.scryfall.io/png/front/c/7/c7a401b8-29fb-46ef-a663-427f66724d5c.png?1783922795",
+      "imageUriFrontSmall": "https://cards.scryfall.io/small/front/c/7/c7a401b8-29fb-46ef-a663-427f66724d5c.jpg?1783922795",
+      "layoutRotationFront": null,
+      "name": "Displacer Kitten",
+      "oracleId": "09ef446c-a13d-49d9-a94c-cd5f5a2d440b",
+      "spoiler": false,
+      "typeLine": "Creature \u2014 Cat Beast"
+     },
+     "exileCardState": "",
+     "graveyardCardState": "",
+     "libraryCardState": "",
+     "mustBeCommander": false,
+     "quantity": 1,
+     "usedFace": null,
+     "zoneLocations": [
+      "B"
+     ]
+    },
+    {
+     "battlefieldCardState": "",
+     "card": {
+      "faces": 1,
+      "id": 2196,
+      "imageUriBackArtCrop": null,
+      "imageUriBackLarge": null,
+      "imageUriBackNormal": null,
+      "imageUriBackPng": null,
+      "imageUriBackSmall": null,
+      "imageUriFrontArtCrop": "https://cards.scryfall.io/art_crop/front/d/8/d8c5e52d-57ae-464b-8860-7dd39ebfef64.jpg?1783904806",
+      "imageUriFrontLarge": "https://cards.scryfall.io/large/front/d/8/d8c5e52d-57ae-464b-8860-7dd39ebfef64.jpg?1783904806",
+      "imageUriFrontNormal": "https://cards.scryfall.io/normal/front/d/8/d8c5e52d-57ae-464b-8860-7dd39ebfef64.jpg?1783904806",
+      "imageUriFrontPng": "https://cards.scryfall.io/png/front/d/8/d8c5e52d-57ae-464b-8860-7dd39ebfef64.png?1783904806",
+      "imageUriFrontSmall": "https://cards.scryfall.io/small/front/d/8/d8c5e52d-57ae-464b-8860-7dd39ebfef64.jpg?1783904806",
+      "layoutRotationFront": null,
+      "name": "Frantic Search",
+      "oracleId": "16e015b2-f8a3-4b1a-80be-58a8f5fb5e8c",
+      "spoiler": false,
+      "typeLine": "Instant"
+     },
+     "exileCardState": "",
+     "graveyardCardState": "",
+     "libraryCardState": "",
+     "mustBeCommander": false,
+     "quantity": 1,
+     "usedFace": null,
+     "zoneLocations": [
+      "G"
+     ]
+    },
+    {
+     "battlefieldCardState": "",
+     "card": {
+      "faces": 1,
+      "id": 2701,
+      "imageUriBackArtCrop": null,
+      "imageUriBackLarge": null,
+      "imageUriBackNormal": null,
+      "imageUriBackPng": null,
+      "imageUriBackSmall": null,
+      "imageUriFrontArtCrop": "https://cards.scryfall.io/art_crop/front/1/1/11e12a84-e7be-4afc-a230-c2e644743fa8.jpg?1783903013",
+      "imageUriFrontLarge": "https://cards.scryfall.io/large/front/1/1/11e12a84-e7be-4afc-a230-c2e644743fa8.jpg?1783903013",
+      "imageUriFrontNormal": "https://cards.scryfall.io/normal/front/1/1/11e12a84-e7be-4afc-a230-c2e644743fa8.jpg?1783903013",
+      "imageUriFrontPng": "https://cards.scryfall.io/png/front/1/1/11e12a84-e7be-4afc-a230-c2e644743fa8.png?1783903013",
+      "imageUriFrontSmall": "https://cards.scryfall.io/small/front/1/1/11e12a84-e7be-4afc-a230-c2e644743fa8.jpg?1783903013",
+      "layoutRotationFront": null,
+      "name": "Dark Ritual",
+      "oracleId": "53f7c868-b03e-4fc2-8dcf-a75bbfa3272b",
+      "spoiler": false,
+      "typeLine": "Instant"
+     },
+     "exileCardState": "",
+     "graveyardCardState": "",
+     "libraryCardState": "",
+     "mustBeCommander": false,
+     "quantity": 1,
+     "usedFace": null,
+     "zoneLocations": [
+      "H"
+     ]
+    },
+    {
+     "battlefieldCardState": "",
+     "card": {
+      "faces": 1,
+      "id": 864,
+      "imageUriBackArtCrop": null,
+      "imageUriBackLarge": null,
+      "imageUriBackNormal": null,
+      "imageUriBackPng": null,
+      "imageUriBackSmall": null,
+      "imageUriFrontArtCrop": "https://cards.scryfall.io/art_crop/front/3/9/39704000-65d3-4d39-849e-a3b617376bbc.jpg?1783915632",
+      "imageUriFrontLarge": "https://cards.scryfall.io/large/front/3/9/39704000-65d3-4d39-849e-a3b617376bbc.jpg?1783915632",
+      "imageUriFrontNormal": "https://cards.scryfall.io/normal/front/3/9/39704000-65d3-4d39-849e-a3b617376bbc.jpg?1783915632",
+      "imageUriFrontPng": "https://cards.scryfall.io/png/front/3/9/39704000-65d3-4d39-849e-a3b617376bbc.png?1783915632",
+      "imageUriFrontSmall": "https://cards.scryfall.io/small/front/3/9/39704000-65d3-4d39-849e-a3b617376bbc.jpg?1783915632",
+      "layoutRotationFront": null,
+      "name": "Eternal Witness",
+      "oracleId": "30b24e8e-3b0e-4d8e-90f3-f66eb7c1858c",
+      "spoiler": false,
+      "typeLine": "Creature \u2014 Human Shaman"
+     },
+     "exileCardState": "",
+     "graveyardCardState": "",
+     "libraryCardState": "",
+     "mustBeCommander": false,
+     "quantity": 1,
+     "usedFace": null,
+     "zoneLocations": [
+      "B"
+     ]
+    }
+   ],
+   "variantCount": 20
+  },
+  {
+   "bracketTag": "S",
+   "description": "Cast Sol Ring by paying its mana cost.\nTidespout Tyrant triggers, returning a nontoken permanent that can be cast using {C} from the battlefield to your hand.\nActivate Sol Ring by tapping it, adding {C}{C}.\nCast the nontoken permanent returned in step 2 by paying its mana cost.\nTidespout Tyrant triggers, returning Sol Ring from the battlefield to your hand.\nRepeat.",
+   "easyPrerequisites": "",
+   "id": "542-5034",
+   "identity": "U",
+   "includes": [
+    {
+     "id": 26301
+    },
+    {
+     "id": 29370
+    },
+    {
+     "id": 1895
+    }
+   ],
+   "legalities": {
+    "alchemy": false,
+    "brawl": false,
+    "commander": true,
+    "competitiveBrawl": false,
+    "legacy": false,
+    "modern": false,
+    "oathbreaker": false,
+    "pauper": false,
+    "pauperCommander": false,
+    "pauperCommanderMain": false,
+    "pioneer": false,
+    "predh": true,
+    "premodern": false,
+    "standard": false,
+    "standardBrawl": false,
+    "vintage": true
+   },
+   "manaNeeded": "{1}",
+   "manaValueNeeded": 1,
+   "notablePrerequisites": "You control a nontoken permanent that can be cast using {C}.",
+   "notes": "",
+   "of": [
+    {
+     "id": 1895
+    }
+   ],
+   "popularity": 36215,
+   "prices": {
+    "cardkingdom": "4.28",
+    "cardmarket": "2.02",
+    "tcgplayer": "2.92"
+   },
+   "produces": [
+    {
+     "feature": {
+      "id": 11,
+      "name": "Infinite colorless mana",
+      "status": "S",
+      "uncountable": true
+     },
+     "quantity": 1
+    },
+    {
+     "feature": {
+      "id": 17,
+      "name": "Infinite storm count",
+      "status": "H",
+      "uncountable": true
+     },
+     "quantity": 1
+    }
+   ],
+   "requires": [],
+   "spoiler": false,
+   "status": "OK",
+   "uses": [
+    {
+     "battlefieldCardState": "",
+     "card": {
+      "faces": 1,
+      "id": 542,
+      "imageUriBackArtCrop": null,
+      "imageUriBackLarge": null,
+      "imageUriBackNormal": null,
+      "imageUriBackPng": null,
+      "imageUriBackSmall": null,
+      "imageUriFrontArtCrop": "https://cards.scryfall.io/art_crop/front/d/b/db68f47b-f49a-4978-acdd-453ecfb948da.jpg?1783913330",
+      "imageUriFrontLarge": "https://cards.scryfall.io/large/front/d/b/db68f47b-f49a-4978-acdd-453ecfb948da.jpg?1783913330",
+      "imageUriFrontNormal": "https://cards.scryfall.io/normal/front/d/b/db68f47b-f49a-4978-acdd-453ecfb948da.jpg?1783913330",
+      "imageUriFrontPng": "https://cards.scryfall.io/png/front/d/b/db68f47b-f49a-4978-acdd-453ecfb948da.png?1783913330",
+      "imageUriFrontSmall": "https://cards.scryfall.io/small/front/d/b/db68f47b-f49a-4978-acdd-453ecfb948da.jpg?1783913330",
+      "layoutRotationFront": null,
+      "name": "Tidespout Tyrant",
+      "oracleId": "331b44e4-cf08-44f4-8afd-a7374e5dc5ed",
+      "spoiler": false,
+      "typeLine": "Creature \u2014 Djinn"
+     },
+     "exileCardState": "",
+     "graveyardCardState": "",
+     "libraryCardState": "",
+     "mustBeCommander": false,
+     "quantity": 1,
+     "usedFace": null,
+     "zoneLocations": [
+      "B"
+     ]
+    },
+    {
+     "battlefieldCardState": "",
+     "card": {
+      "faces": 1,
+      "id": 5034,
+      "imageUriBackArtCrop": null,
+      "imageUriBackLarge": null,
+      "imageUriBackNormal": null,
+      "imageUriBackPng": null,
+      "imageUriBackSmall": null,
+      "imageUriFrontArtCrop": "https://cards.scryfall.io/art_crop/front/9/1/91fdb56b-54d5-4272-8319-505ff987fe9b.jpg?1783903215",
+      "imageUriFrontLarge": "https://cards.scryfall.io/large/front/9/1/91fdb56b-54d5-4272-8319-505ff987fe9b.jpg?1783903215",
+      "imageUriFrontNormal": "https://cards.scryfall.io/normal/front/9/1/91fdb56b-54d5-4272-8319-505ff987fe9b.jpg?1783903215",
+      "imageUriFrontPng": "https://cards.scryfall.io/png/front/9/1/91fdb56b-54d5-4272-8319-505ff987fe9b.png?1783903215",
+      "imageUriFrontSmall": "https://cards.scryfall.io/small/front/9/1/91fdb56b-54d5-4272-8319-505ff987fe9b.jpg?1783903215",
+      "layoutRotationFront": null,
+      "name": "Sol Ring",
+      "oracleId": "6ad8011d-3471-4369-9d68-b264cc027487",
+      "spoiler": false,
+      "typeLine": "Artifact"
+     },
+     "exileCardState": "",
+     "graveyardCardState": "",
+     "libraryCardState": "",
+     "mustBeCommander": false,
+     "quantity": 1,
+     "usedFace": null,
+     "zoneLocations": [
+      "H"
+     ]
+    }
+   ],
+   "variantCount": 6
+  },
+  {
+   "bracketTag": "S",
+   "description": "Cast Mana Vault by paying its mana cost.\nTidespout Tyrant triggers, returning a nontoken permanent that can be cast using {C}{C} from the battlefield to your hand.\nActivate Mana Vault by tapping it, adding {C}{C}{C}\nCast the nontoken permanent returned in step 2 by paying its mana cost.\nTidespout Tyrant triggers, returning Mana Vault from the battlefield to your hand.\nRepeat.",
+   "easyPrerequisites": "",
+   "id": "542-2364",
+   "identity": "U",
+   "includes": [
+    {
+     "id": 26301
+    },
+    {
+     "id": 29370
+    },
+    {
+     "id": 1895
+    }
+   ],
+   "legalities": {
+    "alchemy": false,
+    "brawl": false,
+    "commander": true,
+    "competitiveBrawl": false,
+    "legacy": false,
+    "modern": false,
+    "oathbreaker": false,
+    "pauper": false,
+    "pauperCommander": false,
+    "pauperCommanderMain": false,
+    "pioneer": false,
+    "predh": true,
+    "premodern": false,
+    "standard": false,
+    "standardBrawl": false,
+    "vintage": true
+   },
+   "manaNeeded": "{1}",
+   "manaValueNeeded": 1,
+   "notablePrerequisites": "You control a nontoken permanent that can be cast using {C}{C}.",
+   "notes": "",
+   "of": [
+    {
+     "id": 1895
+    }
+   ],
+   "popularity": 13980,
+   "prices": {
+    "cardkingdom": "111.78",
+    "cardmarket": "54.21",
+    "tcgplayer": "95.21"
+   },
+   "produces": [
+    {
+     "feature": {
+      "id": 11,
+      "name": "Infinite colorless mana",
+      "status": "S",
+      "uncountable": true
+     },
+     "quantity": 1
+    },
+    {
+     "feature": {
+      "id": 17,
+      "name": "Infinite storm count",
+      "status": "H",
+      "uncountable": true
+     },
+     "quantity": 1
+    }
+   ],
+   "requires": [],
+   "spoiler": false,
+   "status": "OK",
+   "uses": [
+    {
+     "battlefieldCardState": "",
+     "card": {
+      "faces": 1,
+      "id": 542,
+      "imageUriBackArtCrop": null,
+      "imageUriBackLarge": null,
+      "imageUriBackNormal": null,
+      "imageUriBackPng": null,
+      "imageUriBackSmall": null,
+      "imageUriFrontArtCrop": "https://cards.scryfall.io/art_crop/front/d/b/db68f47b-f49a-4978-acdd-453ecfb948da.jpg?1783913330",
+      "imageUriFrontLarge": "https://cards.scryfall.io/large/front/d/b/db68f47b-f49a-4978-acdd-453ecfb948da.jpg?1783913330",
+      "imageUriFrontNormal": "https://cards.scryfall.io/normal/front/d/b/db68f47b-f49a-4978-acdd-453ecfb948da.jpg?1783913330",
+      "imageUriFrontPng": "https://cards.scryfall.io/png/front/d/b/db68f47b-f49a-4978-acdd-453ecfb948da.png?1783913330",
+      "imageUriFrontSmall": "https://cards.scryfall.io/small/front/d/b/db68f47b-f49a-4978-acdd-453ecfb948da.jpg?1783913330",
+      "layoutRotationFront": null,
+      "name": "Tidespout Tyrant",
+      "oracleId": "331b44e4-cf08-44f4-8afd-a7374e5dc5ed",
+      "spoiler": false,
+      "typeLine": "Creature \u2014 Djinn"
+     },
+     "exileCardState": "",
+     "graveyardCardState": "",
+     "libraryCardState": "",
+     "mustBeCommander": false,
+     "quantity": 1,
+     "usedFace": null,
+     "zoneLocations": [
+      "B"
+     ]
+    },
+    {
+     "battlefieldCardState": "",
+     "card": {
+      "faces": 1,
+      "id": 2364,
+      "imageUriBackArtCrop": null,
+      "imageUriBackLarge": null,
+      "imageUriBackNormal": null,
+      "imageUriBackPng": null,
+      "imageUriBackSmall": null,
+      "imageUriFrontArtCrop": "https://cards.scryfall.io/art_crop/front/c/1/c1a31d52-a407-4ded-bfca-cc812f11afa0.jpg?1783921790",
+      "imageUriFrontLarge": "https://cards.scryfall.io/large/front/c/1/c1a31d52-a407-4ded-bfca-cc812f11afa0.jpg?1783921790",
+      "imageUriFrontNormal": "https://cards.scryfall.io/normal/front/c/1/c1a31d52-a407-4ded-bfca-cc812f11afa0.jpg?1783921790",
+      "imageUriFrontPng": "https://cards.scryfall.io/png/front/c/1/c1a31d52-a407-4ded-bfca-cc812f11afa0.png?1783921790",
+      "imageUriFrontSmall": "https://cards.scryfall.io/small/front/c/1/c1a31d52-a407-4ded-bfca-cc812f11afa0.jpg?1783921790",
+      "layoutRotationFront": null,
+      "name": "Mana Vault",
+      "oracleId": "736892cb-a34b-4bb9-b56c-e26e3db207a2",
+      "spoiler": false,
+      "typeLine": "Artifact"
+     },
+     "exileCardState": "",
+     "graveyardCardState": "",
+     "libraryCardState": "",
+     "mustBeCommander": false,
+     "quantity": 1,
+     "usedFace": null,
+     "zoneLocations": [
+      "H"
+     ]
+    }
+   ],
+   "variantCount": 6
+  },
+  {
+   "bracketTag": "E",
+   "description": "Cast Doppelgang by paying {15}{G}{U}, creating five token copies of Eternal Witness and of the four mana-producing permanents.\nWhen the Eternal Witness tokens enter the battlefield, they trigger, returning Doppelgang and up to four other cards from your graveyard to your hand.\nActivate seventeen of the mana-producing permanent tokens by tapping them, adding at least {15}{G}{U}.\nRepeat.\nOnce you have infinite tokens and mana, you may instead target any other permanents using Doppelgang.",
+   "easyPrerequisites": "",
+   "id": "864-5352",
+   "identity": "GU",
+   "includes": [
+    {
+     "id": 27481
+    },
+    {
+     "id": 27474
+    },
+    {
+     "id": 28148
+    },
+    {
+     "id": 29755
+    },
+    {
+     "id": 31074
+    }
+   ],
+   "legalities": {
+    "alchemy": false,
+    "brawl": true,
+    "commander": true,
+    "competitiveBrawl": true,
+    "legacy": true,
+    "modern": true,
+    "oathbreaker": true,
+    "pauper": false,
+    "pauperCommander": false,
+    "pauperCommanderMain": false,
+    "pioneer": false,
+    "predh": false,
+    "premodern": false,
+    "standard": false,
+    "standardBrawl": false,
+    "vintage": true
+   },
+   "manaNeeded": "{15}{G}{U}",
+   "manaValueNeeded": 17,
+   "notablePrerequisites": "There are four permanents on the battlefield that can collectively tap to produce at least {2}{G}{U}.",
+   "notes": "",
+   "of": [
+    {
+     "id": 29755
+    }
+   ],
+   "popularity": 12231,
+   "prices": {
+    "cardkingdom": "4.78",
+    "cardmarket": "1.40",
+    "tcgplayer": "3.07"
+   },
+   "produces": [
+    {
+     "feature": {
+      "id": 443,
+      "name": "Infinite copies of all permanents",
+      "status": "S",
+      "uncountable": true
+     },
+     "quantity": 1
+    },
+    {
+     "feature": {
+      "id": 21,
+      "name": "Infinite creature tokens",
+      "status": "S",
+      "uncountable": true
+     },
+     "quantity": 1
+    },
+    {
+     "feature": {
+      "id": 4,
+      "name": "Infinite creature ETB",
+      "status": "H",
+      "uncountable": true
+     },
+     "quantity": 1
+    },
+    {
+     "feature": {
+      "id": 119,
+      "name": "Infinite landfall triggers",
+      "status": "H",
+      "uncountable": true
+     },
+     "quantity": 1
+    },
+    {
+     "feature": {
+      "id": 77,
+      "name": "Infinite magecraft triggers",
+      "status": "H",
+      "uncountable": true
+     },
+     "quantity": 1
+    },
+    {
+     "feature": {
+      "id": 151,
+      "name": "Infinite mana permanents you control can produce",
+      "status": "S",
+      "uncountable": true
+     },
+     "quantity": 1
+    },
+    {
+     "feature": {
+      "id": 17,
+      "name": "Infinite storm count",
+      "status": "H",
+      "uncountable": true
+     },
+     "quantity": 1
+    },
+    {
+     "feature": {
+      "id": 448,
+      "name": "Return all cards from your graveyard to your hand",
+      "status": "H",
+      "uncountable": true
+     },
+     "quantity": 1
+    },
+    {
+     "feature": {
+      "id": 919,
+      "name": "Infinite casts of instants and sorceries in your hand and graveyard",
+      "status": "C",
+      "uncountable": true
+     },
+     "quantity": 1
+    }
+   ],
+   "requires": [],
+   "spoiler": false,
+   "status": "OK",
+   "uses": [
+    {
+     "battlefieldCardState": "",
+     "card": {
+      "faces": 1,
+      "id": 5352,
+      "imageUriBackArtCrop": null,
+      "imageUriBackLarge": null,
+      "imageUriBackNormal": null,
+      "imageUriBackPng": null,
+      "imageUriBackSmall": null,
+      "imageUriFrontArtCrop": "https://cards.scryfall.io/art_crop/front/a/2/a2daec58-78ed-4da5-b3b0-b04f12b0acbd.jpg?1783912852",
+      "imageUriFrontLarge": "https://cards.scryfall.io/large/front/a/2/a2daec58-78ed-4da5-b3b0-b04f12b0acbd.jpg?1783912852",
+      "imageUriFrontNormal": "https://cards.scryfall.io/normal/front/a/2/a2daec58-78ed-4da5-b3b0-b04f12b0acbd.jpg?1783912852",
+      "imageUriFrontPng": "https://cards.scryfall.io/png/front/a/2/a2daec58-78ed-4da5-b3b0-b04f12b0acbd.png?1783912852",
+      "imageUriFrontSmall": "https://cards.scryfall.io/small/front/a/2/a2daec58-78ed-4da5-b3b0-b04f12b0acbd.jpg?1783912852",
+      "layoutRotationFront": null,
+      "name": "Doppelgang",
+      "oracleId": "d04c6375-25dd-4882-b8b3-a3b0d3081f32",
+      "spoiler": false,
+      "typeLine": "Sorcery"
+     },
+     "exileCardState": "",
+     "graveyardCardState": "",
+     "libraryCardState": "",
+     "mustBeCommander": false,
+     "quantity": 1,
+     "usedFace": null,
+     "zoneLocations": [
+      "H"
+     ]
+    },
+    {
+     "battlefieldCardState": "",
+     "card": {
+      "faces": 1,
+      "id": 864,
+      "imageUriBackArtCrop": null,
+      "imageUriBackLarge": null,
+      "imageUriBackNormal": null,
+      "imageUriBackPng": null,
+      "imageUriBackSmall": null,
+      "imageUriFrontArtCrop": "https://cards.scryfall.io/art_crop/front/3/9/39704000-65d3-4d39-849e-a3b617376bbc.jpg?1783915632",
+      "imageUriFrontLarge": "https://cards.scryfall.io/large/front/3/9/39704000-65d3-4d39-849e-a3b617376bbc.jpg?1783915632",
+      "imageUriFrontNormal": "https://cards.scryfall.io/normal/front/3/9/39704000-65d3-4d39-849e-a3b617376bbc.jpg?1783915632",
+      "imageUriFrontPng": "https://cards.scryfall.io/png/front/3/9/39704000-65d3-4d39-849e-a3b617376bbc.png?1783915632",
+      "imageUriFrontSmall": "https://cards.scryfall.io/small/front/3/9/39704000-65d3-4d39-849e-a3b617376bbc.jpg?1783915632",
+      "layoutRotationFront": null,
+      "name": "Eternal Witness",
+      "oracleId": "30b24e8e-3b0e-4d8e-90f3-f66eb7c1858c",
+      "spoiler": false,
+      "typeLine": "Creature \u2014 Human Shaman"
+     },
+     "exileCardState": "",
+     "graveyardCardState": "",
+     "libraryCardState": "",
+     "mustBeCommander": false,
+     "quantity": 1,
+     "usedFace": null,
+     "zoneLocations": [
+      "B"
+     ]
+    }
+   ],
+   "variantCount": 4
+  }
+ ],
+ "included": []
+}

@@ -51,20 +51,25 @@ from mtg_utils.cards import (BASIC_TYPE_COLOUR, COLOURS, CONDITIONAL_TAP_MARKERS
                              enters_tapped, faces, fetch_targets, front,
                              front_name, has_land_back, is_front_land, land_face,
                              mana_amount)
-from mtg_utils.profiles import (FILTER_LANDS, OMNI_TYPE, build_accel_profiles,
-                                build_land_profiles)
+from mtg_utils.profiles import (FILTER_LANDS, OMNI_TYPE, TRIGGERED_EVENT,
+                                TRIGGERED_PHASE, build_accel_profiles,
+                                build_land_profiles, triggered_mana)
 from mtg_utils.castability import (_match, at_least_in_draw, castable,
                                    castable_faces, pips_from_cost, playable_set,
                                    playsim, playsim_report, probability)
-from mtg_utils.decklist import (apply_swaps, as_cmdrs, diff_multiset, flat,
-                                parse_swaps, read_decklist, write_deck)
+from mtg_utils.decklist import (DECISION, apply_swaps, as_cmdrs, diff_multiset, flat,
+                                parse_swaps, read_decisions, read_decklist, write_deck)
 from mtg_utils.primer import LINK_RE, parse_primer_links, unclosed_openers
-from mtg_utils.roster import (ANY_COLOUR, PAIR_CYCLES, TRIPLE_CYCLES, WUBRG,
-                              identity_pairs, pair_key, roster_names, roster_status)
+from mtg_utils.roster import (ANY_COLOUR, OFF_ROSTER_RANK, PAIR_CYCLES,
+                              TRIPLE_CYCLES, WUBRG, identity_pairs,
+                              pair_from_type_line, pair_key, roster_names,
+                              roster_slot, roster_status)
 from mtg_utils.analysis import (CURVE_TOP, SKELETON_TYPES, analyse_mana,
-                                ceiling_audit, collapse_temps, commander_lines,
-                                compare_swap, deck_base_name, deck_skeleton,
-                                mean_spread, opening_hand_floor, primer_audit,
+                                ceiling_audit, collapse_temps,
+                                combo_completions, commander_lines,
+                                compare_swap, deck_base_name, deck_skeleton, decisions_audit,
+                                land_roster_note, mean_spread,
+                                opening_hand_floor, primer_audit,
                                 replicate_playsim, split_budget, t95,
                                 type_bucket, verify, worst_lines)
 from mtg_utils.sources import UA_BROWSER, UA_TOOL

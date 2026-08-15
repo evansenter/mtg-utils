@@ -1,0 +1,31 @@
+
+=== NAMED SWAP (600 trials over 3 reps, seed 17) ===
+  cut Mystic Gate  ->  add Wooded Bastion
+  (count sweep not run -- --swap measures a named swap, not a count)
+
+--- sources model (colour): before -> after ---
+  T2 {U}{U}                                      72.3% ->   72.0%     -0.3 ± 3.3   within noise   Counterspell, Mana Drain
+  T1 {G}                                         76.3% ->   76.0%     -0.3 ± 3.1   within noise   Birds of Paradise, Elvish Mystic
+  T1 {U}                                         80.7% ->   80.7%     +0.0 ± 6.7   within noise   An Offer You Can't Refuse, Brainstorm
+  T2 {B}{G}                                      80.7% ->   77.0%     -3.7 ± 1.2   MOVES   Assassin's Trophy
+  line only in the BASE deck, not compared: (3, 3, ('G', 'G'))
+  line only in the SWAPPED deck, not compared: (1, 1, ('W',))
+
+--- play simulation: before -> after ---
+  Counterspell T2 (on play)                      67.5% ->   64.8%     -2.7 ± 1.2   within noise
+  Counterspell T2 (on draw)                      64.8% ->   64.2%     -0.7 ± 4.9   within noise
+  Birds of Paradise T1 (on play)                 77.2% ->   79.7%     +2.5 ± 2.7   within noise
+  Birds of Paradise T1 (on draw)                 79.8% ->   79.0%     -0.8 ± 5.5   within noise
+  An Offer You Can't Refuse T1 (on play)         79.3% ->   78.8%     -0.5 ± 3.3   within noise
+  An Offer You Can't Refuse T1 (on draw)         79.8% ->   80.5%     +0.7 ± 3.2   within noise
+  Assassin's Trophy T2 (on play)                 75.0% ->   79.0%     +4.0 ± 2.3   within noise
+  Assassin's Trophy T2 (on draw)                 77.2% ->   77.2%     +0.0 ± 1.9   within noise
+  Eternal Witness T3 (on play)                   78.0% ->   80.8%     +2.8 ± 2.5   within noise
+  Eternal Witness T3 (on draw)                   80.0% ->   81.7%     +1.7 ± 3.5   within noise
+  Tymna the Weaver on curve (on play)            84.5% ->   84.7%     +0.2 ± 1.8   within noise
+  Tymna the Weaver on curve (on draw)            86.5% ->   86.5%     +0.0 ± 3.2   within noise
+  Thrasios, Triton Hero on curve (on play)       72.5% ->   74.0%     +1.5 ± 2.0   within noise
+  Thrasios, Triton Hero on curve (on draw)       73.8% ->   77.2%     +3.3 ± 3.2   within noise
+
+  1 of 18 lines moved beyond their noise at 95%.
+  Each line is a separate 95% test, so roughly 1 of 18 will read MOVES by chance.

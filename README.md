@@ -19,6 +19,10 @@ python3 mana_model.py audit deck.txt --cache scry.json
 
 Standard library only. `pytest` is the sole dev dependency.
 
+Compute lives in `analysis.py` and below; `report/` only formats what it is
+given, which is what lets the tests assert on numbers instead of scraping
+stdout.
+
 ## The two models, and why they are not interchangeable
 
 This is the single most important thing to get right when reading the output.
@@ -92,6 +96,29 @@ moment it was drawn — which understates a ritual-heavy deck, deliberately.
 Spells that merely *make* a mana-producing token are excluded too: a Treasure's
 reminder text says "Add one mana of any color", which once made a counterspell
 count as one of your sources.
+
+**A triggered mana ability is the third category.** The activated-ability
+pattern requires a colon, so a card whose mana arrives off a *trigger* matched
+nothing and was dropped entirely — not misclassified, invisible. Lotus Cobra
+and Nissa, Resurgent Animist are both MV ≤ 3, both make mana, and neither was
+counted. The two trigger shapes are not equally reliable and are not treated
+alike:
+
+| shape | example | treatment |
+|---|---|---|
+| `phase` | *"At the beginning of your first main phase, add `{G}{G}`"* | counted — it fires on its own every turn, as reliable as a rock |
+| `event` | *"Landfall — Whenever a land you control enters, add one mana of any color"* | flagged and excluded from generic totals, like restricted mana |
+
+A phase-triggered source is also **offline the turn it enters**, for the same
+reason a mana creature is: the beginning of your first main phase has already
+happened by the time you cast it.
+
+Worth stating plainly, because it is the surprising part: **recognising the
+shape does not by itself surface the cards that prompted it.** Hulking Raptor
+is MV 4 and Regal Behemoth is MV 6, against a default `max_mv` of 3, so both
+stay outside the accelerant window. And Sword of the Animist adds no mana at
+all — it fetches a land, which is a change to the land count partway through a
+game and a different model entirely.
 
 **Restricted mana is not mana.** Fíli and Kíli, Joyous taps for `{R}{R}` *"only
 to cast Dwarf, Equipment, and Saga spells"*; Delighted Halfling's coloured mana
@@ -233,6 +260,127 @@ Four things this encodes so they are not rediscovered:
 With `--cedh`, the tournament entry count is printed beside every percentage,
 and below five entries **no percentage is quoted at all** — at four entries
 every card is 25%, 50%, 75% or 100%.
+
+#### Decision notes: why a card is *not* in the list
+
+Ten of nineteen rows on a real run were cards already rejected, with reasons.
+Without a record every run re-litigates them. The record lives **in the
+decklist**, as comments `read_decklist` has always skipped:
+
+```
+# CUT: Wakening Sun's Avatar -- board wipe kills [[Craterhoof Behemoth]] too
+# TRAP: Sword of the Animist -- ramp that needs combat; [[Sol Ring]] is faster
+# DEFER: Displacer Kitten -- revisit once [[Dockside Extortionist]] is in
+```
+
+`ceiling` then annotates the row instead of re-proposing the card:
+
+```
+  Displacer Kitten                      7.9%  -0.045     896/11360    0  $29.99
+      DEFER revisit once [[Dockside Extortionist]] is in
+```
+
+Three decisions, and each is the opposite of the obvious one:
+
+**In the decklist, not a separate store keyed by commander.** A second store is
+a thing nothing keeps honest — its entries are invalidated by deck changes it
+cannot observe, and nothing fails when they go stale. In the decklist, a note
+travels in the same file as the cards it reasons about, changes in the same
+diff, and is reviewed by whoever edits the list. It is also keyed **per deck**,
+which is the right key: two builds of the same commander diverge on the first
+swap.
+
+**Annotates, never suppresses.** Hiding rejected rows behind a flag is the one
+thing a note must not do — a stale `CUT` would silently remove a card that has
+since become right, and a shorter table reads as less work to do.
+
+**The notes are falsifiable, which is what makes them storable at all.** This
+repo does not store measurements; `report_calibrate` says *never quote a stored
+row*. A judgement can be stored only if something can tell you it has gone
+wrong, so reasons cite cards with `[[...]]` — the same markup `primer` uses,
+checked by the same extractor — and `ceiling` reports both ways a note expires:
+
+```
+  NOTES THAT NOW CONTRADICT THE LIST (1):
+    line 12: Sol Ring is marked CUT and is IN the deck
+
+  NOTES WHOSE REASON HAS EXPIRED (1):
+    line 11: Displacer Kitten -- reason cites Dockside Extortionist, no longer in the deck
+```
+
+The separator is ` -- ` rather than a comma or a colon because card names
+contain commas constantly — every *"Name, the Title"* legend.
+
+#### Land rows are cross-referenced against the roster
+
+Inclusion is the right tool for spells and the wrong one for lands: EDHREC's
+land data reflects the population playing the commander, which is a budget
+population. `roster.py` already enumerates every cycle slot per colour pair,
+**best first**, so it can answer what inclusion cannot — is this land worse than
+what is already filling that slot:
+
+```
+  Glacial Fortress                     79.2%  +0.300    9000/11360    0  $0.32
+      ROSTER: WU already holds Tundra (ABUR dual), Hallowed Fountain (Shockland), Flooded Strand (Fetchland); this is the Checkland
+  Canopy Vista                         78.3%  +0.290    8900/11360    0  $0.28
+      ROSTER: WG already holds Savannah (ABUR dual), Temple Garden (Shockland), Windswept Heath (Fetchland); this is on no roster cycle
+```
+
+Two mechanisms, because one is not enough. A land **on** a roster cycle gets its
+pair and its rank from the cycle table. A land on **no** cycle — a battle land,
+say — gets its pair from its **basic land types** (`Land — Forest Plains` → `WG`)
+and ranks below every cycle, because that is what being on no cycle means.
+Without the second mechanism a battle land is indistinguishable from Gaea's
+Cradle.
+
+It **annotates, never suppresses**. A suppressed row is indistinguishable from a
+row that was never ranked, and a shorter table reads as less work to do.
+
+And it stays quiet wherever the roster has no opinion, which matters more than
+the verdicts:
+
+- **A land with no colour pair** (Gaea's Cradle, Urza's Saga) gets nothing.
+  These are among the best rows the table will ever print, and a "not on the
+  roster" warning would land on exactly the cards worth buying.
+- **An any-colour slot** (Exotic Orchard, Unclaimed Territory) is named by the
+  roster but carries no quality ordering, so it is not ranked. These two are the
+  known residue: the roster cannot say they are worse than what is in.
+- **A pair with nothing better already in it** is not a downgrade.
+
+The comparison is one-directional: holding the WU Pathway does not make the ABUR
+dual a downgrade, it makes it the upgrade.
+
+#### The Commander Spellbook cross-check
+
+A ceiling row is ranked on how often *other people* play the card. That says
+nothing about what it does with **this** list. Every row is therefore checked
+against Commander Spellbook's `find-my-combos` and annotated inline when it
+would complete a combo the deck already half-holds:
+
+```
+  Hullbreaker Horror                    6.8%  +0.041     767/11360    0  $6.38
+      COMBO with Sol Ring, Permanent Castable for {C} (template) -> Infinite colorless mana, Infinite storm count
+```
+
+**On by default**, because the rows this catches are the ones you would never
+have looked up. On the deck that prompted it, both interacting rows sat at 7.9%
+and 6.8% inclusion — below any default bar, reachable only by *lowering* it,
+which is exactly the moment nobody thinks to add a flag. `--no-combos` skips it.
+
+Three rules:
+
+- **A combo is a fact, not a recommendation.** The interaction that prompted
+  this was a card forming a *forced draw* with two cards already in the deck.
+  Whether an interaction argues for or against a card is not Spellbook's to
+  say, and the report does not pretend otherwise.
+- **"Also needs X" is printed.** Spellbook's *almost included* means at least
+  one piece is missing, not exactly one, so a combo needing two more cards must
+  not read like one this card finishes on its own. Templates
+  (`Permanent Castable for {C}`) count as pieces.
+- **An outage is announced, never silently clean.** If Spellbook fails, the
+  report says the cross-check did not run and that the rows are *not* known to
+  be free of combos — an unrun check and a clean result are otherwise the same
+  empty column. `ceiling` still prints its table.
 
 #### `--sort=synergy`
 
@@ -478,7 +626,7 @@ works as a library import.
 pytest                      # or: python3 mana_model.py selftest
 ```
 
-548 cases, offline, about 10 seconds. No test touches the network; anything
+642 cases, offline, about 10 seconds. No test touches the network; anything
 that would need Scryfall or Moxfield uses a frozen fixture instead.
 
 ### The invariant
