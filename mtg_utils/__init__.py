@@ -31,6 +31,7 @@ Subcommands
   moxfield    fetch a live deck into decklist format
   write       write the final 100 and assert it back
   diff        card-multiset diff of a local list against the LIVE Moxfield deck
+  primer      check every [[Card]] link in a primer against the decklist
   audit       verify + mana + roster + combos + own  (full pass, no variants)
   selftest    offline regression tests; run after ANY edit to this file
   calibrate   re-measure every live deck into one table (never store the rows)
@@ -57,12 +58,13 @@ from mtg_utils.castability import (_match, at_least_in_draw, castable,
                                    playsim, playsim_report, probability)
 from mtg_utils.decklist import (apply_swaps, as_cmdrs, diff_multiset, flat,
                                 parse_swaps, read_decklist, write_deck)
+from mtg_utils.primer import LINK_RE, parse_primer_links, unclosed_openers
 from mtg_utils.roster import (ANY_COLOUR, PAIR_CYCLES, TRIPLE_CYCLES, WUBRG,
                               identity_pairs, pair_key, roster_names, roster_status)
 from mtg_utils.analysis import (CURVE_TOP, SKELETON_TYPES, analyse_mana,
                                 ceiling_audit, collapse_temps, commander_lines,
                                 compare_swap, deck_base_name, deck_skeleton,
-                                mean_spread, opening_hand_floor,
+                                mean_spread, opening_hand_floor, primer_audit,
                                 replicate_playsim, split_budget, t95,
                                 type_bucket, verify, worst_lines)
 from mtg_utils.sources import UA_BROWSER, UA_TOOL
@@ -77,8 +79,8 @@ from mtg_utils.sources.scryfall import scry_fetch
 from mtg_utils.sources.spellbook import spellbook
 from mtg_utils.report import (report_calibrate, report_combos, report_contention,
                               report_ceiling, report_diff, report_mana,
-                              report_own, report_roster, report_skeleton,
-                              report_swap, report_variants)
+                              report_own, report_primer, report_roster,
+                              report_skeleton, report_swap, report_variants)
 
 
 # `hypergeometric` was renamed to `at_least_in_draw`. Everything here is

@@ -16,6 +16,8 @@ the one thing the golden suite exists to make impossible.
 | `ceiling.rec.json` | A real EDHREC commander page (Thrasios / Tymna), whole cardlists dropped to keep it small |
 | `ceiling.top16.json` | A real edhtop16 response for the same pair, trimmed to 6 tournament entries |
 | `ceiling.scry.json` | Scryfall records for the cards those two rank — a **projection**, see below |
+| `primer.md` | A primer for the `multi` deck carrying one of each `primer` finding |
+| `primer.scry.json` | Scryfall records for the cards `primer.md` links — a **projection** |
 
 ## The `ceiling` fixtures
 

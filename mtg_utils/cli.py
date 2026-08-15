@@ -10,7 +10,8 @@ from mtg_utils.decklist import (as_cmdrs, flat, parse_swaps, read_decklist,
                                 write_deck)
 from mtg_utils.report import (report_calibrate, report_combos, report_contention,
                               report_ceiling, report_diff, report_mana,
-                              report_own, report_roster, report_skeleton,
+                              report_own, report_primer, report_roster,
+                              report_skeleton,
                               report_swap, report_variants)
 from mtg_utils.sources.moxfield import moxfield_deck
 from mtg_utils.sources.scryfall import scry_fetch
@@ -50,7 +51,7 @@ def main():
     ap.add_argument("cmd", choices=["fetch", "verify", "mana", "variants", "combos",
                                     "own", "contention", "moxfield", "write", "audit",
                                     "roster", "diff", "selftest", "calibrate", "ceiling",
-                                    "skeleton"])
+                                    "skeleton", "primer"])
     ap.add_argument("target", nargs="?", default=None,
                     help="decklist path, or deck id for `moxfield`; unused by `selftest`")
     ap.add_argument("--cache", default="scry.json")
@@ -84,6 +85,8 @@ def main():
                     default="inclusion",
                     help="ceiling: order the reported rows; the bar stays on "
                          "inclusion either way")
+    ap.add_argument("--primer", default=None,
+                    help="primer: path to the primer markdown to check")
     ap.add_argument("--swap", default="",
                     help="variants: measure named swaps, 'Cut->Add,Cut2->Add2' "
                          "(use ';' between pairs if a name contains a comma)")
@@ -157,6 +160,14 @@ def main():
         report_mana(cmdr, entries, scry, a.sims, a.trials, a.seed, reps=a.reps)
     if a.cmd == "skeleton":
         report_skeleton(cmdr, entries, scry)
+    if a.cmd == "primer":
+        if not a.primer:
+            ap.error("`primer` needs --primer <path to the primer>")
+        # Non-zero on a finding, so this is usable as a pre-commit or CI
+        # check. A validator that always exits 0 is a validator whose output
+        # nobody reads twice.
+        sys.exit(0 if report_primer(cmdr, entries, scry, a.primer,
+                                    a.cache)["ok"] else 2)
     if a.cmd == "ceiling":
         report_ceiling(cmdr, entries, scry, a.cache, a.rec_cache, a.cedh,
                        a.bar, a.sort)
