@@ -1,4 +1,5 @@
 """Can these sources pay these pips, and do you have N mana on turn N."""
+import bisect
 import itertools
 import math
 import re
@@ -372,46 +373,70 @@ def probability(lands, accels, deck_size, req, mv, turn, sims, rng,
     # Everything the inner loop asks of a profile, resolved once.
     sids = [_sig_id(p) for p in allp]
     amts = [p.get("amount", 1) for p in allp]
-    isle = [p["kind"] == "land" for p in allp]
-    tapd = [p["tapped"] for p in allp]
+    # Membership tests, so "is there a land here" and "is everything here
+    # tapped" are one C call over the combo rather than a Python loop.
+    land_idx = frozenset(i for i, p in enumerate(allp) if p["kind"] == "land")
+    untapped = frozenset(i for i, p in enumerate(allp) if not p["tapped"])
+    # Everything a combo's answer turns on, packed into one sortable int, so
+    # two draws that differ only in which particular Mountain came up are
+    # recognisable as the same question.
+    code = [(sids[i] << 2) | (2 if i in land_idx else 0)
+            | (0 if i in untapped else 1) for i in range(nsrc)]
+    sid_of = sids.__getitem__
+    amt_of = amts.__getitem__
+    code_of = code.__getitem__
     req_key = tuple(sorted(req))
     memo = _CASTABLE_MEMO
     getrandbits = rng.getrandbits
     seen = 7 + turn - 1
-    hits = 0
-    for _ in range(sims):
-        got = _sample_hits(getrandbits, pool_n, seen, nsrc)
-        if len(got) < turn:
-            continue
-        if not any(isle[i] for i in got):
-            continue
-        if len(got) == turn:
-            combos = (tuple(got),)
-        else:
-            allc = list(itertools.combinations(got, turn))
-            combos = allc if len(allc) <= max_combos else rng.sample(allc, max_combos)
+    combinations = itertools.combinations
+    ncombos = [math.comb(g, turn) for g in range(seen + 1)]
+
+    def any_castable(combos):
         for c in combos:
-            if not any(isle[i] for i in c):
+            if land_idx.isdisjoint(c):
                 continue
             # playable_set: you sequence tapped lands onto earlier turns, so
             # one is only stuck if every source in hand is tapped.
-            if all(tapd[i] for i in c):
+            if untapped.isdisjoint(c):
                 c = c[1:]
-            total = 0
-            for i in c:
-                total += amts[i]
-            if total < mv:
+            if sum(map(amt_of, c)) < mv:
                 continue
             if not req_key:
-                hits += 1
-                break
-            key = (tuple(sorted([sids[i] for i in c])), req_key)
+                return True
+            key = (tuple(sorted(map(sid_of, c))), req_key)
             r = memo.get(key)
             if r is None:
                 r = memo[key] = _solve(key[0], req)
             if r:
+                return True
+        return False
+
+    # Whether a draw can pay depends only on WHAT was drawn, so the same hand
+    # coming up again is the same answer -- and over thousands of sims the
+    # same hand comes up constantly. Only sound while no combo is discarded:
+    # once the count passes max_combos the answer depends on which 250 the
+    # generator picked, which is a different question every time.
+    answered = {}
+    hits = 0
+    for _ in range(sims):
+        got = _sample_hits(getrandbits, pool_n, seen, nsrc)
+        ng = len(got)
+        if ng < turn:
+            continue
+        if land_idx.isdisjoint(got):
+            continue
+        if ncombos[ng] <= max_combos:
+            dkey = tuple(sorted(map(code_of, got)))
+            r = answered.get(dkey)
+            if r is None:
+                r = answered[dkey] = any_castable(combinations(got, turn))
+            if r:
                 hits += 1
-                break
+            continue
+        allc = list(combinations(got, turn))
+        if any_castable(rng.sample(allc, max_combos)):
+            hits += 1
     return hits / sims
 
 
@@ -441,11 +466,27 @@ def at_least_in_draw(k, sources, cards_seen, deck=99):
 
 
 # ============================================================ play simulation
-def playsim(lands, accels, deck_size, turns, on_draw, trials, rng,
-            count_restricted=False):
-    """Draw seven (+1 on the draw), draw one per turn, play a land if you have
-    one, deploy the cheapest affordable accelerant, then read off available
-    mana. Returns per-turn lists of (available source profiles, total mana)."""
+#
+# One implementation, two shapes. `playsim` hands back the source profiles in
+# play, which is its published contract and what the unit tests read; the
+# report below wants only the two things it ever asks of a trial -- how much
+# mana, and which pips it can pay -- and building the profile lists just to
+# take them apart again cost more than the simulation did.
+#
+# Splitting this into two loops instead would mean two copies of the
+# accelerant-deployment rule, and that rule is three fixed bugs deep. `shape`
+# and `track` pick what gets recorded; nothing else differs.
+_MODE_COUNT = 0            # per turn: nothing kept, only the generic tally
+_MODE_TOTAL = 1            # per turn: available mana
+_MODE_KEYED = 2            # per turn: available mana and the memo key
+
+
+def _playsim_core(lands, accels, deck_size, turns, on_draw, trials, rng,
+                  count_restricted, mode):
+    """mode: None for the profile lists, else a per-turn list of _MODE_*.
+
+    Returns (per-turn records, per-turn count of trials with >= t mana).
+    """
     accels = [a for a in accels if count_restricted or not a.get("restricted")]
     lands = [l for l in lands if count_restricted or not l.get("restricted")]
     nL, nA = len(lands), len(accels)
@@ -471,8 +512,9 @@ def playsim(lands, accels, deck_size, turns, on_draw, trials, rng,
     a_late = [bool(p["tapped"] or p.get("creature")) for p in accels]
 
     out = [[] for _ in range(turns + 1)]
+    ghits = [0] * (turns + 1)
     if not trials:
-        return out
+        return out, ghits
     # Seven, plus one on the draw, plus one a turn after the first.
     drawn = 7 + (1 if on_draw else 0) + max(0, turns - 1)
     if drawn > deck_size:
@@ -482,6 +524,12 @@ def playsim(lands, accels, deck_size, turns, on_draw, trials, rng,
     head, tail = _shuffle_plan(deck_size, drawn)
     getrandbits = rng.getrandbits
     opening = 7 + (1 if on_draw else 0)
+    shape = mode is None
+    track = (not shape) and _MODE_KEYED in mode
+    if track:
+        l_sid = [_sig_id(p) for p in lands]
+        a_sid = [_sig_id(p) for p in accels]
+    insort = bisect.insort
     x = deck[:]
     for _ in range(trials):
         x[:] = deck
@@ -506,9 +554,11 @@ def playsim(lands, accels, deck_size, turns, on_draw, trials, rng,
                     hand_a.append(c - nL)
         online_l = []                 # land profiles online, in play order
         rk_p, rk_ready = [], []       # rocks in deploy order, and from when
+        live = []                     # sids of everything online, kept sorted
         online_total = 0              # mana available right now
         pend_total = 0                # mana that comes online next turn
         pend_land = None              # at most one: you play one land a turn
+        pend_rocks = []
         for t in range(1, turns + 1):
             if t > 1:
                 c = x[pos]
@@ -518,9 +568,18 @@ def playsim(lands, accels, deck_size, turns, on_draw, trials, rng,
                         hand_l.append(c)
                     else:
                         hand_a.append(c - nL)
+                # Everything that entered last turn is online now.
                 if pend_land is not None:
-                    online_l.append(pend_land)
+                    if shape:
+                        online_l.append(lands[pend_land])
+                    if track:
+                        insort(live, l_sid[pend_land])
                     pend_land = None
+                if pend_rocks:
+                    if track:
+                        for code in pend_rocks:
+                            insort(live, a_sid[code])
+                    pend_rocks = []
                 online_total += pend_total
                 pend_total = 0
             if hand_l:
@@ -532,11 +591,14 @@ def playsim(lands, accels, deck_size, turns, on_draw, trials, rng,
                         best, bk = idx, k2
                 code = hand_l.pop(best)
                 if l_tap[code]:
-                    pend_land = lands[code]
+                    pend_land = code
                     pend_total += l_amt[code]
                 else:
-                    online_l.append(lands[code])
                     online_total += l_amt[code]
+                    if shape:
+                        online_l.append(lands[code])
+                    if track:
+                        insort(live, l_sid[code])
 
             # Deploying an accelerant COSTS the mana it costs. Without
             # `spent`, each pass re-read the full total and two lands could
@@ -559,34 +621,46 @@ def playsim(lands, accels, deck_size, turns, on_draw, trials, rng,
                     break
                 code = hand_a.pop(best)
                 spent += bc
-                rk_p.append(accels[code])
+                if shape:
+                    rk_p.append(accels[code])
                 if a_late[code]:
                     rk_ready.append(t + 1)
+                    pend_rocks.append(code)
                     pend_total += a_amt[code]
                 else:
                     rk_ready.append(t)
                     online_total += a_amt[code]
+                    if track:
+                        insort(live, a_sid[code])
 
-            if rk_p:
-                out[t].append(online_l + [p for p, r in zip(rk_p, rk_ready)
-                                          if r <= t])
+            if online_total >= t:
+                ghits[t] += 1
+            if shape:
+                if rk_p:
+                    out[t].append(online_l + [p for p, r in zip(rk_p, rk_ready)
+                                              if r <= t])
+                else:
+                    out[t].append(online_l[:])
             else:
-                out[t].append(online_l[:])
-    return out
+                m = mode[t]
+                if m == _MODE_KEYED:
+                    out[t].append((online_total, tuple(live)))
+                elif m == _MODE_TOTAL:
+                    out[t].append(online_total)
+    return out, ghits
+
+
+def playsim(lands, accels, deck_size, turns, on_draw, trials, rng,
+            count_restricted=False):
+    """Draw seven (+1 on the draw), draw one per turn, play a land if you have
+    one, deploy the cheapest affordable accelerant, then read off available
+    mana. Returns per-turn lists of (available source profiles, total mana)."""
+    return _playsim_core(lands, accels, deck_size, turns, on_draw, trials, rng,
+                         count_restricted, None)[0]
 
 
 def playsim_report(lands, accels, deck_size, lines, trials, rng, turns=7):
     """lines: list of (label, mana_value, pip_string like '{R}{R}')."""
-    # Intern every profile ONCE per call, by identity. The map is built here
-    # out of the very lists playsim deals from, so it cannot outlive the
-    # objects it describes or watch one change underneath it -- which is what
-    # makes an identity key safe here and not in `castable`, whose sources
-    # arrive from anywhere.
-    meta = {}
-    for p in lands:
-        meta[id(p)] = (_sig_id(p), p.get("amount", 1))
-    for p in accels:
-        meta[id(p)] = (_sig_id(p), p.get("amount", 1))
     specs = []
     for label, mv, pipstr in lines:
         req = pips_from_cost(pipstr)
@@ -594,52 +668,26 @@ def playsim_report(lands, accels, deck_size, lines, trials, rng, turns=7):
         if turn > turns:
             continue
         specs.append((label, mv, req, tuple(sorted(req)), turn))
-    # Turns any line actually asks a colour question about. Reducing a trial
-    # to its memo key is only worth doing where something reads the key.
-    keyed = {s[4] for s in specs if s[2]}
+    # What each turn has to record. Most turns are only ever asked "was there
+    # t mana", which the simulation counts as it goes and never has to keep.
+    mode = [_MODE_COUNT] * (turns + 1)
+    for _label, _mv, req, _rk, turn in specs:
+        if req:
+            mode[turn] = _MODE_KEYED
+        elif mode[turn] == _MODE_COUNT:
+            mode[turn] = _MODE_TOTAL
 
     res = {}
     memo = _CASTABLE_MEMO
     for on_draw in (False, True):
-        rounds = playsim(lands, accels, deck_size, turns, on_draw, trials, rng)
-        side = "draw" if on_draw else "play"
-        generic, labelled = {}, {}
-        # One pass per turn. Total mana and the memo key are the only two
-        # things anything below asks of a trial, and several lines can share a
-        # turn -- which used to mean sorting the same hand once per line.
-        digest = {}
-        for t in range(1, turns + 1):
-            hits = 0
-            if t in keyed:
-                rows = []
-                for s in rounds[t]:
-                    total = 0
-                    sids = []
-                    for p in s:
-                        sid, amt = meta[id(p)]
-                        total += amt
-                        sids.append(sid)
-                    if total >= t:
-                        hits += 1
-                    sids.sort()
-                    rows.append((total, tuple(sids)))
-                digest[t] = rows
-            else:
-                totals = []
-                for s in rounds[t]:
-                    total = 0
-                    for p in s:
-                        total += meta[id(p)][1]
-                    if total >= t:
-                        hits += 1
-                    totals.append(total)
-                digest[t] = totals
-            generic[t] = 100.0 * hits / trials
+        rows, ghits = _playsim_core(lands, accels, deck_size, turns, on_draw,
+                                    trials, rng, False, mode)
+        generic = {t: 100.0 * ghits[t] / trials for t in range(1, turns + 1)}
+        labelled = {}
         for label, mv, req, req_key, turn in specs:
-            rows = digest[turn]
             hits = 0
             if req:
-                for total, sids in rows:
+                for total, sids in rows[turn]:
                     if total < mv:
                         continue
                     k = (sids, req_key)
@@ -648,16 +696,17 @@ def playsim_report(lands, accels, deck_size, lines, trials, rng, turns=7):
                         r = memo[k] = _solve(sids, req)
                     if r:
                         hits += 1
-            elif turn in keyed:
+            elif mode[turn] == _MODE_KEYED:
                 # A colourless commander asks only "is there enough mana", on
                 # a turn some other line does ask a colour question about.
-                for total, _sids in rows:
+                for total, _sids in rows[turn]:
                     if total >= mv:
                         hits += 1
             else:
-                for total in rows:
+                for total in rows[turn]:
                     if total >= mv:
                         hits += 1
             labelled[label] = (100.0 * hits / trials, turn)
-        res[side] = {"generic": generic, "lines": labelled}
+        res["draw" if on_draw else "play"] = {"generic": generic,
+                                              "lines": labelled}
     return res
