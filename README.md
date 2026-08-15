@@ -478,7 +478,7 @@ works as a library import.
 pytest                      # or: python3 mana_model.py selftest
 ```
 
-243 cases, offline, about 40 seconds. No test touches the network; anything
+536 cases, offline, about 8 seconds. No test touches the network; anything
 that would need Scryfall or Moxfield uses a frozen fixture instead.
 
 ### The invariant

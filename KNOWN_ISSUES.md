@@ -431,3 +431,60 @@ commander-on-curve figure by about five points. A London mulligan with a
 "keep 2-5 lands" rule is defensible and standard, but it is a modelling
 choice that would move every number in the repo, and it should arrive as its
 own commit with the snapshot diff shown.
+
+---
+
+## 15. The Monte Carlo core is optimised, and where it stops — RESOLVED, measured
+
+`mana` on the four fixture decks went 22.9s to 2.9s, and `variants` 15.7s to
+2.8s, with every snapshot byte-identical. `castability.py` is now the one file
+here written for speed rather than plainly, so the reasoning belongs somewhere
+greppable rather than in four commit messages.
+
+**What was actually slow.** Not the maths. The models asked the same question
+over and over: twenty Mountains are twenty separate dicts with identical
+contents, so a hand the solver had already answered arrived looking new. Four
+calls in five are now answered from a memo, and most draws never enumerate a
+combination at all. The rest was building things to take them apart again —
+`playsim` assembled a list of source profiles per turn per trial so
+`playsim_report` could immediately reduce it to a total and a key.
+
+**Where it stops, and why that is not a to-do.** About half of what remains is
+the random draws themselves: 7.3 million `getrandbits` calls per deck, fixed by
+the definition of the measurement. Drawing one bit differently moves every
+figure, so that half is not available. Measured, per deck:
+
+| deck | `analyse_mana` | the draws alone |
+|---|---|---|
+| mono | 0.64s | 0.30s (47%) |
+| multi | 0.82s | 0.41s (49%) |
+| colourless | 0.61s | 0.28s (46%) |
+| partner | 0.81s | 0.42s (52%) |
+
+The obvious next idea is batching: `getrandbits(32*N)` really does return
+exactly what N calls to `getrandbits(32)` return, little-endian, so a block
+could be drawn once and sliced. It was tried. **It is 2.7x slower** — the
+Python-level buffer bookkeeping costs more than the C call it removes. The
+per-call version is not there for want of looking.
+
+**What it cost.** Memory. The caches are per-process and did not exist before;
+a four-deck run peaks at 76 MB against about 11 MB baseline. They are bounded
+by a watermark set above what one deck's full measurement needs, so a single
+run keeps every hit and `calibrate` cannot grow without limit. Dropping a cache
+costs time and never correctness, which is what makes the crude bound safe.
+
+**What it risks.** `random.shuffle` and `random.sample` are reimplemented to
+skip work the models throw away. That couples this repo to two stdlib
+algorithms — but it *already was* coupled, because the snapshots are Monte
+Carlo means drawn through them; a CPython that changed either would have moved
+the numbers before, silently. Now `tests/test_rng_equivalence.py` asserts the
+equivalence directly, so that change fails by name instead. Reverting the
+reimplementation is a legitimate call if it ever drifts; reverting it and
+keeping the snapshots is not.
+
+**Not attempted, deliberately.** Nothing that trades an approximation for
+speed: no reduced `--sims` default, no early termination once a proportion
+looks settled, no sharing draws between candidate lines. Each would be a real
+speedup and each changes a reported number, which makes it a modelling change
+that must arrive as its own commit with the snapshot diff shown — the rule at
+the top of CLAUDE.md, not an exception to it.
