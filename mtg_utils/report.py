@@ -28,8 +28,11 @@ def _reps(n):
 
 def report_mana(cmdr, entries, scry, sims, trials, seed=17, lines=None, reps=3):
     a = analyse_mana(cmdr, entries, scry, sims, trials, seed, lines, reps)
-    v, accels, rows, lines, res = (a["verify"], a["accels"], a["rows"],
-                                   a["lines"], a["sim"])
+    # Everything is unpacked HERE, before the play-simulation loop below
+    # rebinds `a` to a percentage. Reading a["floor"] after that loop gets a
+    # float and a TypeError several lines from the cause.
+    v, accels, rows, lines, res, floor = (a["verify"], a["accels"], a["rows"],
+                                          a["lines"], a["sim"], a["floor"])
 
     print(f"\n=== MANA BASE ({v['lands']} front-face lands"
           f" + {v['mdfc_land_backs']} MDFC land-backs, "
@@ -69,6 +72,20 @@ def report_mana(cmdr, entries, scry, sims, trials, seed=17, lines=None, reps=3):
           "(no land swap will help).\n  A line FAR BELOW its baseline is a "
           "COLOUR problem (a filter land for that pip is the answer).")
     print("  A gap smaller than the two ± beside it is noise, not a finding.")
+
+    # No mulligan is modelled, so every figure above is a floor. Said with a
+    # measured size rather than as a caveat: the share is large, and it is
+    # deck-dependent, so it skews decks against each other as well as
+    # lowering each one. Exact rather than simulated -- the opening hand is a
+    # counting question, and it is NOT a castability figure.
+    print("\n  No mulligan is modelled: every opening seven is kept, so the "
+          "figures above are FLOORS.")
+    print(f"  {floor['p_one_or_fewer']*100:.1f}% of opening sevens hold at most "
+          f"one land ({floor['p_none']*100:.1f}% hold none), off"
+          f" {floor['lands']} lands in {floor['deck_size']}.")
+    print("  Those hands are kept here and shipped back in real play. The "
+          "share moves with\n  land count, so it skews deck-to-deck "
+          "comparison and not just the level.")
     return res
 
 
