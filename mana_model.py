@@ -38,6 +38,14 @@ line as "N Card Name" or bare "Card Name".
 """
 import json, random, re, sys, os, csv, time, math, subprocess, itertools, argparse
 from collections import Counter, defaultdict
+from mtg_utils.sources.collection import (COLLECTION, load_collection)
+from mtg_utils.sources.spellbook import (spellbook)
+from mtg_utils.sources.moxfield import (
+    parse_moxfield,
+    moxfield_deck,
+    moxfield_user_decks)
+from mtg_utils.sources.scryfall import (scry_fetch)
+from mtg_utils.sources import (UA_BROWSER, UA_TOOL)
 from mtg_utils.decklist import (
     _entry,
     read_decklist,
@@ -75,47 +83,6 @@ from mtg_utils.cards import (
     enters_tapped,
     fetch_targets,
     mana_amount)
-
-UA_BROWSER = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-              "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
-UA_TOOL = "MTGDeckTool/2.0"
-COLLECTION = "/mnt/project/ManaBox_Collection.csv"
-
-# ============================================================ Scryfall
-def scry_fetch(names, cache_path=None):
-    cache = {}
-    if cache_path and os.path.exists(cache_path):
-        cache = json.load(open(cache_path))
-    want = [n for n in dict.fromkeys(names) if n.lower() not in cache]
-    nf = []
-    for i in range(0, len(want), 75):
-        chunk = want[i:i + 75]
-        payload = json.dumps({"identifiers": [{"name": n.split(" // ")[0]} for n in chunk]})
-        for _try in range(4):
-            r = subprocess.run(
-                ["curl", "-s", "-X", "POST", "-H", "Content-Type: application/json",
-                 "-H", "Accept: application/json", "-H", f"User-Agent: {UA_TOOL}",
-                 "-d", payload, "https://api.scryfall.com/cards/collection"],
-                capture_output=True, text=True)
-            try:
-                d = json.loads(r.stdout)
-            except Exception:
-                time.sleep(2); continue
-            if d.get("object") == "list":
-                break
-            time.sleep(2)
-        else:
-            raise SystemExit("Scryfall /cards/collection failed after retries")
-        for c in d["data"]:
-            # key on BOTH the full name and the front-face name
-            cache[c["name"].lower()] = c
-            cache[c["name"].split(" // ")[0].lower()] = c
-        nf += [x.get("name") for x in d.get("not_found", [])]
-        time.sleep(0.2)
-    if cache_path:
-        json.dump(cache, open(cache_path, "w"))
-    return cache, nf
-
 
 # ============================================================ verify
 def verify(cmdr, entries, scry):
@@ -158,78 +125,6 @@ def verify(cmdr, entries, scry):
             "game_changers": sorted(gc), "illegal": illegal,
             "ci_violations": ci_bad, "truly_tapped": truly,
             "conditional_tapped": cond}
-
-
-# ============================================================ collection
-def load_collection(path=COLLECTION):
-    owned = defaultdict(int)
-    with open(path, encoding="utf-8-sig") as f:
-        for r in csv.DictReader(f):
-            q = int(r["Quantity"])
-            n = r["Name"].strip().lower()
-            owned[n] += q
-            front_name = n.split(" // ")[0]
-            if front_name != n:
-                owned[front_name] += q
-    return owned
-
-
-# ============================================================ external APIs
-def spellbook(cmdr, entries):
-    cmdrs = as_cmdrs(cmdr)
-    payload = json.dumps({"commanders": [{"card": c} for c in cmdrs],
-                          "main": [{"card": n} for n in flat(cmdr, entries)[len(cmdrs):]]})
-    for _try in range(3):
-        r = subprocess.run(["curl", "-s", "-X", "POST",
-                            "-H", "Content-Type: application/json",
-                            "-H", f"User-Agent: {UA_TOOL}", "-d", payload,
-                            "https://backend.commanderspellbook.com/find-my-combos/"],
-                           capture_output=True, text=True)
-        try:
-            d = json.loads(r.stdout)
-        except Exception:
-            time.sleep(2); continue
-        if isinstance(d, dict) and "results" in d:
-            return d["results"]
-        time.sleep(2)
-    raise SystemExit("Commander Spellbook find-my-combos failed after retries "
-                     f"(last body: {r.stdout[:200]!r})")
-
-
-def parse_moxfield(d):
-    """v3 shape, as a PURE function so a shape change is caught by selftest.
-
-    Boards nest under `boards`, cards are keyed by opaque internal ids, and the
-    board key union includes `partners` alongside `commanders`. This is the
-    single highest-blast-radius parse in the file: every subcommand starts
-    here, and a silent shape change would produce a plausible partial deck.
-    """
-    cmdrs, main = [], Counter()
-    boards = d.get("boards") or {}
-    if not boards:
-        raise SystemExit("Moxfield returned no boards -- 403 (UA fingerprint) "
-                         f"or an error body: {str(d)[:200]!r}")
-    for bname in ("commanders", "partners"):
-        for e in ((boards.get(bname) or {}).get("cards") or {}).values():
-            cmdrs.append(e["card"]["name"])
-    for e in ((boards.get("mainboard") or {}).get("cards") or {}).values():
-        main[e["card"]["name"]] += e["quantity"]
-    return d.get("name"), cmdrs, main
-
-
-def moxfield_deck(deck_id):
-    """curl ONLY -- api2.moxfield.com fingerprints the client; urllib 403s."""
-    for _try in range(3):
-        r = subprocess.run(["curl", "-s", "-H", f"User-Agent: {UA_BROWSER}",
-                            f"https://api2.moxfield.com/v3/decks/all/{deck_id}"],
-                           capture_output=True, text=True)
-        try:
-            d = json.loads(r.stdout)
-        except Exception:
-            time.sleep(3); continue
-        return parse_moxfield(d)
-    raise SystemExit(f"Moxfield fetch failed for {deck_id} "
-                     f"(last body: {r.stdout[:200]!r})")
 
 
 # ============================================================ reporting
@@ -510,21 +405,6 @@ def report_diff(cmdr, entries, deck_id):
         print(f"  +{c} {n}      (in file, not in live)")
     print("  Paste as a delta only after confirming this is the base you built on.")
     return False
-
-
-def moxfield_user_decks(user, fmt="commander"):
-    """Public decks for a user. Search LAGS several minutes behind edits and
-    lists only public decks, so a missing deck means private, unlisted, or not
-    yet propagated -- never assume it does not exist."""
-    url = ("https://api2.moxfield.com/v2/decks/search?authorUserNames="
-           f"{user}&pageNumber=1&pageSize=100")
-    r = subprocess.run(["curl", "-s", "-H", f"User-Agent: {UA_BROWSER}",
-                        "-H", "Cache-Control: no-cache", "-H", "Pragma: no-cache", url],
-                       capture_output=True, text=True)
-    d = json.loads(r.stdout)
-    return [(x["publicId"], x["name"]) for x in d.get("data", [])
-            if (not fmt or x.get("format") == fmt)
-            and "(duplicated from" not in x.get("name", "")]
 
 
 def report_calibrate(deck_ids, cache_path, sims, trials, user=None):
