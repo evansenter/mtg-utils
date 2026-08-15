@@ -1,0 +1,27 @@
+
+=== CEILING vs edhtop16: Thrasios, Triton Hero / Tymna the Weaver ===
+  6 tournament entries counted
+  170 cards ranked; bar is 90% inclusion, sorted by inclusion
+
+  card                                  incl     syn          n/of  own  price
+  Chrome Mox                          100.0%       -           6/6    0  $164.83
+  Crop Rotation                       100.0%       -           6/6    0  $3.48
+  Deathrite Shaman                    100.0%       -           6/6    0  $8.08
+  Devoted Druid                       100.0%       -           6/6    0  $0.47
+  Flusterstorm                        100.0%       -           6/6    0  $8.78
+  Force of Will                       100.0%       -           6/6    0  $59.20
+  Gemstone Caverns                    100.0%       -           6/6    0  $55.26
+  Imperial Seal                       100.0%       -           6/6    0  $161.41
+  Lotho, Corrupt Shirriff             100.0%       -           6/6    0  $11.11
+  Mental Misstep                      100.0%       -           6/6    0  $9.17
+  Mindbreak Trap                      100.0%       -           6/6    0  $14.85
+  Mockingbird                         100.0%       -           6/6    0  $3.46
+  Mox Amber                           100.0%       -           6/6    0  $79.81
+  Mox Diamond                         100.0%       -           6/6    0  -
+  Pact of Negation                    100.0%       -           6/6    0  $17.95
+  Silence                             100.0%       -           6/6    0  $8.85
+  Veil of Summer                      100.0%       -           6/6    0  $4.08
+  Wooded Foothills                    100.0%       -           6/6    0  $17.63
+
+  18 missing above the bar, 0 already owned; buy total $628.42
+  0 rows interact with cards already in the list (Commander Spellbook).

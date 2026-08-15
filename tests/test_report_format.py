@@ -5,16 +5,22 @@ The other printers need Moxfield, Spellbook or the collection file, so nothing
 exercised their formatting at all -- and formatting is where a number gets
 attached to the wrong label, or a column silently stops lining up.
 
-Dependencies are patched in mtg_utils.report, where the names resolve.
+Dependencies are patched with `patch_everywhere`, NOT with
+`monkeypatch.setattr(report, ...)`. A module-level function resolves in the
+globals of the module that DEFINES it, so patching the package a printer used
+to live in keeps "succeeding" after the printer moves to a submodule -- while
+the real, networked function runs. These tests must not encode where a printer
+currently lives.
 """
 import json
 import os
 import re
+import time
 from collections import Counter
 
 import pytest
 
-from conftest import FIXTURES, load_fixture_collection
+from conftest import FIXTURES, load_fixture_collection, patch_everywhere
 
 
 @pytest.fixture
@@ -25,7 +31,7 @@ def report(mm):
 
 @pytest.fixture
 def owned(monkeypatch, report):
-    monkeypatch.setattr(report, "load_collection", load_fixture_collection)
+    patch_everywhere(monkeypatch, "load_collection", load_fixture_collection)
 
 
 def _card(name, tl, usd=None, rank=None, **kw):
@@ -128,7 +134,7 @@ def test_diff_identical_returns_true(report, monkeypatch, capsys):
     `diff` gates a step -- it exits 0 when the multiset matches and 2 when it
     does not -- so the return value is a contract, not a convenience.
     """
-    monkeypatch.setattr(report, "moxfield_deck",
+    patch_everywhere(monkeypatch, "moxfield_deck",
                         _fake_moxfield("D", ["Cmdr"], {"Sol Ring": 1, "Island": 9}))
     got = report.report_diff("Cmdr", Counter({"Sol Ring": 1, "Island": 9}), "abc")
     out = capsys.readouterr().out
@@ -139,7 +145,7 @@ def test_diff_identical_returns_true(report, monkeypatch, capsys):
 
 def test_diff_reports_both_directions(report, monkeypatch, capsys):
     """diff/+ is local, - is live"""
-    monkeypatch.setattr(report, "moxfield_deck",
+    patch_everywhere(monkeypatch, "moxfield_deck",
                         _fake_moxfield("D", ["Cmdr"], {"Island": 8, "Swamp": 1}))
     got = report.report_diff("Cmdr", Counter({"Island": 9}), "abc")
     out = capsys.readouterr().out
@@ -150,7 +156,7 @@ def test_diff_reports_both_directions(report, monkeypatch, capsys):
 
 def test_diff_flags_a_commander_change(report, monkeypatch, capsys):
     """diff/commander differs is called out first"""
-    monkeypatch.setattr(report, "moxfield_deck",
+    patch_everywhere(monkeypatch, "moxfield_deck",
                         _fake_moxfield("D", ["Other"], {"Island": 9}))
     report.report_diff("Cmdr", Counter({"Island": 9}), "abc")
     out = capsys.readouterr().out
@@ -167,9 +173,12 @@ def test_contention_collapses_a_temp(report, monkeypatch, capsys):
     decks = {"m1": ("Muldrotha [Bracket 3]", [], {"Sol Ring": 1}),
              "m2": ("Muldrotha [Bracket 3 Temp]", [], {"Sol Ring": 1}),
              "t1": ("Teval [B4]", [], {"Sol Ring": 1})}
-    monkeypatch.setattr(report, "moxfield_deck", lambda i: decks[i])
-    monkeypatch.setattr(report, "load_collection", lambda *a, **k: {"sol ring": 2})
-    monkeypatch.setattr(report.time, "sleep", lambda *_: None)
+    patch_everywhere(monkeypatch, "moxfield_deck", lambda i: decks[i])
+    patch_everywhere(monkeypatch, "load_collection", lambda *a, **k: {"sol ring": 2})
+    # Patch the time MODULE, not `report.time`: the latter only resolves
+    # while the printer's module happens to expose it, and `time.sleep` is a
+    # shared global either way.
+    monkeypatch.setattr(time, "sleep", lambda *_: None)
     report.report_contention("Cmdr", Counter({"Sol Ring": 1}), ["m1", "m2", "t1"])
     out = capsys.readouterr().out
     assert "Muldrotha [Bracket 3 Temp]" in out.split("===")[0]     # named as collapsed
@@ -188,10 +197,13 @@ def test_contention_collapses_a_temp(report, monkeypatch, capsys):
 
 def test_contention_says_none_when_supply_is_fine(report, monkeypatch, capsys):
     """contention/none when every owned card has enough copies"""
-    monkeypatch.setattr(report, "moxfield_deck",
+    patch_everywhere(monkeypatch, "moxfield_deck",
                         lambda i: ("Other", [], {"Sol Ring": 1}))
-    monkeypatch.setattr(report, "load_collection", lambda *a, **k: {"sol ring": 9})
-    monkeypatch.setattr(report.time, "sleep", lambda *_: None)
+    patch_everywhere(monkeypatch, "load_collection", lambda *a, **k: {"sol ring": 9})
+    # Patch the time MODULE, not `report.time`: the latter only resolves
+    # while the printer's module happens to expose it, and `time.sleep` is a
+    # shared global either way.
+    monkeypatch.setattr(time, "sleep", lambda *_: None)
     report.report_contention("Cmdr", Counter({"Sol Ring": 1}), ["x"])
     out = capsys.readouterr().out
     assert "none — every owned card here has enough copies" in out
@@ -214,7 +226,7 @@ def test_combos_groups_by_the_piece_in_the_deck(report, monkeypatch, capsys):
                 {"uses": [{"card": {"name": "A"}}, {"card": {"name": "Missing Two"}}],
                  "requires": []},
             ]}
-    monkeypatch.setattr(report, "spellbook", fake_spellbook)
+    patch_everywhere(monkeypatch, "spellbook", fake_spellbook)
     report.report_combos("Cmdr", Counter({"A": 1, "B": 1}))
     out = capsys.readouterr().out
     assert "in-deck combos: 1" in out

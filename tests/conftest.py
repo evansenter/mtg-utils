@@ -137,6 +137,41 @@ def _patch_everywhere(name, replacement):
     return undo
 
 
+def patch_everywhere(monkeypatch, name, replacement):
+    """Rebind `name` on every loaded module that defines a function of it.
+
+    A module-level function is looked up in the globals of the module that
+    DEFINES it, not the one that calls it. So `monkeypatch.setattr(report,
+    "spellbook", fake)` works only while `report_combos` lives in
+    `mtg_utils.report` -- move it into a submodule and the patch still
+    "succeeds", the assertion still runs, and the REAL function is called.
+    Against a network dependency that means a test that quietly starts
+    hitting Spellbook and passes anyway.
+
+    This is the same hazard `_patch_everywhere` already handles for
+    `load_collection` inside run_cli, generalised so a test can use it with
+    monkeypatch's automatic undo. Patching by name across sys.modules means a
+    test does not encode where a function currently lives.
+
+    Asserts it matched something: a patch that binds nothing is not a
+    no-op, it is a test that silently talks to the outside world.
+    """
+    hits = 0
+    for mod in list(sys.modules.values()):
+        if mod is None:
+            continue
+        try:
+            cur = getattr(mod, name, None)
+        except Exception:            # module with an exotic __getattr__
+            continue
+        if callable(cur) and getattr(cur, "__name__", None) == name:
+            monkeypatch.setattr(mod, name, replacement)
+            hits += 1
+    assert hits, (f"patch target {name!r} matched no loaded module -- it was "
+                  f"renamed, or the module defining it is not imported yet")
+    return hits
+
+
 def run_cli(mod, argv, tmpdir):
     """Run `mod.main()` with argv and return everything it printed.
 
