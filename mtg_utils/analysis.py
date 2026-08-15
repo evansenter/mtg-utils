@@ -10,6 +10,8 @@ from mtg_utils.castability import (at_least_in_draw, castable_faces,
 from mtg_utils.decklist import apply_swaps, as_cmdrs, flat
 from mtg_utils.primer import parse_primer_links, unclosed_openers
 from mtg_utils.profiles import build_accel_profiles, build_land_profiles
+from mtg_utils.roster import (OFF_ROSTER_RANK, PAIR_CYCLES, TRIPLE_CYCLES,
+                              pair_from_type_line, roster_slot)
 
 # ============================================================ verify
 def verify(cmdr, entries, scry):
@@ -406,6 +408,7 @@ def ceiling_audit(cmdr, entries, rows, capped, owned, scry, threshold=50.0,
                             price=float(price) if price else None,
                             type_line=(card or {}).get("type_line", ""),
                             combos=(completions or {}).get(key, [])))
+        missing[-1]["roster"] = land_roster_note(missing[-1], have)
     # A card with no synergy figure sorts LAST under --sort=synergy rather
     # than at zero. Unknown is not "no synergy": every --cedh row is unknown,
     # and floating them through the middle of the table on a 0.0 they were
@@ -612,3 +615,46 @@ def combo_completions(results, cmdr, entries):
     for combos in out.values():
         combos.sort(key=lambda c: (len(c["also_missing"]), c["pieces"]))
     return out
+
+
+def land_roster_note(row, deck_names):
+    """What the roster already says about a ceiling row that is a land.
+
+    EDHREC's land data reflects the population playing the commander, which is
+    a budget population -- inclusion is the right tool for spells and the wrong
+    one for lands. The roster already enumerates, per colour pair, every cycle
+    slot best-first, so it answers the question inclusion cannot: is this land
+    worse than what is already filling that slot.
+
+    Returns None for anything the roster has no opinion about, and that is the
+    important half. Gaea's Cradle and Urza's Saga are lands with no colour pair
+    at all; annotating them "not on the roster" would put a warning on the best
+    rows in the table.
+
+    ANNOTATES, NEVER SUPPRESSES. A suppressed row is indistinguishable from a
+    row that was never ranked, and a shorter table reads as less work to do --
+    the same reason a capped cardlist is reported rather than dropped.
+    """
+    if "land" not in (row.get("type_line") or "").lower():
+        return None
+    slot = roster_slot(row["name"])
+    key = (slot or {}).get("key") or pair_from_type_line(row.get("type_line"))
+    if not key:
+        return None
+    # An any-colour row has a slot but no quality ordering, so it can be named
+    # and not ranked. Everything off the roster entirely ranks BELOW every
+    # cycle: a battle land is a downgrade to each dual it shares a pair with,
+    # and it appears on no cycle to say so.
+    rank = slot["rank"] if slot else OFF_ROSTER_RANK
+    better = []
+    if len(key) == 2 and rank is not None:
+        for cycle, table in PAIR_CYCLES[:rank]:
+            member = table.get(key)
+            if member and member.lower() in deck_names:
+                better.append((cycle, member))
+    elif len(key) == 3 and rank:
+        for member in TRIPLE_CYCLES.get(key, ())[:rank]:
+            if member.lower() in deck_names:
+                better.append(("Triome", member))
+    return {"cycle": (slot or {}).get("cycle"), "key": key, "better": better,
+            "on_roster": slot is not None}

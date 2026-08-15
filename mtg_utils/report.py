@@ -207,6 +207,21 @@ COMBO_LINES = 2
 PRODUCES_SHOWN = 2
 
 
+def _roster_line(note):
+    """One land row's roster verdict, or None when the roster has no opinion.
+
+    Printed ONLY when a better slot for the same colour pair is already in the
+    list. A land the roster ranks below nothing is not a finding, and a line on
+    every land row would bury the handful that are.
+    """
+    if not note or not note["better"]:
+        return None
+    held = ", ".join(f"{card} ({cycle})" for cycle, card in note["better"])
+    this = f"this is the {note['cycle']}" if note["on_roster"] \
+        else "this is on no roster cycle"
+    return f"ROSTER: {note['key']} already holds {held}; {this}"
+
+
 def _combo_line(c):
     """One combo, as a single line under the ceiling row it annotates."""
     pieces = list(c["with"]) + [f"{t} (template)" for t in c["templates"]]
@@ -324,6 +339,9 @@ def report_ceiling(cmdr, entries, scry, cache=None, rec_cache=None, cedh=False,
         syn = "-" if m.get("synergy") is None else f"{m['synergy']:+.3f}"
         print(f"  {m['name'][:34]:34s} {m['inclusion']:6.1f}% {syn:>7} {n_of:>13} "
               f"{m['owned']:>4}  {price}")
+        roster_line = _roster_line(m.get("roster"))
+        if roster_line:
+            print(f"      {roster_line}")
         for c in m["combos"][:COMBO_LINES]:
             print(f"      {_combo_line(c)}")
         if len(m["combos"]) > COMBO_LINES:
@@ -336,6 +354,15 @@ def report_ceiling(cmdr, entries, scry, cache=None, rec_cache=None, cedh=False,
     print(f"\n  {len(a['missing'])} missing above the bar, "
           f"{a['owned_count']} already owned; "
           f"buy total ${a['buy_total']:.2f}")
+    downgrades = sum(1 for m in a["missing"] if _roster_line(m.get("roster")))
+    if downgrades:
+        # Said once at the bottom as well as inline, because the land rows are
+        # scattered through a table sorted on something else entirely.
+        print(f"  {downgrades} land row{'' if downgrades == 1 else 's'} sit "
+              f"below a roster slot this deck has already filled. EDHREC land "
+              f"data\n  reflects a budget population; inclusion is the right "
+              f"tool for spells, the roster\n  walk is the right tool for "
+              f"lands.")
     if combo_note:
         # Absence of a check is not a clean result. Said out loud, or the
         # empty combo column reads as "nothing here interacts".
