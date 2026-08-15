@@ -153,7 +153,8 @@ def mean_spread(values):
     return m, math.sqrt(var / n)
 
 
-def replicate_playsim(lands, accels, deck_size, lines, trials, seed, reps):
+def replicate_playsim(lands, accels, deck_size, lines, trials, seed, reps,
+                      turns=7):
     """playsim_report over `reps` replicates, aggregated to (mean, spread).
 
     Shapes deliberately differ from playsim_report's, so a caller cannot read
@@ -161,8 +162,17 @@ def replicate_playsim(lands, accels, deck_size, lines, trials, seed, reps):
 
         generic[turn] -> (mean, spread)
         lines[label]  -> (mean, turn, spread)
+
+    `turns` stops the simulation early for a caller that only reads the first
+    few. It cannot move a figure: the shuffle is what consumes the generator,
+    and it draws the whole library's worth of bits however many turns are
+    then played out -- so turns 1..n come out identical whether n or seven
+    were asked for. It only stops playing turns nobody reads. A caller that
+    lowers it below a line's own turn drops that line, exactly as asking for
+    a line past turn seven has always dropped it.
     """
-    per = [playsim_report(lands, accels, deck_size, lines, t, random.Random(seed + i))
+    per = [playsim_report(lands, accels, deck_size, lines, t,
+                          random.Random(seed + i), turns=turns)
            for i, t in enumerate(split_budget(trials, reps))]
     out = {}
     for side in ("play", "draw"):

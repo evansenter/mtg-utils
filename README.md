@@ -478,7 +478,7 @@ works as a library import.
 pytest                      # or: python3 mana_model.py selftest
 ```
 
-536 cases, offline, about 8 seconds. No test touches the network; anything
+548 cases, offline, about 10 seconds. No test touches the network; anything
 that would need Scryfall or Moxfield uses a frozen fixture instead.
 
 ### The invariant
@@ -491,7 +491,10 @@ looks plausible.
 
 `tests/test_golden.py` enforces it: it runs the current code over checked-in
 fixtures with a fixed seed and asserts the stdout is byte-identical to committed
-snapshots, for `verify`, `mana`, `roster` and `--help`, on three decks.
+snapshots, for `verify`, `mana`, `roster`, `skeleton`, `variants` and
+`--help`, on four decks. `variants` is snapshotted at a reduced `--trials`: it
+sweeps six configurations, so at the default budget it would cost the suite
+more than everything else in it together.
 
 Those snapshots were produced by the original single-file version, which lived
 at `reference/mana_model_v0.py` through the refactor. While it existed the suite

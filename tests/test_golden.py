@@ -33,7 +33,21 @@ from conftest import DECKS, EXPECTED, deck_args, run_cli
 # the network and are covered by unit tests over their pure parse functions
 # instead; `own` additionally prints a buy list that is just load_collection
 # plus the same cache, and is covered by report tests.
-CMDS = ("verify", "mana", "roster", "skeleton")
+CMDS = ("verify", "mana", "roster", "skeleton", "variants")
+
+# `variants` is snapshotted at a reduced budget. It sweeps six configurations
+# and so runs six times the simulation `mana` does, which at the default
+# --trials would have cost the suite more than everything else in it put
+# together. A tenth of the budget still walks the whole path -- the sweep, the
+# threading of the generator through it, the +/- columns and the formatting --
+# and moves the printed figures if any of that changes.
+#
+# It is pinned here at all because it was the only Monte Carlo command with no
+# byte-level snapshot, which made it the one place a refactor could move a
+# reported number and be told so by nothing. The committed snapshots were
+# checked against the output of 4db2aa5, the commit before the optimisation
+# pass, so they are that program's bytes and not this one's.
+EXTRA = {"variants": ("--trials=2000",)}
 
 _MEMO = {}
 
@@ -43,7 +57,8 @@ def _output(mod, tag, deck, cmd, tmpdir):
     seconds a go and three tests compare each result."""
     key = (tag, deck, cmd)
     if key not in _MEMO:
-        _MEMO[key] = run_cli(mod, deck_args(deck, cmd), tmpdir)
+        _MEMO[key] = run_cli(mod, deck_args(deck, cmd, EXTRA.get(cmd, ())),
+                             tmpdir)
     return _MEMO[key]
 
 

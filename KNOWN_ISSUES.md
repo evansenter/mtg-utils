@@ -488,3 +488,36 @@ looks settled, no sharing draws between candidate lines. Each would be a real
 speedup and each changes a reported number, which makes it a modelling change
 that must arrive as its own commit with the snapshot diff shown — the rule at
 the top of CLAUDE.md, not an exception to it.
+
+---
+
+## 16. `variants` crashes on a commander past turn seven — OPEN, not fixed here
+
+```
+python3 mana_model.py variants deck.txt --cache=scry.json
+KeyError: 'cmdr'
+```
+
+`report_variants` asks `replicate_playsim` for one line, the commander on
+curve, then reads it back by label. `playsim_report` drops any line whose turn
+is past the seven it simulates, so for a commander of mana value eight or more
+the label is never in the result and the read raises a bare `KeyError` with
+nothing in it naming the cause. Reproduced on Emrakul, the Aeons Torn, and
+verified to predate the optimisation pass (it raises identically at 4db2aa5).
+
+**Cost:** the command is unusable on those decks, and fails in a way that
+reads as a bug in the simulator rather than as "this commander is off the end
+of the table".
+
+**Deliberately left open.** Fixing it is a decision about what the table
+should say, not a bug to patch quietly: either raise with a message naming the
+commander and its mana value, or extend the simulation past turn seven for
+that deck — and the second changes what a "variants" row means. Either way it
+is its own commit. It is recorded here because it was found while measuring,
+and a finding that lives only in scrollback is a finding that gets
+rediscovered.
+
+Note for whoever takes it: `report_variants` now caps the turns it simulates
+at `min(commander turn, 7)`. The cap is what keeps this behaviour identical to
+before rather than silently starting to work, so removing the `min` is the
+one-line version of the second option above — and it needs the snapshot diff.

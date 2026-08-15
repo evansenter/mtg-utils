@@ -115,6 +115,13 @@ def report_variants(cmdr, entries, scry, land_deltas, accel_deltas, trials,
     _cl = commander_lines(cmdr, scry)
     _, cmv, _cpips = _cl[0]
     creq = pips_from_cost(_cpips)
+    # This table reads exactly two figures out of each simulation, and both
+    # are at the commander's own turn -- so playing out to turn seven every
+    # time was five sixths of the turns simulated for nothing on a two-drop.
+    # Capped at seven rather than just taking the turn, so a commander past
+    # turn seven still falls off the table the way it always has instead of
+    # quietly starting to appear.
+    _cturn = min(max(cmv, len(creq), 1), 7)
     print(f"\n=== VARIANTS SWEEP ({trials} trials over {_reps(reps)}, seed {seed})"
           f" — commander line and generic baseline ===")
     print(f"  {'config':26s} {'cmdr on curve':>20} {'any N on turn N':>22}")
@@ -138,7 +145,7 @@ def report_variants(cmdr, entries, scry, land_deltas, accel_deltas, trials,
             # question is always whether one row differs from another.
             r = replicate_playsim(lands, acc, 99,
                                   [("cmdr", cmv, "".join(f"{{{x}}}" for x in creq))],
-                                  trials, seed, reps)
+                                  trials, seed, reps, turns=_cturn)
             a, turn, sa = r["play"]["lines"]["cmdr"]
             b, _, sb = r["draw"]["lines"]["cmdr"]
             g1, s1 = r["play"]["generic"][turn]

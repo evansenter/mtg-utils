@@ -10,9 +10,11 @@ Almost every function here encodes a bug that once shipped a wrong figure into a
 document someone acted on. A refactor that shifts a probability by half a point
 is worse than no refactor, because the number still looks plausible. The golden
 suite exists to make that impossible by accident:
-`tests/test_golden.py` runs `verify`, `mana`, `roster`, `skeleton` and `--help`
-over **four** frozen decks and asserts stdout is byte-identical to committed snapshots in
-`tests/fixtures/expected/`.
+`tests/test_golden.py` runs `verify`, `mana`, `roster`, `skeleton`, `variants`
+and `--help` over **four** frozen decks and asserts stdout is byte-identical to
+committed snapshots in `tests/fixtures/expected/`. `variants` is snapshotted at
+`--trials=2000` rather than the default, because it sweeps six configurations and
+at full budget would cost the suite more than everything else in it together.
 
 - **Refactoring?** The snapshots must not move. If they do, you changed
   behaviour — find out why before touching the snapshot.
@@ -25,10 +27,12 @@ over **four** frozen decks and asserts stdout is byte-identical to committed sna
 - **Claiming a change is behaviour-preserving?** Run it and diff. Do not reason
   about the code.
 
-`KNOWN_ISSUES.md` is the durable record of things that look wrong. Every entry
-in it is now marked **FIXED** or **RESOLVED** — resolved meaning the behaviour
-was examined and deliberately kept, with the reasoning written down. Nothing in
-it is currently outstanding.
+`KNOWN_ISSUES.md` is the durable record of things that look wrong. Entries are
+marked **FIXED**, **RESOLVED** — resolved meaning the behaviour was examined and
+deliberately kept, with the reasoning written down — or **OPEN**. One is
+currently open: #16, `variants` raising a bare `KeyError` on a commander whose
+curve turn is past seven. It is open rather than fixed because closing it is a
+decision about what that table should say, not a patch.
 
 Its job did not end when the list emptied. It exists because "a finding that
 lives only in scrollback is a finding that gets rediscovered", so when you
@@ -45,7 +49,7 @@ welcome, as its own commit, with the snapshot diff shown.
 ## Commands
 
 ```bash
-pytest                                   # whole suite, ~8s, fully offline
+pytest                                   # whole suite, ~10s, fully offline
 python3 mana_model.py selftest           # same thing via the CLI contract
 PYTHONHASHSEED=0 pytest -q --durations=5 # exactly what CI runs
 ```
