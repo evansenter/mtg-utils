@@ -1,0 +1,7 @@
+
+=== VERIFY: ['Zhulodok, Void Gorger'] ===
+  100 cards = 1 commander + 72 non-land + 27 lands  (0 MDFC land-backs)
+  average non-land MV 2.50
+  Game Changers (5, Scryfall game_changer): ['Ancient Tomb', 'Chrome Mox', 'Mana Vault', 'Mox Diamond', 'The One Ring']
+  illegal: none
+  colour identity violations: none

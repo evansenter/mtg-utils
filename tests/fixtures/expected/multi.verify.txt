@@ -1,0 +1,7 @@
+
+=== VERIFY: ['Muldrotha, the Gravetide'] ===
+  100 cards = 1 commander + 62 non-land + 37 lands  (3 MDFC land-backs)
+  average non-land MV 2.50
+  Game Changers (7, Scryfall game_changer): ['Ancient Tomb', 'Cyclonic Rift', 'Demonic Tutor', 'Fierce Guardianship', 'Rhystic Study', 'The One Ring', 'Vampiric Tutor']
+  illegal: none
+  colour identity violations: none

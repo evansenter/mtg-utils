@@ -1,0 +1,72 @@
+
+=== ROSTER WALK: Muldrotha, the Gravetide (UBG) ===
+
+  --- UB ---
+  ABUR dual          Underground Sea                IN
+  Shockland          Watery Grave                   IN
+  Fetchland          Polluted Delta                 IN
+  Horizon land       (no such card)                
+  Painland           Underground River              IN
+  Filter land        Sunken Ruins                   IN
+  Battlebond land    Morphic Pool                   IN
+  Checkland          Drowned Catacomb               BENCH x2   $0.90
+  Pathway            Clearwater Pathway             BUY   $4.70
+  Surveil land       Undercity Sewers               BUY   $12.96
+  Fastland           Darkslick Shores               BUY   $2.47
+
+  --- UG ---
+  ABUR dual          Tropical Island                IN
+  Shockland          Breeding Pool                  IN
+  Fetchland          Misty Rainforest               IN
+  Horizon land       Waterlogged Grove              IN
+  Painland           Yavimaya Coast                 IN
+  Filter land        Flooded Grove                  IN
+  Battlebond land    Rejuvenating Springs           BUY   $4.15
+  Checkland          Hinterland Harbor              BENCH x1   $0.27
+  Pathway            Barkchannel Pathway            BUY   $3.97
+  Surveil land       Hedge Maze                     BUY   $10.46
+  Fastland           Botanical Sanctum              BUY   $1.65
+
+  --- BG ---
+  ABUR dual          Bayou                          IN
+  Shockland          Overgrown Tomb                 IN
+  Fetchland          Verdant Catacombs              IN
+  Horizon land       Nurturing Peatland             IN
+  Painland           Llanowar Wastes                IN
+  Filter land        Twilight Mire                  IN
+  Battlebond land    Undergrowth Stadium            IN
+  Checkland          Woodland Cemetery              BUY   $0.92
+  Pathway            Darkbore Pathway               BUY   $6.34
+  Surveil land       Underground Mortuary           BUY   $13.46
+  Fastland           Blooming Marsh                 BENCH x1   $2.21
+
+  --- off-pair fetchlands (reach one colour of the identity) ---
+  WU                 Flooded Strand                 BUY   $16.15
+  WB                 Marsh Flats                    BUY   $30.88
+  WG                 Windswept Heath                BUY   $11.74
+  UR                 Scalding Tarn                  BUY   $35.98
+  BR                 Bloodstained Mire              BUY   $18.70
+  RG                 Wooded Foothills               BUY   $17.63
+
+  --- three-colour (tapped; only if the rider is real) ---
+  Triome/tri-land    Zagoth Triome                  IN
+  Triome/tri-land    Opulent Palace                 IN
+
+  --- identity-independent ---
+  Any-colour         Command Tower                  IN
+  Any-colour         City of Brass                  BUY   $11.85
+  Any-colour         Mana Confluence                BUY   $33.06
+  Any-colour         Exotic Orchard                 IN
+  Any-colour         Reflecting Pool                IN
+  Fetch (basic)      Prismatic Vista                BUY   $31.25
+  Typal              Cavern of Souls                BUY   $49.39
+  Typal              Secluded Courtyard             BUY   $0.35
+  Typal              Three Tree City                BENCH x2   $28.35
+  Typal              Unclaimed Territory            BUY   $0.32
+  Typal (tapped)     Path of Ancestry               BUY   -
+  Legendary          Plaza of Heroes                BUY   $4.68
+  Legendary          Great Hall of the Citadel      BENCH x1   $0.37
+
+  PREMIUM SLOTS NOT IN THE LIST: 1
+    UG Battlebond land    Rejuvenating Springs           BUY
+  Ownership routes the purchase; it never decides the slot.

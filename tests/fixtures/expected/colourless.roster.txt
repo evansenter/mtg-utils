@@ -1,0 +1,24 @@
+
+=== ROSTER WALK: Zhulodok, Void Gorger () ===
+  11 two-colour cycles (ABUR dual, Shockland, Fetchland, Horizon land, Painland, Filter land, Battlebond land, Checkland, Pathway, Surveil land, Fastland) are off-identity and ILLEGAL in  -- no pair rows to walk.
+  Fetchlands and any-colour painlands are legal here and strictly worse than a basic without shuffle payoffs: walked and skipped.
+
+  --- off-pair fetchlands (reach one colour of the identity) ---
+
+  --- identity-independent ---
+  Any-colour         Command Tower                  IN
+  Any-colour         City of Brass                  BUY   $11.85
+  Any-colour         Mana Confluence                BUY   $33.06
+  Any-colour         Exotic Orchard                 IN
+  Any-colour         Reflecting Pool                IN
+  Fetch (basic)      Prismatic Vista                IN
+  Typal              Cavern of Souls                IN
+  Typal              Secluded Courtyard             BUY   $0.35
+  Typal              Three Tree City                BENCH x2   $28.35
+  Typal              Unclaimed Territory            IN
+  Typal (tapped)     Path of Ancestry               BUY   -
+  Legendary          Plaza of Heroes                IN
+  Legendary          Great Hall of the Citadel      BENCH x1   $0.37
+
+  PREMIUM SLOTS NOT IN THE LIST: 0
+  Ownership routes the purchase; it never decides the slot.

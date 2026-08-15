@@ -1,0 +1,28 @@
+
+=== ROSTER WALK: Magda, Brazen Outlaw (R) ===
+  11 two-colour cycles (ABUR dual, Shockland, Fetchland, Horizon land, Painland, Filter land, Battlebond land, Checkland, Pathway, Surveil land, Fastland) are off-identity and ILLEGAL in R -- no pair rows to walk.
+  Fetchlands and any-colour painlands are legal here and strictly worse than a basic without shuffle payoffs: walked and skipped.
+
+  --- off-pair fetchlands (reach one colour of the identity) ---
+  WR                 Arid Mesa                      BUY   $30.74
+  UR                 Scalding Tarn                  BUY   $35.98
+  BR                 Bloodstained Mire              IN
+  RG                 Wooded Foothills               IN
+
+  --- identity-independent ---
+  Any-colour         Command Tower                  IN
+  Any-colour         City of Brass                  IN
+  Any-colour         Mana Confluence                IN
+  Any-colour         Exotic Orchard                 IN
+  Any-colour         Reflecting Pool                IN
+  Fetch (basic)      Prismatic Vista                IN
+  Typal              Cavern of Souls                IN
+  Typal              Secluded Courtyard             BUY   $0.35
+  Typal              Three Tree City                BENCH x2   $28.35
+  Typal              Unclaimed Territory            IN
+  Typal (tapped)     Path of Ancestry               IN
+  Legendary          Plaza of Heroes                IN
+  Legendary          Great Hall of the Citadel      BENCH x1   $0.37
+
+  PREMIUM SLOTS NOT IN THE LIST: 0
+  Ownership routes the purchase; it never decides the slot.

@@ -1,0 +1,7 @@
+
+=== VERIFY: ['Magda, Brazen Outlaw'] ===
+  100 cards = 1 commander + 64 non-land + 35 lands  (1 MDFC land-backs)
+  average non-land MV 2.36
+  Game Changers (7, Scryfall game_changer): ['Ancient Tomb', 'Chrome Mox', 'Gamble', "Jeska's Will", 'Mana Vault', 'Mox Diamond', 'The One Ring']
+  illegal: none
+  colour identity violations: none
