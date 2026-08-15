@@ -337,6 +337,45 @@ def compare_swap(cmdr, entries, scry, swaps, sims, trials, seed=17, reps=3):
             "sources_only_after": sorted(after_rows.keys() - base_rows.keys())}
 
 
+def ceiling_audit(cmdr, entries, rows, capped, owned, scry, threshold=50.0):
+    """Which cards above the inclusion bar for this commander are missing.
+
+    Pure compute; report_ceiling only formats it.
+
+    Every name on both sides is reduced to its FRONT FACE before comparison.
+    This is the whole reason the audit belongs in the package: run by hand it
+    keyed the deck on the full DFC name while EDHREC returns front faces
+    only, and reported a card as missing that was sitting in the list.
+    edhtop16 has the opposite convention -- full "A // B" names -- so a
+    comparison that handles only one of them is wrong against the other.
+
+    `capped` is the list of EDHREC cardlists that came back at the display
+    cap. It is carried through untouched: a card absent from a capped list is
+    of UNKNOWN inclusion, not 0%, and nothing here may turn one into the
+    other.
+    """
+    have = {n.split(" // ")[0].strip().lower()
+            for n in list(entries) + as_cmdrs(cmdr)}
+    missing = []
+    for r in rows:
+        if r["inclusion"] < threshold:
+            continue
+        key = r["name"].split(" // ")[0].strip().lower()
+        if key in have:
+            continue
+        card = scry.get(key) or scry.get(r["name"].lower())
+        price = (card or {}).get("prices", {}).get("usd")
+        missing.append(dict(r, owned=owned.get(key, 0),
+                            price=float(price) if price else None,
+                            type_line=(card or {}).get("type_line", "")))
+    missing.sort(key=lambda r: -r["inclusion"])
+    return {"missing": missing, "threshold": threshold, "capped": capped,
+            "considered": len(rows),
+            "owned_count": sum(1 for m in missing if m["owned"] > 0),
+            "buy_total": sum(m["price"] for m in missing
+                             if m["price"] and not m["owned"])}
+
+
 def deck_base_name(name):
     """Strip a trailing bracketed tag: 'Muldrotha [Bracket 3 Temp]' -> 'muldrotha'."""
     return re.sub(r"[\[\(][^\]\)]*[\]\)]", "", name or "").strip().lower()

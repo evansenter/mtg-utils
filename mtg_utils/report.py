@@ -3,15 +3,19 @@ import random
 import time
 from collections import Counter, defaultdict
 
-from mtg_utils.analysis import (analyse_mana, collapse_temps, commander_lines,
-                                compare_swap, deck_base_name, replicate_playsim,
-                                verify, worst_lines)
+from mtg_utils.analysis import (analyse_mana, ceiling_audit, collapse_temps,
+                                commander_lines, compare_swap, deck_base_name,
+                                replicate_playsim, verify, worst_lines)
 from mtg_utils.castability import pips_from_cost, playsim_report
 from mtg_utils.decklist import as_cmdrs, diff_multiset, flat
 from mtg_utils.profiles import build_accel_profiles, build_land_profiles
 from mtg_utils.roster import (ANY_COLOUR, PAIR_CYCLES, TRIPLE_CYCLES, WUBRG,
                               identity_pairs, roster_names, roster_status)
 from mtg_utils.sources.collection import load_collection
+from mtg_utils.sources.edhrec import (PAGE_CAP, edhrec_fetch, edhrec_slug,
+                                      parse_commander_page)
+from mtg_utils.sources.edhtop16 import (MIN_ENTRIES, edhtop16_commander_name,
+                                        edhtop16_fetch, parse_edhtop16)
 from mtg_utils.sources.moxfield import moxfield_deck, moxfield_user_decks
 from mtg_utils.sources.scryfall import scry_fetch
 from mtg_utils.sources.spellbook import spellbook
@@ -173,6 +177,98 @@ def report_swap(cmdr, entries, scry, swaps, sims, trials, seed=17, reps=3):
               "not\n  measurable -- which is a result, not a failure to "
               "measure.")
     return c
+
+
+def report_ceiling(cmdr, entries, scry, cache=None, rec_cache=None, cedh=False,
+                   threshold=50.0):
+    """Collection-ceiling audit: what is above the bar and not in the list.
+
+    NETWORK unless both caches already hold what it needs, following the
+    report_calibrate precedent. Both ranking sources are live endpoints and
+    the suite is offline, so the tests drive the pure functions and frozen
+    caches rather than the network.
+
+    Takes the Scryfall cache path as well as the ranking cache because the
+    interesting cards are by definition NOT in the decklist -- their prices
+    and type lines were never fetched. report_roster does the same for the
+    roster cycles it walks.
+    """
+    cmdrs = as_cmdrs(cmdr)
+    if cedh:
+        name = edhtop16_commander_name(cmdrs)
+        data = edhtop16_fetch(name, rec_cache)
+        if data is None:
+            raise SystemExit(f"edhtop16: no response for {name!r}")
+        rows, n_entries = parse_edhtop16(data)
+        capped = []
+        print(f"\n=== CEILING vs edhtop16: {name} ===")
+        # The entry count sits beside every percentage, never behind it. At
+        # four entries every card is 25/50/75/100% and the table would read
+        # like a strong signal.
+        print(f"  {n_entries} tournament entries counted")
+        if n_entries < MIN_ENTRIES:
+            print(f"  FEWER THAN {MIN_ENTRIES} ENTRIES -- no percentage is "
+                  f"quoted from this sample.")
+            print("  Run again when the commander has more results, or drop "
+                  "--cedh for EDHREC.")
+            return None
+    else:
+        slug = edhrec_slug(cmdrs)
+        data = edhrec_fetch(slug, rec_cache)
+        if data is None:
+            raise SystemExit(
+                f"EDHREC: no page for slug {slug!r}. Note apostrophes are "
+                f"DROPPED, not hyphenated -- a wrong slug 403s rather than "
+                f"404s, so this can read as a block.")
+        rows, capped = parse_commander_page(data)
+        n_entries = None
+        print(f"\n=== CEILING vs EDHREC: {slug} ===")
+        if not rows:
+            # Zero ranked cards is a fetch problem, never a finding. Left to
+            # fall through, the audit below reports nothing missing and the
+            # deck reads as needing no work at all -- the most reassuring
+            # possible output from a page that told us nothing.
+            raise SystemExit(
+                f"EDHREC page for {slug!r} ranked no cards at all. That is a "
+                f"fetch or slug problem, not a deck with nothing to improve "
+                f"-- refusing to report an all-clear from an empty page.")
+
+    # The cards this command is about are the ones NOT in the deck, so their
+    # Scryfall records were never fetched. Only the above-bar names are
+    # looked up: fetching all ~250 ranked cards to price the handful above
+    # the bar is a lot of round trips for rows nobody prints.
+    have = {n.split(" // ")[0].strip().lower()
+            for n in list(entries) + as_cmdrs(cmdr)}
+    want = [r["name"] for r in rows
+            if r["inclusion"] >= threshold
+            and r["name"].split(" // ")[0].strip().lower() not in have]
+    if want:
+        scry, nf = scry_fetch(want, cache)
+        if nf:
+            print("  SCRYFALL NOT FOUND (ranked card, front-face names "
+                  "only!):", nf)
+
+    a = ceiling_audit(cmdr, entries, rows, capped, load_collection(), scry,
+                      threshold)
+    print(f"  {a['considered']} cards ranked; bar is {threshold:.0f}% inclusion")
+    print(f"\n  {'card':34s} {'incl':>7} {'n/of':>13} {'own':>4}  price")
+    for m in a["missing"]:
+        n_of = f"{m['num_decks']}/{m['potential_decks']}"
+        price = f"${m['price']:.2f}" if m["price"] else "-"
+        print(f"  {m['name'][:34]:34s} {m['inclusion']:6.1f}% {n_of:>13} "
+              f"{m['owned']:>4}  {price}")
+    if not a["missing"]:
+        print("  (nothing above the bar is missing from this list)")
+    print(f"\n  {len(a['missing'])} missing above the bar, "
+          f"{a['owned_count']} already owned; "
+          f"buy total ${a['buy_total']:.2f}")
+    # A capped list is the difference between "this card is unplayed" and
+    # "this page did not tell us". Never printed as 0%.
+    for header in capped:
+        print(f"  NOTE: '{header}' came back at the {PAGE_CAP}-card display "
+              f"cutoff -- cards below that cutoff are of UNKNOWN inclusion, "
+              f"not 0%.")
+    return a
 
 
 def report_own(cmdr, entries, scry):

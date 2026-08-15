@@ -1,8 +1,9 @@
 usage: mana_model.py [-h] [--cache CACHE] [--sims SIMS] [--trials TRIALS]
                      [--reps REPS] [--seed SEED] [--out OUT] [--decks DECKS]
                      [--lands LANDS] [--accel ACCEL] [--adds ADDS]
-                     [--cuts CUTS] [--swap SWAP]
-                     {fetch,verify,mana,variants,combos,own,contention,moxfield,write,audit,roster,diff,selftest,calibrate}
+                     [--cuts CUTS] [--rec-cache REC_CACHE] [--cedh]
+                     [--bar BAR] [--swap SWAP]
+                     {fetch,verify,mana,variants,combos,own,contention,moxfield,write,audit,roster,diff,selftest,calibrate,ceiling}
                      [target]
 
 mana_model.py — deck validation and castability for Commander decks.
@@ -27,6 +28,8 @@ Subcommands
   verify      count, legality, colour identity, Game Changers, MV, tapped classes
   mana        sources model + play simulation (the full section 6 pass)
   roster      section 6 roster walk: every cycle slot, IN / benched / buy
+  ceiling     EDHREC (or --cedh edhtop16) inclusion: what is above the bar
+              and missing from the list, with ownership and price
   variants    opt-in land/accelerant sweep; slow, run when the base is unsettled
   combos      Commander Spellbook full-deck audit
   own         ownership vs ManaBox + grouped buy list
@@ -42,7 +45,7 @@ Decklist format: first non-blank line is the commander, then one entry per
 line as "N Card Name" or bare "Card Name".
 
 positional arguments:
-  {fetch,verify,mana,variants,combos,own,contention,moxfield,write,audit,roster,diff,selftest,calibrate}
+  {fetch,verify,mana,variants,combos,own,contention,moxfield,write,audit,roster,diff,selftest,calibrate,ceiling}
   target                decklist path, or deck id for `moxfield`; unused by
                         `selftest`
 
@@ -60,5 +63,11 @@ options:
   --accel ACCEL         accelerant count deltas
   --adds ADDS
   --cuts CUTS
+  --rec-cache REC_CACHE
+                        ceiling: on-disk cache for EDHREC / edhtop16 pages
+  --cedh                ceiling: use edhtop16 tournament data instead of
+                        EDHREC
+  --bar BAR             ceiling: inclusion % above which a missing card is
+                        reported
   --swap SWAP           variants: measure named swaps, 'Cut->Add,Cut2->Add2'
                         (use ';' between pairs if a name contains a comma)

@@ -13,6 +13,31 @@ the one thing the golden suite exists to make impossible.
 | `colourless.txt` / `colourless.scry.json` | Zhulodok, Void Gorger — colourless (identity `C`, empty string internally) |
 | `collection.csv` | A ManaBox export with the real column set, UTF-8 with BOM |
 | `make_fixtures.py` | Provenance: how the above were built, run once on 2026-08-15 |
+| `ceiling.rec.json` | A real EDHREC commander page (Thrasios / Tymna), whole cardlists dropped to keep it small |
+| `ceiling.top16.json` | A real edhtop16 response for the same pair, trimmed to 6 tournament entries |
+| `ceiling.scry.json` | Scryfall records for the cards those two rank — a **projection**, see below |
+
+## The `ceiling` fixtures
+
+Captured live on 2026-08-15 and frozen like everything else here. Values are
+verbatim; the trimming removes whole records, it never edits one.
+
+**`ceiling.rec.json` keeps `Creatures` at exactly 50 entries on purpose.** That
+length *is* the signal: EDHREC truncates each cardlist at 50, so a card absent
+from a full list is of unknown inclusion rather than unplayed. Trim that list
+and `test_a_full_cardlist_is_marked_capped` stops testing anything.
+
+**`ceiling.scry.json` is a projection**, not a whole Scryfall cache: each card
+keeps only the fields the ceiling path reads (`name`, `type_line`, `prices`,
+and identifiers). The full records for these 117 cards came to 1.2 MB, which is
+a lot of committed bytes to price a dozen rows. Every value in it is verbatim.
+
+**The cache keys matter.** `edhtop16_fetch` keys on `edhtop16/{first}/{name}`,
+so a fixture built at one `first` is a MISS at another and the code goes to the
+network. That happened while these tests were being written: the case stayed
+green against 100 live entries instead of the 6 committed ones. `_no_network`
+in `test_ceiling.py` now makes any outbound call an assertion failure, which is
+the only reliable way to notice.
 
 ## Why three shapes
 
