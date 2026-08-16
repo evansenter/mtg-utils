@@ -18,14 +18,14 @@
   Birds of Paradise T1 (on draw)                 79.8% ->   79.0%     -0.8 ± 5.5   within noise
   An Offer You Can't Refuse T1 (on play)         79.3% ->   78.8%     -0.5 ± 3.3   within noise
   An Offer You Can't Refuse T1 (on draw)         79.8% ->   80.5%     +0.7 ± 3.2   within noise
-  Assassin's Trophy T2 (on play)                 75.0% ->   79.0%     +4.0 ± 2.3   within noise
-  Assassin's Trophy T2 (on draw)                 77.2% ->   77.2%     +0.0 ± 1.9   within noise
-  Eternal Witness T3 (on play)                   78.0% ->   80.8%     +2.8 ± 2.5   within noise
-  Eternal Witness T3 (on draw)                   80.0% ->   81.7%     +1.7 ± 3.5   within noise
-  Tymna the Weaver on curve (on play)            84.5% ->   84.7%     +0.2 ± 1.8   within noise
-  Tymna the Weaver on curve (on draw)            86.5% ->   86.5%     +0.0 ± 3.2   within noise
-  Thrasios, Triton Hero on curve (on play)       72.5% ->   74.0%     +1.5 ± 2.0   within noise
-  Thrasios, Triton Hero on curve (on draw)       73.8% ->   77.2%     +3.3 ± 3.2   within noise
+  Assassin's Trophy T2 (on play)                 76.7% ->   80.3%     +3.7 ± 2.1   within noise
+  Assassin's Trophy T2 (on draw)                 78.0% ->   77.5%     -0.5 ± 1.6   within noise
+  Eternal Witness T3 (on play)                   78.3% ->   81.8%     +3.5 ± 2.1   within noise
+  Eternal Witness T3 (on draw)                   80.2% ->   81.8%     +1.7 ± 3.4   within noise
+  Tymna the Weaver on curve (on play)            86.2% ->   86.3%     +0.2 ± 2.1   within noise
+  Tymna the Weaver on curve (on draw)            87.2% ->   87.2%     +0.0 ± 2.8   within noise
+  Thrasios, Triton Hero on curve (on play)       73.0% ->   74.5%     +1.5 ± 2.3   within noise
+  Thrasios, Triton Hero on curve (on draw)       74.8% ->   77.3%     +2.5 ± 2.8   within noise
 
   1 of 18 lines moved beyond their noise at 95%.
   Each line is a separate 95% test, so roughly 1 of 18 will read MOVES by chance.

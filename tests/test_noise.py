@@ -145,13 +145,19 @@ def test_reps_one_reproduces_the_pre_replicate_measurement(mm, deck):
     names = mm.flat(cmdr, entries)[len(mm.as_cmdrs(cmdr)):]
     lands = mm.build_land_profiles(names, scry)
     accels = mm.build_accel_profiles(names, scry)
+    # No rituals here, on purpose: the sources model is not told about them,
+    # so these rows must reproduce from lands and accelerants alone. On the
+    # two fixtures that run a ritual this is also the assertion that the two
+    # models still disagree by design -- feed rituals to `probability` and it
+    # fails.
     want_rows = mm.worst_lines(names, scry, lands, accels, 400,
                                random.Random(17), deck_size=len(names))
     assert [r[:5] for r in got["rows"]] == want_rows
     assert all(r[5] == 0.0 for r in got["rows"])
 
+    rituals = mm.build_ritual_profiles(names, scry)
     want = mm.playsim_report(lands, accels, len(names), got["lines"], 800,
-                             random.Random(17))
+                             random.Random(17), rituals=rituals)
     for side in ("play", "draw"):
         for t, pct in want[side]["generic"].items():
             assert got["sim"][side]["generic"][t] == (pct, 0.0), (deck, side, t)
