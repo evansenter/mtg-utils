@@ -26,9 +26,10 @@ over **four** frozen decks and asserts stdout is byte-identical to committed sna
   about the code.
 
 `KNOWN_ISSUES.md` is the durable record of things that look wrong. Every entry
-in it is now marked **FIXED** or **RESOLVED** — resolved meaning the behaviour
-was examined and deliberately kept, with the reasoning written down. Nothing in
-it is currently outstanding.
+in it is now marked **FIXED**, **RESOLVED** or **CHANGED** — resolved meaning
+the behaviour was examined and deliberately kept, with the reasoning written
+down; changed meaning a reported number was moved on purpose, with what moved
+written down beside it. Nothing in it is currently outstanding.
 
 Its job did not end when the list emptied. It exists because "a finding that
 lives only in scrollback is a finding that gets rediscovered", so when you
@@ -95,10 +96,26 @@ Getting these confused is the most consequential mistake available here.
   play and on the draw separately, because you are on the draw three turns in
   four at a four-player table.
 
+The two models **disagree by design on a deck running rituals**. A ritual is a
+one-shot burst in `playsim` only — `build_ritual_profiles` builds it, `kind` is
+`"ritual"` and never `"accel"`, it contributes its NET off a payability check
+against the board that turn, and the sources model counts it at zero because it
+has no turn ordering to attach "available on exactly this turn" to. So the
+play-simulation row is the higher of the two on those decks, and that is not a
+bug to reconcile. `KNOWN_ISSUES.md` #15 has the model and its residuals.
+
 Any figure quoted anywhere must say which model produced it.
 `at_least_in_draw()` (renamed from `hypergeometric()`, which is not aliased and
 raises) counts cards in the draw and is **not** a castability figure — it is
 used for the opening-hand land count and nothing else.
+
+A ritual is **not** a mana source and must never be counted as one. Anything
+that counts accelerants — the `accelerants counted:` line, `skeleton`, the
+`variants --accel` sweep — counts `build_accel_profiles` only, and the two
+builders are disjoint by construction. `mana` prints the ritual line only when
+the deck runs one, so a ritual-free deck's output is byte-identical to what it
+was before rituals existed and the colourless fixture stays a live control on
+the gate.
 
 Mana sources are lands **plus** accelerants of mana value ≤ 3 plus MDFC land
 backs — lands-only understates castability badly. Restricted mana ("spend this

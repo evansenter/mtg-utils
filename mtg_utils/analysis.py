@@ -9,7 +9,8 @@ from mtg_utils.castability import (at_least_in_draw, castable_faces,
                                    pips_from_cost, playsim_report, probability)
 from mtg_utils.decklist import apply_swaps, as_cmdrs, flat, read_decisions
 from mtg_utils.primer import parse_primer_links, unclosed_openers
-from mtg_utils.profiles import build_accel_profiles, build_land_profiles
+from mtg_utils.profiles import (build_accel_profiles, build_land_profiles,
+                                build_ritual_profiles)
 from mtg_utils.roster import (OFF_ROSTER_RANK, PAIR_CYCLES, TRIPLE_CYCLES,
                               pair_from_type_line, roster_slot)
 
@@ -155,7 +156,8 @@ def mean_spread(values):
     return m, math.sqrt(var / n)
 
 
-def replicate_playsim(lands, accels, deck_size, lines, trials, seed, reps):
+def replicate_playsim(lands, accels, deck_size, lines, trials, seed, reps,
+                      rituals=None):
     """playsim_report over `reps` replicates, aggregated to (mean, spread).
 
     Shapes deliberately differ from playsim_report's, so a caller cannot read
@@ -164,7 +166,8 @@ def replicate_playsim(lands, accels, deck_size, lines, trials, seed, reps):
         generic[turn] -> (mean, spread)
         lines[label]  -> (mean, turn, spread)
     """
-    per = [playsim_report(lands, accels, deck_size, lines, t, random.Random(seed + i))
+    per = [playsim_report(lands, accels, deck_size, lines, t,
+                          random.Random(seed + i), rituals=rituals)
            for i, t in enumerate(split_budget(trials, reps))]
     out = {}
     for side in ("play", "draw"):
@@ -215,6 +218,13 @@ def analyse_mana(cmdr, entries, scry, sims, trials, seed=17, lines=None, reps=3)
     names = flat(cmdr, entries)[ncmdr:]
     lands = build_land_profiles(names, scry)
     accels = build_accel_profiles(names, scry)
+    # Rituals go to the play simulation ONLY. The sources model draws a hand
+    # and asks which of those cards are sources; a ritual is not one on any
+    # turn, and it has no turn ordering to attach "available on exactly this
+    # turn" to. So the two models disagree by design on a deck running
+    # rituals, and the sources-model row is the lower of the two -- which is
+    # why every quoted figure has to say which model produced it.
+    rituals = build_ritual_profiles(names, scry)
     v = verify(cmdr, entries, scry)
     # The library is the deck minus its commanders -- 98 for a partner pair,
     # not 99. Drawing from a library one card too large dilutes it with an
@@ -253,10 +263,11 @@ def analyse_mana(cmdr, entries, scry, sims, trials, seed=17, lines=None, reps=3)
             lines.append((f"{cards[0]} T{turn}", mv,
                           "".join("{%s}" % x for x in req)))
         lines += commander_lines(cmdr, scry)
-    res = replicate_playsim(lands, accels, deck_size, lines, trials, seed, reps)
+    res = replicate_playsim(lands, accels, deck_size, lines, trials, seed, reps,
+                            rituals=rituals)
     # An MDFC back is a land you can play, so it counts toward keepability.
     floor = opening_hand_floor(v["lands"] + v["mdfc_land_backs"], deck_size)
-    return {"verify": v, "lands": lands, "accels": accels,
+    return {"verify": v, "lands": lands, "accels": accels, "rituals": rituals,
             "rows": rows, "lines": lines, "sim": res, "floor": floor,
             "sims": sims, "trials": trials, "seed": seed, "reps": reps}
 

@@ -1,13 +1,17 @@
 # Known issues — found during the repo migration
 
 Entries marked FIXED have been dealt with since; RESOLVED means the behaviour
-was examined and deliberately kept, with the reasoning recorded. **Nothing here
-is currently outstanding.**
+was examined and deliberately kept, with the reasoning recorded; CHANGED means
+a reported number was moved on purpose, with what moved written down beside it.
+**Nothing here is currently outstanding.**
 
 The file's job does not end when the list empties. It exists because a finding
 that lives only in scrollback gets rediscovered — so a decision NOT to do
 something belongs here too, not in a commit message nobody greps. #13 and #14
-are that shape.
+are that shape, and #15 is the other one: a limitation that was priced, kept,
+and later revisited deliberately, with the earlier entry left standing. #17
+carries a residual of the same kind inside an otherwise-fixed entry, with the
+four repairs considered and why each was worse.
 
 Everything here was found while moving `mana_model.py` into `mtg_utils/`, and
 every one was left exactly as it was, because **fixing any of them would change
@@ -108,6 +112,12 @@ moved down**, from -0.1 to -9.1 points. Muldrotha's commander line went 83.9% ->
 **Any stored figure predating this is invalid for a deck running rituals or
 Treasure-makers**, and the shift is larger than the ~3-point band the
 quantity/colour diagnostic uses.
+
+**Superseded in part by #15**, which models a ritual as a one-shot burst in the
+play simulation. Nothing above is edited: this entry is the record of why the
+number moved the *first* time, and the thing it removed — a permanent,
+repeatable source producing its full amount every turn — is not coming back.
+What #15 revisits is the sentence saying a genuine burst "was not attempted".
 
 ---
 
@@ -434,7 +444,122 @@ own commit with the snapshot diff shown.
 
 ---
 
-## 15. Restricted mana is read per line for lands and per card for accelerants — FIXED
+## 15. One-shot rituals were not counted at all — CHANGED, the number moved on purpose
+
+The residual left over from #2. That entry removed rituals-as-permanent-sources
+and, having no concept of a one-turn burst to replace it with, counted them at
+zero. Zero is wrong in the other direction, and by more than the ~3-point band
+the quantity/colour diagnostic uses: a Dark Ritual in hand with an untapped
+Swamp genuinely does give you three mana on turn one.
+
+The line #2 drew was a claim about the data structure, not about the question:
+
+> Dark Ritual was excluded because an Instant is never on the battlefield to be
+> read at all, not because it is one-shot.
+
+The play simulation advertises "do I have N mana on turn N". Lotus Petal and
+Dark Ritual are both one-shot and both net-positive on exactly one turn, and
+only one of them was counted — because only one of them is a permanent.
+
+**What is modelled now**, in the play simulation only:
+
+- A ritual is a non-permanent of mana value ≤ 3 whose oracle text carries a
+  clause that IS a sentence and is nothing but mana symbols — "Add {B}{B}{B}."
+- Its contribution is the **net**: Dark Ritual +2, Seething Song +2, Cabal
+  Ritual +1. Gross is the shape of the #2 bug.
+- It fires only if its own cost is payable, in the right colours, off sources
+  already online that turn — so it is worth less in a deck that cannot reliably
+  make its colour, which is what the play simulation exists to measure.
+- One per turn, read from hand after accelerant deployment, so it can never
+  fund a rock and never compounds.
+- The card's own cost is ignored, consistent with the rest of the model, which
+  prices mana available and not cards spent.
+
+**The sources model still counts rituals at zero, deliberately.** It has no
+turn ordering to attach "available on exactly this turn" to. So the two models
+disagree by design on a ritual deck, and the sources-model row is the lower of
+the two — one more reason a quoted figure must say which model produced it.
+
+**What moved** (20,000 trials, 3 reps, seed 17; on the play):
+
+| deck | line | before | after |
+|---|---|---|---|
+| multi | Muldrotha, the Gravetide on curve | 74.9% | 78.0% |
+| multi | Memory T6 | 72.3% | 75.0% |
+| multi | Counterspell T2 `{U}{U}` | 54.7% | 54.7% |
+| mono | Etali, Primal Storm T6 | 80.9% | 83.5% |
+| mono | Big Score T4 | 90.4% | 91.1% |
+| mono | Magda, Brazen Outlaw on curve (T2) | 92.8% | 92.8% |
+| partner | Tymna the Weaver on curve | 84.5% | 85.4% |
+| partner | Eternal Witness T3 | 75.3% | 75.5% |
+| colourless | *(no ritual in the deck)* | — | — |
+
+Every move is upward, which is the only direction a burst can move a figure,
+and the largest is +3.1. The rows that did not move say as much as the ones
+that did: **Counterspell T2** needs `{U}{U}` and a black burst pays neither
+pip, while its generic baseline beside it moved 92.7 → 93.2; **Magda on curve**
+is turn two and Seething Song costs three; every turn-one line on every deck is
+unchanged. The colourless deck runs no ritual and its snapshot is byte-identical
+— `mana` prints the ritual line only when there is one, so a ritual-free deck
+still produces exactly the bytes it produced before this existed, which keeps
+that fixture a live control on the gate.
+
+Note that **mono moved**, and the issue proposing this expected it not to. It
+runs Seething Song, which is a ritual by exactly the reading that admits Dark
+Ritual, and the issue names it as one two paragraphs above saying mono is
+unaffected. Admitting it is correct; the expectation was the error.
+
+**Known residuals, priced and kept:**
+
+- **The sources that pay for the ritual are not spent.** The burst is added to
+  the board rather than swapped for the sources it cost, so every source that
+  paid for it keeps its own colours on top of the mana it made. The bound is
+  **up to the ritual's mana value**, and it is the GENERIC portion of the cost
+  that carries it: `pips_from_cost("{2}{R}")` is one red pip, so Seething Song
+  is gated on a single red source and the other two are arbitrary. Off Island,
+  Island, Mountain the model holds `{U}{U}{R}` plus a two-red burst and will
+  pay a double-blue cost, where reality is five red and three tapped lands —
+  two surplus coloured units, off basics, with no dual involved. Dark Ritual is
+  the benign end: its whole cost is the pip it is gated on, so the source it
+  spends produces the colour the burst produces anyway. It costs nothing on
+  `mono`, whose surplus units are red in a red deck, which is why the fixtures
+  do not show it. Modelling the payment properly means choosing WHICH sources
+  are tapped — a search, inside the trial loop, for a fraction of a pip.
+- **Mana already spent deploying an accelerant is still available to the
+  burst.** The gate reads the board from `online()`, which is not reduced by
+  `spent`, so on a turn that deployed a rock the ritual can be paid for with
+  mana the rock already consumed. This is the convention the reading itself
+  uses rather than a new departure from it: `out[t].append(srcs)` has never
+  deducted `spent` either, which is the residual #1 left behind when it fixed
+  the deployment DECISION. Tightening only the gate would make the ritual
+  stricter than the figure it feeds — the line would be refused a mana the
+  same turn's reported total still counts — so the two move together or not at
+  all.
+- **A held ritual is available on every turn it is held.** It is re-read from
+  hand each turn and never lands on the battlefield, so it cannot compound; but
+  turn five's reading assumes you did not fire it on turn one. That is the
+  right reading of a per-turn question and of how a ritual is actually played —
+  firing it on sight would model casting Dark Ritual into an empty hand — and
+  it is the one place where "one-shot" is not literally simulated.
+- **The ritual is chosen by net, not by the line being measured.**
+  `ritual_burst` runs once per turn, before any line is evaluated, and takes
+  the largest castable net. On a hand holding two rituals of different colours
+  that can pick the one paying nothing toward the pips: Dark Ritual (net 2) and
+  Pyretic Ritual (net 1) off Swamp, Mountain, Mountain gives `{B}{R}{R}` plus
+  two black against a `{R}{R}{R}` line that the smaller burst would have paid,
+  and the line reads uncastable when it is castable. Understates only, which is
+  the direction this model errs on purpose; no fixture runs two rituals, so
+  nothing committed here is affected. Choosing per line means moving the
+  decision into `playsim_report` and searching inside the trial loop — the same
+  bill the payment residual above declines to pay.
+- **Treasure engines are still excluded.** Pitiless Plunderer and Warren
+  Soultrader are an understatement in the same direction and stay out: their
+  "add" text is a Treasure's reminder, and the rate at which they make one is a
+  board state, which is what #13 declines to invent.
+
+---
+
+## 16. Restricted mana is read per line for lands and per card for accelerants — FIXED
 
 The return leg of #3, and it was created by the fix for it. #3 taught
 `build_land_profiles` to drop restricted mana one ORACLE LINE at a time, via
@@ -508,10 +633,17 @@ its own commit.
 
 Movement: the multicolour fixture only, 13 counted accelerants -> 14, every
 figure up. Largest +2.6 (Memory T6 sources model, 68.6% -> 71.2%); the
-generic baseline moves +1.5 on the play and +1.5 on the draw; the colour
+generic baseline moves +1.7 on the play and +1.4 on the draw; the colour
 lines it cannot pay for move by less than the error bar (T2 `{U}{U}` 73.5% ->
 73.3%, T1 `{B}` 81.1% -> 81.0%), which is the shape a colourless source
 should have.
+
+The play-simulation halves of those figures are quoted against #15's
+snapshot, not the one before it — this landed on top of the ritual work and
+the two touch the same table. The sources-model figures are untouched by
+#15, rituals being play-simulation only, so those two numbers mean the same
+thing before and after. #15's own line ("rituals counted... dark ritual +2")
+is still printed above them.
 
 ### Found while fixing it: the max_combos non-bias test was a coin flip
 
@@ -531,7 +663,7 @@ untested.
 
 ---
 
-## 16. `--adds` / `--cuts` split on commas, which are in card names — FIXED
+## 17. `--adds` / `--cuts` split on commas, which are in card names — FIXED
 
 `mtg_utils/cli.py`, the `write` branch:
 

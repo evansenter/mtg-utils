@@ -9,6 +9,7 @@
   TRULY TAPPED: Opulent Palace
   TRULY TAPPED: Zagoth Triome
   accelerants counted: 14  (restricted, excluded: none)
+  rituals counted, play simulation only (net burst): dark ritual +2
 
 --- sources model (colour), worst lines (8000 sims over 3 reps, seed 17) ---
   T6 {U}{U}        71.2% ±0.5   Memory
@@ -19,12 +20,12 @@
 
 --- play simulation, 20000 trials over 3 reps, seed 17 ---
   line                                             on play     on draw        baseline(any N on TN)
-  Memory T6                                      73.9±0.4%   81.6±0.3%     77.5±0.3% / 84.8±0.2%
-  Counterspell T2                                54.9±0.2%   61.3±0.8%     93.5±0.2% / 95.8±0.1%
+  Memory T6                                      76.6±0.3%   83.6±0.3%     80.7±0.3% / 87.1±0.2%
+  Counterspell T2                                54.9±0.2%   61.3±0.8%     93.9±0.2% / 96.0±0.1%
   An Offer You Can't Refuse T1                   67.1±0.3%   70.7±0.2%     97.1±0.1% / 98.3±0.1%
   Birds of Paradise T1                           69.9±0.2%   72.7±0.3%     97.1±0.1% / 98.3±0.1%
   Dark Ritual T1                                 70.0±0.4%   73.3±0.3%     97.1±0.1% / 98.3±0.1%
-  Muldrotha, the Gravetide on curve              76.5±0.3%   84.0±0.2%     77.5±0.3% / 84.8±0.2%
+  Muldrotha, the Gravetide on curve              79.5±0.3%   86.3±0.2%     80.7±0.3% / 87.1±0.2%
 
   Diagnosis: a line CLOSE to its baseline is a QUANTITY problem (no land swap will help).
   A line FAR BELOW its baseline is a COLOUR problem (a filter land for that pip is the answer).

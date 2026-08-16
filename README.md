@@ -90,12 +90,34 @@ lands-only figure is a statement about land count, not about castability.
 
 **A source is a permanent with an activated ability that adds mana.** The cost
 need not be `{T}`: Ashnod's Altar adds `{C}{C}` off a sacrifice and is a real
-repeatable source. One-shots are excluded — Dark Ritual is an Instant, and
+repeatable source. One-shots are not sources — Dark Ritual is an Instant, and
 counting it as a permanent had it producing three mana every turn from the
-moment it was drawn — which understates a ritual-heavy deck, deliberately.
-Spells that merely *make* a mana-producing token are excluded too: a Treasure's
-reminder text says "Add one mana of any color", which once made a counterspell
-count as one of your sources.
+moment it was drawn. Spells that merely *make* a mana-producing token are
+excluded too: a Treasure's reminder text says "Add one mana of any color",
+which once made a counterspell count as one of your sources.
+
+### A ritual is a one-turn burst, in the play simulation only
+
+Not counting a ritual at all understated a ritual deck by more than the
+~3-point band the diagnostic below uses, so `playsim` now reads one out of hand
+as a single-turn burst. The rules are narrow on purpose:
+
+| rule | why |
+|---|---|
+| **net, not gross** | Dark Ritual `{B}` → `{B}{B}{B}` is **+2**. Gross is the bug `KNOWN_ISSUES.md` #2 removed. |
+| **payable, in colour, off the board that turn** | A Dark Ritual with no untapped black source adds nothing. This is what makes it more than a flat bonus. |
+| **one per turn, read after deployment** | It can never fund an accelerant — a rock bought with invented mana would still be there next turn. |
+| **the clause must BE a sentence of mana symbols** | "Add {R} for each card in target opponent's hand" is an unknown quantity; a token's granted ability is not this card's mana. |
+
+**The sources model still counts rituals at zero**, because it has no turn
+ordering to attach "available on exactly this turn" to. The two models
+therefore disagree by design on a ritual deck, which is one more reason every
+quoted figure says which one produced it. `mana` names the rituals it counted
+and their net, on its own line, and prints nothing when the deck runs none.
+
+A ritual is **not** an accelerant and is never counted as one: the
+`accelerants counted:` line, `skeleton` and the `variants --accel` sweep all
+mean sources, and the sweep varies exactly what that number says.
 
 **A triggered mana ability is the third category.** The activated-ability
 pattern requires a colon, so a card whose mana arrives off a *trigger* matched
@@ -701,12 +723,18 @@ Run both copies and diff them. Do not reason about the code.
 
 ## Known issues
 
-`KNOWN_ISSUES.md` lists twelve things found during the migration that look
-wrong and were deliberately left alone, because fixing any of them would change
-a reported number and the migration's contract was that none do. Each entry says
-what it costs and which way it moves the figure. The largest is that the play
-simulation never spends the mana it uses to deploy accelerants; the cheapest to
-fix is the `verify` header claiming "1 commander" for a partner pair.
+`KNOWN_ISSUES.md` began as the fourteen things found during the migration that
+looked wrong and were deliberately left alone, because fixing any of them would
+change a reported number and the migration's contract was that none do. Each
+entry says what it costs and which way it moves the figure. Most are now FIXED;
+#8, #11, #13 and #14 are RESOLVED — examined and kept, with the reasoning
+written down.
+
+It did not stop being useful when the list emptied. #15 is an entry of the
+other kind: a limitation priced and kept in #2, revisited later on purpose, with
+the earlier entry left standing as the record of why the number moved the first
+time. **A decision not to do something goes in there, not in a commit message
+nobody greps.**
 
 ## Provenance
 
