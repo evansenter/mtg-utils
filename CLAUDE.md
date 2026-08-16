@@ -10,9 +10,11 @@ Almost every function here encodes a bug that once shipped a wrong figure into a
 document someone acted on. A refactor that shifts a probability by half a point
 is worse than no refactor, because the number still looks plausible. The golden
 suite exists to make that impossible by accident:
-`tests/test_golden.py` runs `verify`, `mana`, `roster`, `skeleton` and `--help`
-over **four** frozen decks and asserts stdout is byte-identical to committed snapshots in
-`tests/fixtures/expected/`.
+`tests/test_golden.py` runs `verify`, `mana`, `roster`, `skeleton`, `variants`
+and `--help` over **four** frozen decks and asserts stdout is byte-identical to
+committed snapshots in `tests/fixtures/expected/`. `variants` is snapshotted at
+`--trials=2000` rather than the default, because it sweeps six configurations and
+at full budget would cost the suite more than everything else in it together.
 
 - **Refactoring?** The snapshots must not move. If they do, you changed
   behaviour — find out why before touching the snapshot.
@@ -34,8 +36,10 @@ written down beside it. Nothing in it is currently outstanding.
 Its job did not end when the list emptied. It exists because "a finding that
 lives only in scrollback is a finding that gets rediscovered", so when you
 decide NOT to do something, record it there rather than in a commit message
-nobody greps. #13 (conditional accelerants) and #14 (no mulligan model) are both
-that shape: deliberate limitations, priced and kept.
+nobody greps. #13 (conditional accelerants), #14 (no mulligan model) and #18
+(where the Monte Carlo optimisation stops, and the faster ideas that were
+measured and rejected) are all that shape: deliberate limitations, priced and
+kept.
 
 Do not quietly "fix" a resolved entry while doing something else — several are
 resolved *because* changing them would move numbers. Changing one on purpose is
@@ -44,7 +48,7 @@ welcome, as its own commit, with the snapshot diff shown.
 ## Commands
 
 ```bash
-pytest                                   # whole suite, ~40s, fully offline
+pytest                                   # whole suite, well under a minute, offline
 python3 mana_model.py selftest           # same thing via the CLI contract
 PYTHONHASHSEED=0 pytest -q --durations=5 # exactly what CI runs
 ```
@@ -145,6 +149,62 @@ verify a split of it; left whole deliberately.
 then Scryfall for the above-bar cards, which are by definition not in the
 decklist) but hands every judgement to `ceiling_audit`. Keep it that way: the
 front-face matching is exactly the logic that needs an offline test.
+
+### castability.py is written for speed, and the reasons are load-bearing
+
+`mana` spends nearly all its time in one file, so `castability.py` is the one
+place here optimised rather than written plainly. Everything below is a
+correctness constraint wearing a performance hat — undo any of it and the
+snapshots move.
+
+**Every cache is keyed on things that are provably irrelevant to the answer.**
+`castable` is memoised on `(hand, sorted pips)`. `mv` is deliberately absent:
+it is spent entirely on the `total < mv` check and never consulted again. The
+pips are **sorted** because the answer is a bipartite matching, which does not
+care what order they arrive in. `probability` caches per DRAW as well, but only
+while nothing is truncated — past `max_combos` the answer depends on which 250
+combinations the generator picked, which is a different question every time.
+The draw key keeps the codes in the order they were DRAWN, because
+`playable_set` drops the source drawn first out of an all-tapped combination:
+sorted, it answered one draw with another's result and moved a figure by
+eleven points on a deck with a karoo in it.
+
+The rule that generalises: if the SOLVER reads a field it belongs in
+`_sig_id`, and if the loop around it reads anything else — draw order included
+— that belongs in the draw key. A cache here keyed on less than the answer
+depends on does not fail, it answers confidently and wrongly.
+
+**A hand is an integer**, six bits per source signature counting how many are
+in play, so the simulation grows one by addition. Six bits counts to 63; a hand
+is a dozen sources. `castable` takes a list from anywhere, so it refuses to
+pack one longer than that and solves it directly — a count that carried into
+the next signature's field would key as a different hand.
+
+**The caches are bounded** by a watermark, because they are per-process and
+`calibrate` walks a whole collection. Dropping them costs time, never
+correctness. The interning tables (`_SIG_IDS`, `_SIG_DATA`, `_SIG_POW`) are
+**not** dropped: every key in flight is built from indices into them.
+
+**`random.shuffle` and `random.sample` are reimplemented, bit for bit.** They
+skip work the models throw away — the 85 cards of a 99-card shuffle nobody
+looks at, the `sample` result list filtered on the next line — while drawing
+the identical bits. A partial shuffle still has to *drain* the rest of the
+generator or every later trial desynchronises; that drain is not dead code.
+`tests/test_rng_equivalence.py` asserts both the cards dealt and the generator
+state left behind, against the stdlib, over a shared generator.
+
+Two measurements worth keeping in mind before optimising further. Well over
+half of what `mana` now costs is those draws themselves, which cannot be
+reduced without changing the numbers — `KNOWN_ISSUES.md` #18 has the per-deck
+table and the method, and a warning that the obvious ways of pricing them
+overstate. And batching `getrandbits` into blocks — the obvious next idea —
+was measured **2.7x slower** than calling it per draw, so the per-call version
+is not there for want of trying.
+
+`tests/test_solver_equivalence.py` keeps the pre-rewrite solver verbatim and
+compares the two over generated hands. If you rewrite the solver again, that
+is the test that will tell you whether you changed the answer, because the
+golden snapshots only exercise the hands four particular decks happen to deal.
 
 ### Module map
 

@@ -4,7 +4,7 @@ Everything here formats a Monte Carlo measurement, so everything here prints
 a figure with its noise beside it. analysis.py does the measuring.
 """
 from mtg_utils.analysis import analyse_mana, commander_lines, compare_swap, replicate_playsim
-from mtg_utils.castability import pips_from_cost
+from mtg_utils.castability import PLAYSIM_TURNS, pips_from_cost
 from mtg_utils.decklist import as_cmdrs, flat
 from mtg_utils.profiles import (build_accel_profiles, build_land_profiles,
                                 build_ritual_profiles)
@@ -133,9 +133,35 @@ def report_variants(cmdr, entries, scry, land_deltas, accel_deltas, trials,
                     "filter": None, "omni": None, "amount": 1, "cost": 2,
                     "tapped": False, "cond_tap": None, "restricted": False,
                     "creature": False, "mdfc": False}
+    # Both columns of this table are read at the commander's own turn, so the
+    # commander has to resolve and has to land inside the simulation. Neither
+    # was checked: an unresolved name indexed an empty list, and a commander
+    # past the last turn simulated had its line dropped by playsim_report and
+    # then read back by label. Both raised bare -- IndexError and KeyError --
+    # several frames from the cause, which reads as a broken simulator rather
+    # than as a statement about the deck. Guards fail loudly and by name here.
     _cl = commander_lines(cmdr, scry)
+    if not _cl:
+        raise SystemExit(
+            f"variants: no Scryfall entry for {cmdr!r}, so its curve is "
+            f"unknown and both columns of this table are read at it. Check "
+            f"the commander line of the decklist, or refresh the cache with "
+            f"`fetch`.")
     _, cmv, _cpips = _cl[0]
     creq = pips_from_cost(_cpips)
+    _cturn = max(cmv, len(creq), 1)
+    if _cturn > PLAYSIM_TURNS:
+        raise SystemExit(
+            f"variants: {_cl[0][0].removesuffix(' on curve')} comes down on "
+            f"turn {_cturn}, and the play simulation stops at turn "
+            f"{PLAYSIM_TURNS}. Both columns here are read at the commander's "
+            f"own turn, so there is no row left to print -- and quoting the "
+            f"turn-{PLAYSIM_TURNS} figure under a 'commander on curve' "
+            f"heading would be a different question wearing this one's label. "
+            f"`mana` still covers turns one to {PLAYSIM_TURNS} for this deck.")
+    # This table reads exactly two figures out of each simulation and both are
+    # at that turn, so playing out to turn seven every time was five sixths of
+    # the turns simulated for nothing on a two-drop.
     print(f"\n=== VARIANTS SWEEP ({trials} trials over {_reps(reps)}, seed {seed})"
           f" — commander line and generic baseline ===")
     # Named here for the same reason report_mana names it, and it matters more
@@ -167,7 +193,8 @@ def report_variants(cmdr, entries, scry, land_deltas, accel_deltas, trials,
             # question is always whether one row differs from another.
             r = replicate_playsim(lands, acc, 99,
                                   [("cmdr", cmv, "".join(f"{{{x}}}" for x in creq))],
-                                  trials, seed, reps, rituals=rituals)
+                                  trials, seed, reps, turns=_cturn,
+                                  rituals=rituals)
             a, turn, sa = r["play"]["lines"]["cmdr"]
             b, _, sb = r["draw"]["lines"]["cmdr"]
             g1, s1 = r["play"]["generic"][turn]

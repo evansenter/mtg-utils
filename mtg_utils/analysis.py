@@ -5,7 +5,7 @@ import re
 
 from mtg_utils.cards import (enters_tapped, front, front_name, has_land_back,
                              is_front_land, land_face)
-from mtg_utils.castability import (at_least_in_draw, castable_faces,
+from mtg_utils.castability import (PLAYSIM_TURNS, at_least_in_draw, castable_faces,
                                    pips_from_cost, playsim_report, probability)
 from mtg_utils.decklist import apply_swaps, as_cmdrs, flat, read_decisions
 from mtg_utils.primer import parse_primer_links, unclosed_openers
@@ -88,7 +88,13 @@ def worst_lines(names, scry, lands, accels, sims, rng, top=5, deck_size=None):
             if not req:
                 continue
             turn = max(mv, len(req), 1)
-            if turn > 7:
+            # The same limit the play simulation stops at, and deliberately so
+            # rather than by coincidence: `analyse_mana` turns these rows into
+            # the lines it hands to `playsim_report`, which drops any line
+            # past `PLAYSIM_TURNS`. A row allowed through here that the
+            # simulation would not measure becomes a line silently missing
+            # from the table beside it.
+            if turn > PLAYSIM_TURNS:
                 continue
             cand.setdefault((turn, mv, tuple(sorted(req))), []).append(label)
     rows = []
@@ -157,7 +163,7 @@ def mean_spread(values):
 
 
 def replicate_playsim(lands, accels, deck_size, lines, trials, seed, reps,
-                      rituals=None):
+                      turns=PLAYSIM_TURNS, rituals=None):
     """playsim_report over `reps` replicates, aggregated to (mean, spread).
 
     Shapes deliberately differ from playsim_report's, so a caller cannot read
@@ -165,9 +171,18 @@ def replicate_playsim(lands, accels, deck_size, lines, trials, seed, reps,
 
         generic[turn] -> (mean, spread)
         lines[label]  -> (mean, turn, spread)
+
+    `turns` stops the simulation early for a caller that only reads the first
+    few. It cannot move a figure: the shuffle is what consumes the generator,
+    and it draws the whole library's worth of bits however many turns are
+    then played out -- so turns 1..n come out identical whether n or seven
+    were asked for. It only stops playing turns nobody reads. A caller that
+    lowers it below a line's own turn drops that line, exactly as asking for
+    a line past turn seven has always dropped it.
     """
     per = [playsim_report(lands, accels, deck_size, lines, t,
-                          random.Random(seed + i), rituals=rituals)
+                          random.Random(seed + i), turns=turns,
+                          rituals=rituals)
            for i, t in enumerate(split_budget(trials, reps))]
     out = {}
     for side in ("play", "draw"):

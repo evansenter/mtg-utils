@@ -7,11 +7,11 @@ a reported number was moved on purpose, with what moved written down beside it.
 
 The file's job does not end when the list empties. It exists because a finding
 that lives only in scrollback gets rediscovered — so a decision NOT to do
-something belongs here too, not in a commit message nobody greps. #13 and #14
-are that shape, and #15 is the other one: a limitation that was priced, kept,
-and later revisited deliberately, with the earlier entry left standing. #17
-carries a residual of the same kind inside an otherwise-fixed entry, with the
-four repairs considered and why each was worse.
+something belongs here too, not in a commit message nobody greps. #13, #14 and
+#18 are that shape, and #15 is the other one: a limitation that was priced,
+kept, and later revisited deliberately, with the earlier entry left standing.
+#17 carries a residual of the same kind inside an otherwise-fixed entry, with
+the four repairs considered and why each was worse.
 
 Everything here was found while moving `mana_model.py` into `mtg_utils/`, and
 every one was left exactly as it was, because **fixing any of them would change
@@ -788,3 +788,189 @@ either reported finding, and it belongs in its own commit where the asymmetry
 between the two flags can be argued on its own terms. Recorded because it is
 the first option considered that does not require solving the undecidable
 part, and it would otherwise be rediscovered.
+
+---
+
+## 18. The Monte Carlo core is optimised, and where it stops — RESOLVED, measured
+
+`mana` on the four fixture decks went 27.7s to 6.2s, and `variants` 83.0s to
+15.4s, with every snapshot byte-identical. Measured end to end against the
+merged tree -- not against the branch point, which had moved under this work
+four times over; earlier drafts of this entry quoted the older figures and
+read as freshly measured when they were not, and re-measuring after each merge
+is the only thing that stops that. `castability.py` is now the one file here
+written for speed rather than plainly, so the reasoning belongs somewhere
+greppable rather than in four commit messages.
+
+**What was actually slow.** Not the maths. The models asked the same question
+over and over: twenty Mountains are twenty separate dicts with identical
+contents, so a hand the solver had already answered arrived looking new. Four
+calls in five are now answered from a memo, and most draws never enumerate a
+combination at all. The rest was building things to take them apart again —
+`playsim` assembled a list of source profiles per turn per trial so
+`playsim_report` could immediately reduce it to a total and a key.
+
+**Where it stops, and why that is not a to-do.** Well over half of what remains
+is the random draws themselves: 6.4 to 7.3 million `getrandbits` calls per deck,
+fixed by the definition of the measurement. Drawing one bit differently moves
+every figure, so that half is not available. Measured, per deck, on warm caches
+-- "the draws alone" counts each call's bit width during an untimed pass and
+then times a bare loop making exactly those calls:
+
+| deck | `analyse_mana` | the draws alone | calls |
+|---|---|---|---|
+| mono | 0.80s | 0.49s (62%) | 6,612,822 |
+| multi | 0.98s | 0.55s (57%) | 7,336,742 |
+| colourless | 0.74s | 0.47s (64%) | 6,405,848 |
+| partner | 1.00s | 0.54s (54%) | 7,331,243 |
+
+The share rose from the 45–52% an earlier draft of this entry recorded, and it
+rose because the rest got faster, not because the draws got slower: the call
+counts are unchanged, since changing one would change a number. Worth knowing
+before optimising: a Python-level no-op call costs *more* than `getrandbits`
+does (0.66s against 0.62s over 7.3M calls), so anything that replaces one C
+call with one Python call is already behind before it does any work.
+
+The obvious next idea is batching: `getrandbits(32*N)` really does return
+exactly what N calls to `getrandbits(32)` return, little-endian, so a block
+could be drawn once and sliced. It was tried. **It is 2.7x slower** — the
+Python-level buffer bookkeeping costs more than the C call it removes. The
+per-call version is not there for want of looking.
+
+**What it cost.** Memory. The caches are per-process and did not exist before;
+a four-deck run peaks at 75 MB against about 11 MB baseline. They are bounded
+by a watermark set above what one deck's full measurement needs, so a single
+run keeps every hit and `calibrate` cannot grow without limit. Dropping a cache
+costs time and never correctness, which is what makes the crude bound safe.
+
+**What it cost once, in the wrong direction.** A cache keyed on less than the
+answer depends on. `_DRAW_MEMO` keyed a draw on the SORTED codes of what was
+drawn, but `playable_set` drops the source drawn FIRST out of a combination in
+which everything is tapped -- so two draws of the same sources in a different
+order can differ, and whichever arrived first answered for both. On a deck
+holding a tapped source of two mana (a karoo; Azorius Chancery, Golgari Rot
+Farm) it moved the reported figure by eleven points, on every seed tried.
+
+Caught in review, not by the suite. The four fixtures did not show it, and the
+reason is worth writing down because it is not the reassuring one: `multi`
+carries Golgari Rot Farm and `colourless` carries Worn Powerstone, so the
+ingredient WAS present in the committed decks -- they were simply never dealt
+a hand where it changed a printed figure. "The snapshots did not move" was
+true and proved nothing.
+
+The fix is to key on the drawn codes in draw ORDER, which is what the loop
+reads, and it is faster than the sorted key rather than slower -- building the
+tuple no longer sorts it. `tests/test_solver_equivalence.py` now keeps the
+pre-rewrite `probability` verbatim beside the new one and compares the whole
+draw layer over decks built to reach the case, which is the check that was
+missing: `castable` order-independence was pinned, and the truncation that
+happens BEFORE it is not order-independent at all.
+
+**What it risks.** `random.shuffle` and `random.sample` are reimplemented to
+skip work the models throw away. That couples this repo to two stdlib
+algorithms — but it *already was* coupled, because the snapshots are Monte
+Carlo means drawn through them; a CPython that changed either would have moved
+the numbers before, silently. Now `tests/test_rng_equivalence.py` asserts the
+equivalence directly, so that change fails by name instead. Reverting the
+reimplementation is a legitimate call if it ever drifts; reverting it and
+keeping the snapshots is not.
+
+**Not attempted, deliberately.** Nothing that trades an approximation for
+speed: no reduced `--sims` default, no early termination once a proportion
+looks settled, no sharing draws between candidate lines. Each would be a real
+speedup and each changes a reported number, which makes it a modelling change
+that must arrive as its own commit with the snapshot diff shown — the rule at
+the top of CLAUDE.md, not an exception to it.
+
+**And one that would NOT change a number, declined anyway.** `variants` sweeps
+six configurations against the same seed and the same 99-card library, and a
+Fisher-Yates shuffle permutes positions without looking at what it is moving —
+so all six draw the identical permutation, six times over. Sharing it is sound,
+and five sixths of the dealing a `variants` run does is repeated work — the
+largest single win left anywhere in the repo.
+
+An earlier draft priced it at 1.07s of a 2.1–2.8s run. That figure is retired
+rather than updated, because the tree it was taken on is two merges gone and
+the attempts to re-take it were not sound: pricing the deals by replaying the
+generator calls in a bare loop, or by a calibrated per-call rate, both put the
+deals at 90–210% of the run they live inside, which is arithmetic saying the
+method is wrong, not that the deals are free. The honest bound is the structure
+above plus the run itself, which is 2.4–6.0s per fixture deck. Anyone taking
+this on gets the real number for free, by measuring before and after.
+
+It was declined on legibility. Taking it means `_playsim_core` gains a third
+mode — consume a deal you were handed, rather than draw one — in the hottest
+loop here, and it means inverting `report_variants` so all six configurations
+are in flight at once against one deal stream, with six interleaved
+accumulators where there is now an obvious `for each config: measure it`. The
+current loop is correct at a glance. That one would not be, and this is a
+repository whose entire thesis is that a plausible-looking number is more
+dangerous than an obvious error. One second on a command whose own docstring
+says "Slow; opt-in" does not buy that.
+
+For whoever revisits it, the analysis is done and the shape is known. Deal the
+positions rather than the cards: `_playsim_core` builds
+`list(range(nL + nA + nR)) + [-1] * rest` and shuffles it, but shuffling
+`range(deck_size)` gives the same permutation and lets each configuration
+classify a position itself (`p < nL` a land, `p < nL + nA` an accelerant,
+`p < nL + nA + nR` a ritual, else a spell), which drops the `-1` sentinel and
+makes the shared path fall out rather than fork. The
+aggregation has to stay `100.0 * hits / trials` per replicate and then
+`mean_spread` over replicates in index order, or the floats move in the last
+place. And it needs one new test the repo does not have: that a shuffle's
+permutation is independent of what is being shuffled. That is the invariant the
+whole idea rests on, it is true of Fisher-Yates, and it is five lines to pin —
+but unpinned it is exactly the assumption that stays true until someone makes
+the shuffle look at the deck.
+
+---
+
+## 19. `variants` crashed on a commander past turn seven — FIXED
+
+```
+python3 mana_model.py variants deck.txt --cache=scry.json
+KeyError: 'cmdr'
+```
+
+`report_variants` asks `replicate_playsim` for one line, the commander on
+curve, then reads it back by label. `playsim_report` drops any line whose turn
+is past the seven it simulates, so for a commander of mana value eight or more
+the label was never in the result and the read raised a bare `KeyError` with
+nothing in it naming the commander, its mana value, or the limit. Reproduced on
+Emrakul, the Aeons Torn, and verified to predate the optimisation pass — it
+raised identically at 4db2aa5.
+
+The same two lines hid a second one. `commander_lines` skips a name Scryfall
+cannot resolve, so `_cl[0]` on an empty list raised `IndexError: list index out
+of range`. The CLI prints SCRYFALL NOT FOUND and carries on, so a typo'd
+commander line reaches this code routinely.
+
+**Cost:** the command was unusable on those decks, and failed in a way that
+read as a bug in the simulator rather than as a statement about the deck.
+
+**Fixed by raising, not by simulating further.** Both columns of the sweep are
+read at the commander's own turn, so once that turn is off the end there is no
+row left to print — this is not a table with one column missing. Quoting the
+turn-seven figure under a "commander on curve" heading would have been a
+different question wearing this one's label, which is the exact failure the
+rule at the top of CLAUDE.md exists to prevent. So both guards fail loudly and
+by name, matching the "cannot add lands to a deck with no untapped
+colour-producing land to copy" guard a dozen lines above them, and they fire
+before the sweep spends 240,000 trials finding out.
+
+`mana` was checked before the message was written to say so: it handles such a
+deck without raising, dropping the commander line and reporting the rest, so
+"`mana` still covers turns one to seven for this deck" is advice that holds.
+The test asserts that too, because a message that recommends something broken
+is worse than one that recommends nothing.
+
+The limit itself is now `PLAYSIM_TURNS` in `castability.py`, the default for
+both `playsim_report` and `replicate_playsim`. It was a bare 7 in three places
+— the simulation, the cap `report_variants` applies, and this guard — and a
+guard holding a different number from the thing it guards is how the crash
+comes back.
+
+**Not changed:** what `variants` does for a commander inside turn seven, and
+what any other command does for one outside it. `mana`, `skeleton` and
+`compare_swap` were all checked against a mana-value-15 commander and all
+complete.
