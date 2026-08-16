@@ -81,7 +81,14 @@ def drop_restricted(txt, pm, amount):
     drop, and also when EVERY line is restricted -- the flag excludes the
     card from the totals, it does not pretend the card taps for less than it
     does. See test_restricted_amount_is_still_read.
+
+    Every colour set returned is narrowed to MANA_SYMBOLS here rather than at
+    the call sites. Both builders happen to pre-filter `pm` already, so this
+    changes nothing today -- but the function is exported, and a postcondition
+    that holds because of caller discipline is one an outside caller can
+    break.
     """
+    pm = {x for x in pm if x in MANA_SYMBOLS}
     if RESTRICTED_MANA not in txt:
         return pm, amount, False
     free_cols, free_amount = unrestricted_mana(txt)

@@ -136,6 +136,36 @@ def test_an_unreadable_free_line_falls_back_to_produced_mana(mm, colourless_scry
     assert cols == pm, "an unreadable free line must not empty the colour set"
 
 
+@pytest.mark.parametrize("txt", [
+    "{t}: add {g}.",
+    "{t}: add {g}.\n{t}: add {b}. spend this mana only to cast zombie spells.",
+    "{t}: add {r}{r}. spend this mana only to cast dwarf spells.",
+], ids=["restricted/narrowed on the no-restriction path",
+        "restricted/narrowed on the free-line path",
+        "restricted/narrowed on the all-restricted path"])
+def test_drop_restricted_narrows_colours_on_every_path(mm, txt):
+    """restricted/every return is mana symbols only
+
+    drop_restricted is exported, so its postcondition has to hold on its own.
+    Both builders happen to pre-filter `pm` against MANA_SYMBOLS before
+    calling, which is why narrowing inside changes no number today -- but that
+    makes the guarantee a property of two call sites rather than of the
+    function, and an outside caller gets no such courtesy.
+
+    All three return paths are covered because they used to disagree: two
+    handed `pm` straight back while the third narrowed it.
+
+    "S" is snow, which is a real produced_mana value and not a pip any cost
+    here can demand. It is the junk entry rather than "" because MANA_SYMBOLS
+    is a STRING, and `"" in "WUBRGC"` is True -- an empty entry would survive
+    this filter and every other one in the repo written the same way. That is
+    a quirk of the shared idiom, not of this function, and produced_mana does
+    not contain empty strings; pinning it here would be testing `in`.
+    """
+    cols, _amount, _restricted = mm.drop_restricted(txt, {"G", "B", "R", "S"}, 1)
+    assert cols <= set(mm.MANA_SYMBOLS), cols
+
+
 # --- and the part that actually matters: both models must DROP it ---------
 def _accel(restricted):
     return {"name": "rock", "kind": "accel", "colours": frozenset("R"),

@@ -743,3 +743,25 @@ the sort of thing a later tidy-up removes.
 
 The residual is a lone name, in a flag that is checking a deck the user just
 wrote by hand, with the idiom in `--help` one line away. Priced and kept.
+
+**The next thing to try is not a fifth fix — it is making it loud.** All four
+options above try to *decide* whether a name was halved, which is the part
+that cannot be done. An advisory does not have to decide. When a spec contains
+a comma and no `;`, print one line to stderr naming the segments it produced —
+
+```
+--cuts: split on comma into 2 names: Urborg / Tomb of Yawgmoth
+```
+
+— and split exactly as before. It moves no number, no snapshot and no split;
+it just refuses to be silent at the moment the mistake is made. The cost is
+that it cannot tell a halved name from a legitimate two-name spec, so it fires
+on `--cuts "Sol Ring,Island"` too. That noise is arguably worth paying on
+`--cuts` specifically, whose failure mode is a *pass*, and not on `--adds`,
+which already fails loudly with `MISSING ADD`.
+
+Not done here because it is a behaviour addition rather than a repair to
+either reported finding, and it belongs in its own commit where the asymmetry
+between the two flags can be argued on its own terms. Recorded because it is
+the first option considered that does not require solving the undecidable
+part, and it would otherwise be rediscovered.

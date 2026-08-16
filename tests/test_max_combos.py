@@ -38,7 +38,12 @@ EXHAUSTIVE = (2000, 20000)
 # gap at seed 17 came out at exactly 0.0100, and the test failed with nothing
 # actually wrong. At 20000 the sd is 0.0034 and the three seeds sit at 0.0033,
 # 0.0010 and 0.0005, so the same tolerance is a real guard: half a point of
-# genuine bias would trip it. Two seconds, once.
+# genuine bias would trip it.
+#
+# Cost, measured rather than estimated, because it is easy to multiply wrong:
+# 2.1s for the WHOLE case -- three seeds, two probability() calls each, so six
+# 20000-sim runs -- up from 0.4s. That is the total added to the suite, not a
+# per-seed or per-call figure.
 BIAS_SIMS = 20000
 
 
@@ -117,12 +122,21 @@ def test_250_is_not_biased_against_exhaustive(mm, multi, seed):
     """max_combos/250 does not bias the answer
 
     The hardest line in the deck, where truncation bites hardest: 1716
-    subsets available, 250 sampled. Across seeds the truncated figure sits
-    within half a point of exhaustive; over 30 seeds at BIAS_SIMS it also
-    lands on either side 15 times each, which is the part that makes it
-    non-bias rather than merely small. Three seeds cannot assert that second
-    half, so it is measured and written down rather than claimed by a test
-    that could not fail on it.
+    subsets available, 250 sampled. Over 30 seeds at BIAS_SIMS the truncated
+    figure lands on either side of exhaustive 15 times each, which is the
+    part that makes it non-bias rather than merely small. Three seeds cannot
+    assert that, so it is measured and written down rather than claimed by a
+    test that could not fail on it.
+
+    The measured gap and the tolerance are deliberately different numbers.
+    OBSERVED at these three seeds: 0.0033, 0.0010, 0.0005 -- comfortably
+    inside half a point. The GUARD trips at one point, which is looser on
+    purpose: a per-seed figure moves whenever an unrelated change shifts what
+    the shared rng stream deals, as adding one accelerant to this deck did,
+    and a tolerance pinned to the observation would fail on that without any
+    bias existing. One point is wide enough to survive a stream shift and
+    still narrow enough that real truncation bias -- which would be a
+    consistent half point or more, in one direction -- trips it.
     """
     lands, accels = multi
     trunc = mm.probability(lands, accels, 99, ["U", "B", "G"], 7, 7, BIAS_SIMS,
