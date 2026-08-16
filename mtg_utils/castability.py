@@ -442,7 +442,17 @@ def _sample_plan(n, k):
     They consume different bits, so the choice is part of the bit stream and
     not an implementation detail -- but it is fixed for a given (n, k), so a
     caller drawing in a loop picks the function once.
+
+    The bound is `random.sample`'s own, message included, and dropping it was
+    not survivable. `_setsize(k)` is always at least 3k, so k > n always lands
+    in `_sample_small`, where the pool runs out at i == n: m becomes 0,
+    `(0).bit_length()` is 0, `getrandbits(0)` is 0, and `while j >= m` is
+    `0 >= 0` forever. It spins consuming no randomness rather than raising --
+    a hang where the stdlib exited immediately, reachable from `mana` on any
+    short decklist, which the tool warns about but does not refuse.
     """
+    if not 0 <= k <= n:
+        raise ValueError("Sample larger than population or is negative")
     return _sample_small if n <= _setsize(k) else _sample_set
 
 
@@ -538,6 +548,13 @@ def probability(lands, accels, deck_size, req, mv, turn, sims, rng,
     memo = _CASTABLE_MEMO
     getrandbits = rng.getrandbits
     seen = 7 + turn - 1
+    # A combination holds `turn` sources, so it cannot hold more than `turn`
+    # of any one signature -- which is what keeps the packed hand below the
+    # field width `castable` guards on its own entry point. `probability` is
+    # exported, so `turn` arrives from outside; asserted here, where the
+    # precondition is established, rather than tested per combination in the
+    # loop below.
+    assert turn <= _SIG_LIMIT, (turn, _SIG_LIMIT)
     combinations = itertools.combinations
     ncombos = [math.comb(g, turn) for g in range(seen + 1)]
     # Both are fixed for the whole run of sims, so the strategy is chosen once.
@@ -699,6 +716,11 @@ def _playsim_core(lands, accels, deck_size, turns, on_draw, trials, rng,
     a_late = [bool(p["tapped"] or p.get("creature")
                    or p.get("trigger") == "phase") for p in accels]
 
+    # One land a turn plus at most the four accelerants the deployment loop
+    # will place, so nothing can come online often enough to overflow a
+    # signature's field in the packed hand. Same precondition as the assert in
+    # `probability`, established by a different caller.
+    assert 5 * turns <= _SIG_LIMIT, (turns, _SIG_LIMIT)
     out = [[] for _ in range(turns + 1)]
     ghits = [0] * (turns + 1)
     if not trials:

@@ -87,7 +87,13 @@ def worst_lines(names, scry, lands, accels, sims, rng, top=5, deck_size=None):
             if not req:
                 continue
             turn = max(mv, len(req), 1)
-            if turn > 7:
+            # The same limit the play simulation stops at, and deliberately so
+            # rather than by coincidence: `analyse_mana` turns these rows into
+            # the lines it hands to `playsim_report`, which drops any line
+            # past `PLAYSIM_TURNS`. A row allowed through here that the
+            # simulation would not measure becomes a line silently missing
+            # from the table beside it.
+            if turn > PLAYSIM_TURNS:
                 continue
             cand.setdefault((turn, mv, tuple(sorted(req))), []).append(label)
     rows = []

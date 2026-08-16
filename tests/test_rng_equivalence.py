@@ -26,7 +26,8 @@ import random
 
 import pytest
 
-from mtg_utils.castability import _sample_hits, _shuffle_plan
+from mtg_utils.castability import (_sample_hits, _sample_plan, _sample_set,
+                                   _sample_small, _setsize, _shuffle_plan)
 
 
 def _deal(rng, deck, m):
@@ -113,3 +114,43 @@ def test_sample_hits_keeps_every_value_when_nothing_is_filtered():
     that returned a set, or sorted, would pass every test above."""
     a, b = random.Random(21), random.Random(21)
     assert _sample_hits(a.getrandbits, 99, 13, 99) == b.sample(range(99), 13)
+
+
+# --- the bound `sample` has, which a copy is very easy to drop -------------
+@pytest.mark.parametrize("n,k", [(12, 13), (0, 1), (5, 6), (99, 100)])
+def test_asking_for_more_cards_than_the_deck_holds_raises(n, k):
+    """`random.sample` refuses k > n; so must the copy, and for a sharper
+    reason than symmetry.
+
+    `_setsize(k)` is always at least 3k, so k > n always selects
+    `_sample_small` -- where the pool runs out at i == n, `m` becomes 0,
+    `(0).bit_length()` is 0, `getrandbits(0)` returns 0, and `while j >= m`
+    is `0 >= 0` forever. Without the bound it spins consuming no randomness
+    instead of raising: a hang, on input `mana` can reach, where the stdlib
+    exited immediately.
+
+    Asserted against `_sample_plan` rather than `_sample_hits` on purpose.
+    The guard lives in the plan, and a plan that fails to raise returns a
+    function -- so this fails. Driving `_sample_hits` instead would HANG the
+    suite on the very regression it exists to catch, and a test that hangs CI
+    is worse than one that fails it.
+    """
+    with pytest.raises(ValueError) as ours:
+        _sample_plan(n, k)
+    with pytest.raises(ValueError) as theirs:
+        random.Random(0).sample(range(n), k)
+    assert str(ours.value) == str(theirs.value)
+
+
+def test_the_strategy_split_is_a_function_of_size_alone():
+    """`probability` chooses the strategy once and reuses it for every draw,
+    which is only sound because the choice depends on nothing else. Pinned
+    against the stdlib's own threshold arithmetic."""
+    import math
+    for k in range(1, 40):
+        want = 21 + (4 ** math.ceil(math.log(k * 3, 4)) if k > 5 else 0)
+        assert _setsize(k) == want, k
+        for n in (want - 1, want, want + 1):
+            if k <= n:
+                expect = _sample_small if n <= want else _sample_set
+                assert _sample_plan(n, k) is expect, (n, k)
