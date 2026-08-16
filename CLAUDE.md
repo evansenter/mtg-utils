@@ -26,9 +26,10 @@ over **four** frozen decks and asserts stdout is byte-identical to committed sna
   about the code.
 
 `KNOWN_ISSUES.md` is the durable record of things that look wrong. Every entry
-in it is now marked **FIXED** or **RESOLVED** — resolved meaning the behaviour
-was examined and deliberately kept, with the reasoning written down. Nothing in
-it is currently outstanding.
+in it is now marked **FIXED**, **RESOLVED** or **CHANGED** — resolved meaning
+the behaviour was examined and deliberately kept, with the reasoning written
+down; changed meaning a reported number was moved on purpose, with what moved
+written down beside it. Nothing in it is currently outstanding.
 
 Its job did not end when the list emptied. It exists because "a finding that
 lives only in scrollback is a finding that gets rediscovered", so when you

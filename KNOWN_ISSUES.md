@@ -539,6 +539,17 @@ unaffected. Admitting it is correct; the expectation was the error.
   right reading of a per-turn question and of how a ritual is actually played —
   firing it on sight would model casting Dark Ritual into an empty hand — and
   it is the one place where "one-shot" is not literally simulated.
+- **The ritual is chosen by net, not by the line being measured.**
+  `ritual_burst` runs once per turn, before any line is evaluated, and takes
+  the largest castable net. On a hand holding two rituals of different colours
+  that can pick the one paying nothing toward the pips: Dark Ritual (net 2) and
+  Pyretic Ritual (net 1) off Swamp, Mountain, Mountain gives `{B}{R}{R}` plus
+  two black against a `{R}{R}{R}` line that the smaller burst would have paid,
+  and the line reads uncastable when it is castable. Understates only, which is
+  the direction this model errs on purpose; no fixture runs two rituals, so
+  nothing committed here is affected. Choosing per line means moving the
+  decision into `playsim_report` and searching inside the trial loop — the same
+  bill the payment residual above declines to pay.
 - **Treasure engines are still excluded.** Pitiless Plunderer and Warren
   Soultrader are an understatement in the same direction and stay out: their
   "add" text is a Treasure's reminder, and the rate at which they make one is a

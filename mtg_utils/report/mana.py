@@ -10,6 +10,18 @@ from mtg_utils.profiles import (build_accel_profiles, build_land_profiles,
                                 build_ritual_profiles)
 
 
+def _burst_note(rituals):
+    """'dark ritual +2' -- the rituals counted, with their NETS.
+
+    Shared by the two tables that mention rituals. What they say ABOUT the
+    burst legitimately differs -- report_mana says which model uses it,
+    report_variants says it is held constant across the sweep -- but the fact
+    itself is one fact, and rendering it twice is how the two drift into
+    quoting different nets for the same deck.
+    """
+    return ", ".join("%s +%d" % (r["name"], r["amount"]) for r in rituals)
+
+
 def _reps(n):
     """'3 reps' / '1 rep'. The provenance line is read by people copying a
     figure into a primer, and '1 reps' reads as a bug in the tool."""
@@ -49,8 +61,8 @@ def report_mana(cmdr, entries, scry, sims, trials, seed=17, lines=None, reps=3):
     # should not, and the golden suite says so instead of showing a diff that
     # is all header line.
     if rituals:
-        burst = ", ".join("%s +%d" % (r["name"], r["amount"]) for r in rituals)
-        print(f"  rituals counted, play simulation only (net burst): {burst}")
+        print(f"  rituals counted, play simulation only (net burst): "
+              f"{_burst_note(rituals)}")
 
     # Every figure carries the wobble of its own reported value. Without it a
     # 0.4-point gap between two variants reads exactly like a 4-point one, and
@@ -132,9 +144,8 @@ def report_variants(cmdr, entries, scry, land_deltas, accel_deltas, trials,
     # nothing about it. Without this line, someone diffing a stored sweep
     # against a fresh one sees identical configs and moved numbers.
     if rituals:
-        burst = ", ".join("%s +%d" % (r["name"], r["amount"]) for r in rituals)
         print(f"  every row includes the ritual burst, held constant and not in "
-              f"the accel count: {burst}")
+              f"the accel count: {_burst_note(rituals)}")
     print(f"  {'config':26s} {'cmdr on curve':>20} {'any N on turn N':>22}")
     for dl in land_deltas:
         for da in accel_deltas:

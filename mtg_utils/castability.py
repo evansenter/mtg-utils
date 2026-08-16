@@ -225,7 +225,15 @@ def ritual_burst(srcs, cands):
     lower a figure, which is the safe direction.
 
     Ordered by net then name so the choice is deterministic: the same board
-    and the same hand pick the same ritual on every run and every seed.
+    and the same hand pick the same ritual on every run and every seed. That
+    is determinism, which is NOT the same property as best. The choice is made
+    once per turn, here, before any line is evaluated, so it is blind to the
+    pips the reading will ask for: holding Dark Ritual and Pyretic Ritual on a
+    Swamp-Mountain-Mountain board, the larger net wins and yields two black
+    for a line wanting {R}{R}{R} that the smaller one would have paid. It errs
+    DOWNWARD, which is the safe direction, and picking per line would mean
+    moving this decision into playsim_report and searching inside the trial
+    loop. Priced and kept -- KNOWN_ISSUES.md #15.
     """
     for c in sorted(cands, key=lambda c: (-c["p"]["amount"], c["p"]["name"])):
         if castable(srcs, list(c["pips"]), c["p"]["cost"]):
