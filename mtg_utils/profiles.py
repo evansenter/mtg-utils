@@ -77,10 +77,11 @@ def drop_restricted(txt, pm, amount):
     Fíli and Kíli, Joyous taps for {R}{R} for Dwarf, Equipment and Saga
     spells and for nothing else, and unrestricted_mana finds no free line.
 
-    `pm` and `amount` are returned unchanged when there is no restriction to
-    drop, and also when EVERY line is restricted -- the flag excludes the
-    card from the totals, it does not pretend the card taps for less than it
-    does. See test_restricted_amount_is_still_read.
+    `amount` is returned unchanged when there is no restriction to drop, and
+    also when EVERY line is restricted -- the flag excludes the card from the
+    totals, it does not pretend the card taps for less than it does. See
+    test_restricted_amount_is_still_read. (`pm` is not: it is narrowed on
+    every path, per the paragraph below.)
 
     Every colour set returned is narrowed to MANA_SYMBOLS here rather than at
     the call sites. Both builders happen to pre-filter `pm` already, so this

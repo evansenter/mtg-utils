@@ -594,8 +594,30 @@ multi fixture, invisible to every figure the tool reports.
 understates it in the direction that matters least visibly. The free half of
 Delighted Halfling's ability is colourless, so what it moves is the QUANTITY
 question — the generic baseline and the on-curve line — while the colour lines
-it cannot pay for stay put. A missing colourless source does not make a colour
-line look bad; it makes the deck look one land short.
+its restricted half could pay for move only by the free half. A missing
+colourless source does not make a colour line look bad; it makes the deck look
+one land short.
+
+### Still per card: what the mana may be SPENT on
+
+The flag is per line now. The consumption is not. `castability` either drops a
+profile whole (`restricted`) or spends its colours freely; there is no third
+option, no notion of "this mana pays only for spells matching X". So the free
+lines' colours are all a partly-restricted card ever contributes.
+
+The multi fixture is where that shows. Delighted Halfling's restricted half is
+*legendary spells only*, and `Muldrotha, the Gravetide` is a Legendary Creature
+— so the one line in that report its restricted half genuinely could pay for is
+the commander line, and that is exactly the line it is not counted for. The
+observed movement there (78.0 → 79.5 on the play) is the free colourless half
+and nothing else.
+
+Not a regression — the card went from invisible to a `{C}` source, which is
+strictly closer — and not attempted here. Pricing it means threading the pip
+requirement and the spell's characteristics down to the profile, which is the
+turn-and-context coupling the sources model deliberately does not have. Written
+down because the direction is conservative, and **an understatement nobody
+records is one that gets rediscovered as a bug**.
 
 **Fixed** by lifting the per-line logic into `drop_restricted`, called by both
 builders, so the two paths cannot drift again. The `restricted` flag now means
@@ -654,7 +676,8 @@ one point is 1.5 sd — the test passed because those three seeds happened to
 land inside it, not because 250 is unbiased. Counting Delighted Halfling put
 one more source in the turn-7 hand and seed 17 came out at exactly 0.0100.
 
-Raised to 20000 sims for that test alone (two seconds). The sd falls to 0.0034,
+Raised to 20000 sims for that test alone (2.1s total for the case — three
+seeds, two `probability` calls each — up from 0.4s). The sd falls to 0.0034,
 the three seeds sit at 0.0033 / 0.0010 / 0.0005, and over 30 seeds the
 truncated figure lands above exhaustive 15 times and below it 15 times. The
 tolerance was **not** loosened; the measurement was made precise enough for it
