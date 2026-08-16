@@ -648,8 +648,11 @@ works as a library import.
 pytest                      # or: python3 mana_model.py selftest
 ```
 
-642 cases, offline, about 10 seconds. No test touches the network; anything
-that would need Scryfall or Moxfield uses a frozen fixture instead.
+Around 700 cases, offline, under half a minute. Deliberately rounded: the
+exact count moves with every merge, and three files quoting three different
+figures is how a reader learns to distrust all of them. `pytest` prints the
+real number. No test touches the network; anything that would need Scryfall or
+Moxfield uses a frozen fixture instead.
 
 ### The invariant
 

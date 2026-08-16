@@ -48,7 +48,7 @@ welcome, as its own commit, with the snapshot diff shown.
 ## Commands
 
 ```bash
-pytest                                   # whole suite, ~10s, fully offline
+pytest                                   # whole suite, well under a minute, offline
 python3 mana_model.py selftest           # same thing via the CLI contract
 PYTHONHASHSEED=0 pytest -q --durations=5 # exactly what CI runs
 ```

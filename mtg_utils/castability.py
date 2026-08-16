@@ -958,7 +958,22 @@ def playsim(lands, accels, deck_size, turns, on_draw, trials, rng,
             count_restricted=False, count_triggered=False, rituals=None):
     """Draw seven (+1 on the draw), draw one per turn, play a land if you have
     one, deploy the cheapest affordable accelerant, then read off available
-    mana. Returns per-turn lists of (available source profiles, total mana)."""
+    mana. Returns per-turn lists of (available source profiles, total mana).
+
+    `rituals` are one-shot spells (build_ritual_profiles), and they are handled
+    nothing like accelerants. A ritual is never deployed to the battlefield and
+    never becomes a source: it is read out of HAND, once, at the end of the
+    turn, as a burst of its net mana, and only if the board can pay its cost.
+
+    It stays in hand across turns on purpose. Each turn's reading is a separate
+    question -- "if I am holding this on turn five, do I have five mana on turn
+    five" -- and a real player holds a ritual until the turn it pays for
+    something. Firing it on the first turn it is castable would model a player
+    who casts Dark Ritual into an empty hand, and would understate every later
+    turn. What must not happen, and does not, is the mana COMPOUNDING: it is
+    recomputed from scratch each turn, never lands on the battlefield, and
+    never funds an accelerant.
+    """
     return _playsim_core(lands, accels, deck_size, turns, on_draw, trials, rng,
                          count_restricted, count_triggered, rituals, None)[0]
 

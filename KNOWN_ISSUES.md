@@ -8,9 +8,9 @@ a reported number was moved on purpose, with what moved written down beside it.
 The file's job does not end when the list empties. It exists because a finding
 that lives only in scrollback gets rediscovered — so a decision NOT to do
 something belongs here too, not in a commit message nobody greps. #13, #14 and
-#17 are that shape, and #15 is the other one: a limitation that was priced,
+#18 are that shape, and #15 is the other one: a limitation that was priced,
 kept, and later revisited deliberately, with the earlier entry left standing.
-#16 carries a residual of the same kind inside an otherwise-fixed entry, with
+#17 carries a residual of the same kind inside an otherwise-fixed entry, with
 the four repairs considered and why each was worse.
 
 Everything here was found while moving `mana_model.py` into `mtg_utils/`, and
