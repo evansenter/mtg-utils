@@ -16,11 +16,12 @@ is a moved number that no snapshot would have caught.
 It is not a slow test -- a few thousand comparisons of a function built to be
 called millions of times.
 """
+import itertools
 import random
 
 import pytest
 
-from mtg_utils.castability import _match, castable
+from mtg_utils.castability import _match, castable, probability
 
 
 # --------------------------------------------------------------------------
@@ -94,6 +95,48 @@ def ref_castable(sources, req, mv):
         return False
 
     return recurse(0, frozenset())
+
+
+def ref_playable_set(chosen):
+    if chosen and all(p["tapped"] for p in chosen):
+        for i, p in enumerate(chosen):
+            if p["tapped"]:
+                return chosen[:i] + chosen[i + 1:]
+    return chosen
+
+
+def ref_probability(lands, accels, deck_size, req, mv, turn, sims, rng,
+                    max_combos=250, count_restricted=False,
+                    count_triggered=False):
+    accels = [a for a in accels
+              if (count_restricted or not a.get("restricted"))
+              and (count_triggered or a.get("trigger") != "event")]
+    lands = [l for l in lands if count_restricted or not l.get("restricted")]
+    pool_idx = list(range(len(lands) + len(accels)))
+    allp = lands + accels
+    pool = pool_idx + [None] * (deck_size - len(pool_idx))
+    seen = 7 + turn - 1
+    hits = 0
+    for _ in range(sims):
+        draw = rng.sample(pool, seen)
+        got = [allp[i] for i in draw if i is not None]
+        if not any(p["kind"] == "land" for p in got):
+            continue
+        if len(got) < turn:
+            continue
+        if len(got) == turn:
+            combos = [got]
+        else:
+            allc = list(itertools.combinations(got, turn))
+            combos = allc if len(allc) <= max_combos else rng.sample(allc, max_combos)
+        for c in combos:
+            c = list(c)
+            if not any(p["kind"] == "land" for p in c):
+                continue
+            if ref_castable(ref_playable_set(c), req, mv):
+                hits += 1
+                break
+    return hits / sims
 
 
 # --------------------------------------------------------------------------
@@ -216,3 +259,92 @@ def test_a_hand_too_big_to_pack_is_still_answered_correctly():
     assert castable([b], ["G", "G"], 2) is False
     # And just under the limit, where packing is used, is right as well.
     assert castable([a] * _SIG_LIMIT, ["G", "G"], 2) is True
+
+
+# --------------------------------------------------------------------------
+# The draw layer. `castable` is order-independent and the case above pins
+# that, but `probability` applies `playable_set` BEFORE calling it, and that
+# step is not: a combination in which every source is tapped loses the one
+# drawn FIRST. So the draw memo cannot key on the multiset alone, and nothing
+# above would have noticed -- this is the case that catches it.
+# --------------------------------------------------------------------------
+def _land(name, cols, amount=1, tapped=False, **kw):
+    d = {"name": name, "kind": "land", "colours": frozenset(cols),
+         "filter": None, "omni": None, "amount": amount, "tapped": tapped,
+         "cond_tap": None, "restricted": False, "mdfc": False, "trigger": None}
+    d.update(kw)
+    return d
+
+
+def _rock(name, cols, amount=1, cost=2, tapped=False, **kw):
+    d = dict(_land(name, cols, amount, tapped), kind="accel", cost=cost,
+             creature=False)
+    d.update(kw)
+    return d
+
+
+# A tapped source of two mana is what makes the truncation observable: with
+# every source at one mana and turn == mv, an all-tapped combination always
+# fails the total check whichever one is dropped, so the order cannot show.
+# Golgari Rot Farm is in the `multi` fixture and Worn Powerstone in
+# `colourless`, so this is not an invented shape -- the committed decks were
+# simply never dealt a hand where it changed the printed figure.
+KAROO = [_land("karoo", "WU", amount=2, tapped=True) for _ in range(18)]
+TEMPLE = [_land("temple", "W", amount=1, tapped=True) for _ in range(18)]
+BASIC = [_land("plains", "W") for _ in range(16)]
+DUAL = [_land("dual", "WU") for _ in range(8)]
+GATE = [_land("gate", "WU", filter="WU") for _ in range(6)]
+SOL = [_rock("sol", "C", amount=2, cost=1) for _ in range(6)]
+BIG = [_rock("bigrock", "", amount=2, cost=3, tapped=True) for _ in range(6)]
+
+DECKS = {
+    "karoo + temple, all tapped": (KAROO + TEMPLE, []),
+    "karoo among untapped lands": (KAROO + BASIC + DUAL, []),
+    "tapped rock of two mana": (BASIC + TEMPLE, BIG),
+    "filters and a fast rock": (GATE + BASIC + KAROO, SOL),
+    "everything at once": (KAROO + TEMPLE + BASIC + DUAL + GATE, SOL + BIG),
+}
+
+LINES = [(["W"], 2, 2), (["W"], 1, 1), (["W", "U"], 2, 2), (["W", "W"], 3, 3),
+         (["W", "U"], 4, 4), (["C"], 2, 2), (["W", "U", "W"], 3, 3)]
+
+
+@pytest.mark.parametrize("deck", sorted(DECKS))
+def test_probability_matches_the_pre_rewrite_draw_layer(deck):
+    """The whole sources model, not just its solver.
+
+    Covers what `castable`-only equivalence cannot: the reimplemented
+    `random.sample`, the combination enumeration, the `playable_set`
+    truncation and the per-draw memo -- against the implementation at
+    6bdd64d, which used the stdlib and no cache at all.
+    """
+    lands, accels = DECKS[deck]
+    bad = []
+    for req, mv, turn in LINES:
+        for seed in (3, 11):
+            want = ref_probability(lands, accels, 99, list(req), mv, turn,
+                                   600, random.Random(seed))
+            got = probability(lands, accels, 99, list(req), mv, turn,
+                              600, random.Random(seed))
+            if got != want:
+                bad.append((req, mv, turn, seed, want, got))
+    assert not bad, bad
+
+
+def test_probability_is_not_confused_by_a_reordered_draw():
+    """The finding itself, at its smallest.
+
+    Two decks holding the same two tapped sources, differing only in which
+    the generator tends to deal first. Keyed on the multiset alone the first
+    draw to arrive answers for both, and the figure moves by ten points or
+    more -- so this fails loudly if the draw order ever leaves the key again.
+    """
+    a = KAROO + TEMPLE
+    b = TEMPLE + KAROO
+    for lands in (a, b):
+        for seed in (0, 5, 9):
+            want = ref_probability(lands, [], 99, ["W"], 2, 2, 800,
+                                   random.Random(seed))
+            got = probability(lands, [], 99, ["W"], 2, 2, 800,
+                              random.Random(seed))
+            assert got == want, (lands is a, seed, want, got)

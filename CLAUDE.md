@@ -147,8 +147,15 @@ pips are **sorted** because the answer is a bipartite matching, which does not
 care what order they arrive in. `probability` caches per DRAW as well, but only
 while nothing is truncated — past `max_combos` the answer depends on which 250
 combinations the generator picked, which is a different question every time.
-If you add a field the solver reads, it has to go into `_sig_id`, or hands that
-differ in it will answer for each other.
+The draw key keeps the codes in the order they were DRAWN, because
+`playable_set` drops the source drawn first out of an all-tapped combination:
+sorted, it answered one draw with another's result and moved a figure by
+eleven points on a deck with a karoo in it.
+
+The rule that generalises: if the SOLVER reads a field it belongs in
+`_sig_id`, and if the loop around it reads anything else — draw order included
+— that belongs in the draw key. A cache here keyed on less than the answer
+depends on does not fail, it answers confidently and wrongly.
 
 **A hand is an integer**, six bits per source signature counting how many are
 in play, so the simulation grows one by addition. Six bits counts to 63; a hand

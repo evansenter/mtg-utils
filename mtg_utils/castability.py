@@ -379,44 +379,77 @@ def playable_set(chosen):
 # That test is the whole licence for this section: if a future interpreter
 # changes either algorithm it fails there, naming the cause, instead of
 # quietly moving four decks' worth of probabilities.
-def _sample_hits(getrandbits, n, k, limit):
-    """The values `random.sample(range(n), k)` would return, keeping only
-    those below `limit`, in order.
+# `sample`'s strategy threshold depends only on k, so it is worked out once
+# per distinct draw size rather than once per draw -- a log, a ceil and a
+# power were being recomputed twenty thousand times a line to reach the same
+# answer. The value is the stdlib's, unchanged; only how often it is derived.
+_SETSIZE = {}
 
-    The stdlib picks one of two strategies by size and consumes different bits
-    for each, so both are reproduced. The rejection loop is fused: the stdlib
-    calls `_randbelow(n)` (which redraws while r >= n) and then redraws while
-    the result is already selected, which is the same sequence of draws as one
-    loop that redraws on either condition.
+
+def _setsize(k):
+    s = _SETSIZE.get(k)
+    if s is None:
+        s = 21
+        if k > 5:
+            s += 4 ** math.ceil(math.log(k * 3, 4))
+        _SETSIZE[k] = s
+    return s
+
+
+def _sample_small(getrandbits, n, k, limit):
+    """`sample`'s strategy for a population small enough that an n-length list
+    beats a k-length set: draw from a pool, backfilling the vacancy."""
+    out = []
+    pool = list(range(n))
+    for i in range(k):
+        m = n - i
+        b = m.bit_length()
+        j = getrandbits(b)
+        while j >= m:
+            j = getrandbits(b)
+        v = pool[j]
+        if v < limit:
+            out.append(v)
+        pool[j] = pool[m - 1]
+    return out
+
+
+def _sample_set(getrandbits, n, k, limit):
+    """`sample`'s strategy for a large population: draw and reject repeats.
+
+    The rejection loop is fused: the stdlib calls `_randbelow(n)` (which
+    redraws while r >= n) and then redraws while the result is already
+    selected, which is the same sequence of draws as one loop that redraws on
+    either condition.
     """
     out = []
-    setsize = 21
-    if k > 5:
-        setsize += 4 ** math.ceil(math.log(k * 3, 4))
-    if n <= setsize:
-        pool = list(range(n))
-        for i in range(k):
-            m = n - i
-            b = m.bit_length()
+    selected = set()
+    add = selected.add
+    b = n.bit_length()
+    for _ in range(k):
+        j = getrandbits(b)
+        while j >= n or j in selected:
             j = getrandbits(b)
-            while j >= m:
-                j = getrandbits(b)
-            v = pool[j]
-            if v < limit:
-                out.append(v)
-            pool[j] = pool[m - 1]
-    else:
-        selected = set()
-        add = selected.add
-        b = n.bit_length()
-        for _ in range(k):
-            j = getrandbits(b)
-            while j >= n or j in selected:
-                j = getrandbits(b)
-            add(j)
-            if j < limit:
-                out.append(j)
+        add(j)
+        if j < limit:
+            out.append(j)
     return out
+
+
+def _sample_plan(n, k):
+    """Which of `sample`'s two strategies it would use for this size.
+
+    They consume different bits, so the choice is part of the bit stream and
+    not an implementation detail -- but it is fixed for a given (n, k), so a
+    caller drawing in a loop picks the function once.
+    """
+    return _sample_small if n <= _setsize(k) else _sample_set
+
+
+def _sample_hits(getrandbits, n, k, limit):
+    """The values `random.sample(range(n), k)` would return, keeping only
+    those below `limit`, in order."""
+    return _sample_plan(n, k)(getrandbits, n, k, limit)
 
 
 def _shuffle_plan(n, m):
@@ -493,9 +526,9 @@ def probability(lands, accels, deck_size, req, mv, turn, sims, rng,
     # tapped" are one C call over the combo rather than a Python loop.
     land_idx = frozenset(i for i, p in enumerate(allp) if p["kind"] == "land")
     untapped = frozenset(i for i, p in enumerate(allp) if not p["tapped"])
-    # Everything a combo's answer turns on, packed into one sortable int, so
-    # two draws that differ only in which particular Mountain came up are
-    # recognisable as the same question.
+    # Everything a combo's answer turns on, packed into one int, so two draws
+    # that differ only in which particular Mountain came up are recognisable
+    # as the same question.
     code = [(sids[i] << 2) | (2 if i in land_idx else 0)
             | (0 if i in untapped else 1) for i in range(nsrc)]
     pow_of = [_SIG_POW[s] for s in sids].__getitem__
@@ -507,6 +540,8 @@ def probability(lands, accels, deck_size, req, mv, turn, sims, rng,
     seen = 7 + turn - 1
     combinations = itertools.combinations
     ncombos = [math.comb(g, turn) for g in range(seen + 1)]
+    # Both are fixed for the whole run of sims, so the strategy is chosen once.
+    draw_hits = _sample_plan(pool_n, seen)
 
     def any_castable(combos):
         for c in combos:
@@ -528,11 +563,24 @@ def probability(lands, accels, deck_size, req, mv, turn, sims, rng,
                 return True
         return False
 
-    # Whether a draw can pay depends only on WHAT was drawn, so the same hand
-    # coming up again is the same answer -- and over thousands of sims the
-    # same hand comes up constantly. Only sound while no combo is discarded:
-    # once the count passes max_combos the answer depends on which 250 the
-    # generator picked, which is a different question every time.
+    # Whether a draw can pay depends only on what was drawn AND ON THE ORDER
+    # IT WAS DRAWN IN, so the same hand coming up again is the same answer --
+    # and over thousands of sims the same hand comes up constantly.
+    #
+    # The order is in the key because `playable_set` reads it: a combination
+    # in which every source is tapped loses the one drawn FIRST, so the same
+    # multiset dealt in a different order can lose a different source and
+    # answer differently. Keyed on the sorted codes, the first of those two
+    # draws to arrive answered for both, and on a deck holding a tapped
+    # source of two mana -- a karoo, Azorius Chancery -- that moved the
+    # reported figure by eleven points. Every cache in this file needs an
+    # argument for why its key is complete; this one's is that the loop below
+    # reads nothing about a source except its code, and nothing about the
+    # draw except the sequence of them.
+    #
+    # Only sound while no combo is discarded: once the count passes
+    # max_combos the answer depends on which 250 the generator picked, which
+    # is a different question every time.
     #
     # Kept between calls, because `--reps` asks the identical question three
     # times over at three seeds, and `variants` asks it again of a deck that
@@ -544,14 +592,14 @@ def probability(lands, accels, deck_size, req, mv, turn, sims, rng,
         answered = _DRAW_MEMO[dm_key] = {}
     hits = 0
     for _ in range(sims):
-        got = _sample_hits(getrandbits, pool_n, seen, nsrc)
+        got = draw_hits(getrandbits, pool_n, seen, nsrc)
         ng = len(got)
         if ng < turn:
             continue
         if land_idx.isdisjoint(got):
             continue
         if ncombos[ng] <= max_combos:
-            dkey = tuple(sorted(map(code_of, got)))
+            dkey = tuple(map(code_of, got))
             r = answered.get(dkey)
             if r is None:
                 r = answered[dkey] = any_castable(combinations(got, turn))

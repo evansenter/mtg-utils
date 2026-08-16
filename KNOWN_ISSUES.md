@@ -436,8 +436,11 @@ own commit with the snapshot diff shown.
 
 ## 15. The Monte Carlo core is optimised, and where it stops — RESOLVED, measured
 
-`mana` on the four fixture decks went 22.9s to 2.9s, and `variants` 15.7s to
-2.8s, with every snapshot byte-identical. `castability.py` is now the one file
+`mana` on the four fixture decks went 25.9s to 5.6s, and `variants` 70.4s to
+13.5s, with every snapshot byte-identical. Measured end to end against the
+merged tree -- not against the branch point, which had moved under this work
+twice over; earlier drafts of this entry quoted the older figures and read as
+freshly measured when they were not. `castability.py` is now the one file
 here written for speed rather than plainly, so the reasoning belongs somewhere
 greppable rather than in four commit messages.
 
@@ -456,10 +459,10 @@ figure, so that half is not available. Measured, per deck:
 
 | deck | `analyse_mana` | the draws alone |
 |---|---|---|
-| mono | 0.64s | 0.30s (47%) |
-| multi | 0.82s | 0.41s (49%) |
-| colourless | 0.61s | 0.28s (46%) |
-| partner | 0.81s | 0.42s (52%) |
+| mono | 0.75s | 0.35s (47%) |
+| multi | 0.91s | 0.47s (52%) |
+| colourless | 0.72s | 0.33s (45%) |
+| partner | 0.95s | 0.49s (51%) |
 
 The obvious next idea is batching: `getrandbits(32*N)` really does return
 exactly what N calls to `getrandbits(32)` return, little-endian, so a block
@@ -468,10 +471,33 @@ Python-level buffer bookkeeping costs more than the C call it removes. The
 per-call version is not there for want of looking.
 
 **What it cost.** Memory. The caches are per-process and did not exist before;
-a four-deck run peaks at 76 MB against about 11 MB baseline. They are bounded
+a four-deck run peaks at 75 MB against about 11 MB baseline. They are bounded
 by a watermark set above what one deck's full measurement needs, so a single
 run keeps every hit and `calibrate` cannot grow without limit. Dropping a cache
 costs time and never correctness, which is what makes the crude bound safe.
+
+**What it cost once, in the wrong direction.** A cache keyed on less than the
+answer depends on. `_DRAW_MEMO` keyed a draw on the SORTED codes of what was
+drawn, but `playable_set` drops the source drawn FIRST out of a combination in
+which everything is tapped -- so two draws of the same sources in a different
+order can differ, and whichever arrived first answered for both. On a deck
+holding a tapped source of two mana (a karoo; Azorius Chancery, Golgari Rot
+Farm) it moved the reported figure by eleven points, on every seed tried.
+
+Caught in review, not by the suite. The four fixtures did not show it, and the
+reason is worth writing down because it is not the reassuring one: `multi`
+carries Golgari Rot Farm and `colourless` carries Worn Powerstone, so the
+ingredient WAS present in the committed decks -- they were simply never dealt
+a hand where it changed a printed figure. "The snapshots did not move" was
+true and proved nothing.
+
+The fix is to key on the drawn codes in draw ORDER, which is what the loop
+reads, and it is faster than the sorted key rather than slower -- building the
+tuple no longer sorts it. `tests/test_solver_equivalence.py` now keeps the
+pre-rewrite `probability` verbatim beside the new one and compares the whole
+draw layer over decks built to reach the case, which is the check that was
+missing: `castable` order-independence was pinned, and the truncation that
+happens BEFORE it is not order-independent at all.
 
 **What it risks.** `random.shuffle` and `random.sample` are reimplemented to
 skip work the models throw away. That couples this repo to two stdlib
