@@ -7,7 +7,7 @@ import time
 from mtg_utils import __doc__ as _BANNER
 from mtg_utils.analysis import verify
 from mtg_utils.decklist import (as_cmdrs, flat, parse_swaps, read_decklist,
-                                write_deck)
+                                split_names, write_deck)
 from mtg_utils.report import (report_calibrate, report_combos, report_contention,
                               report_ceiling, report_diff, report_mana,
                               report_own, report_primer, report_roster,
@@ -73,8 +73,15 @@ def main():
     ap.add_argument("--lands", default="-2,0,2",
                     help="land count deltas, e.g. -2,0,2 (leading minus needs --lands=-2,0,2)")
     ap.add_argument("--accel", default="0,2", help="accelerant count deltas")
-    ap.add_argument("--adds", default="")
-    ap.add_argument("--cuts", default="")
+    ap.add_argument("--adds", default="",
+                    help="write: card names the output must contain, 'A,B'; "
+                         "if a name contains a comma, separate with ';' "
+                         "instead -- a lone name needs a trailing one, "
+                         "--adds='Ghalta, Primal Hunger;'")
+    ap.add_argument("--cuts", default="",
+                    help="write: card names the output must NOT contain; same "
+                         "separator rule as --adds, and note that a mis-split "
+                         "cut PASSES vacuously, so use ';' when in doubt")
     ap.add_argument("--rec-cache", default="edhrec.json",
                     help="ceiling: on-disk cache for EDHREC / edhtop16 pages")
     ap.add_argument("--cedh", action="store_true",
@@ -193,5 +200,4 @@ def main():
         report_contention(cmdr, entries, [x for x in a.decks.split(",") if x])
     if a.cmd == "write":
         write_deck(cmdr, entries, a.out or "final_deck.txt",
-                   [x for x in a.adds.split(",") if x],
-                   [x for x in a.cuts.split(",") if x])
+                   split_names(a.adds), split_names(a.cuts))

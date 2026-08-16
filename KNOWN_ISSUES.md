@@ -511,3 +511,76 @@ truncated figure lands above exhaustive 15 times and below it 15 times. The
 tolerance was **not** loosened; the measurement was made precise enough for it
 to mean something. 250 is genuinely non-biasing — that was never in doubt, only
 untested.
+
+---
+
+## 16. `--adds` / `--cuts` split on commas, which are in card names — FIXED
+
+`mtg_utils/cli.py`, the `write` branch:
+
+```python
+[x for x in a.adds.split(",") if x],
+[x for x in a.cuts.split(",") if x])
+```
+
+Comma is the only separator, and roughly every legendary creature has a comma
+in its name. `--adds "Ghalta, Primal Hunger"` becomes two names, `Ghalta` and
+`Primal Hunger`, neither of which is a card. `write_deck` then asserts and
+fails with
+
+```
+AssertionError: MISSING ADD: Ghalta
+```
+
+which reads as a typo in a name that was spelled correctly. The assertion is
+checking the deck it wrote; it has no way to know the name it was handed had
+already been cut in half.
+
+`--swap` already solved this: `parse_swaps` accepts `;` and lets it WIN when
+present. `--adds` and `--cuts` never got the escape hatch, so the same name
+could be swapped in but not added.
+
+**Cost on `--adds`:** no wrong number — the assertion catches it — but the
+flag is unusable for a large class of card names and the error points at the
+wrong thing.
+
+**Cost on `--cuts` is worse, and is the half worth remembering.** A cut
+asserts *absence*. Split in half, neither `Ghalta` nor `Primal Hunger` is in
+the deck, so the assertion passes — **vacuously**. The check reports success
+without having checked anything, which is the silent-all-clear shape this repo
+has been bitten by before (a non-canonical EDHREC slug answering 200 with no
+cardlists, and the audit reporting nothing missing).
+
+**Fixed** by giving all three flags one separator rule, `split_names`, built on
+the `_sep` helper `parse_swaps` now shares. `;` wins when present, `,`
+otherwise, so every existing invocation splits exactly as it did.
+
+Costs one `--help` snapshot: `--adds` and `--cuts` had no help text at all, and
+an escape hatch nobody can find is not an escape hatch. Both entries now state
+the rule, and `--cuts` states the vacuous pass.
+
+### Not fixed: a lone comma'd name still needs a trailing `;`
+
+`;` only wins when it is PRESENT, so one name with a comma and no semicolon
+anywhere still splits. The idiom is a trailing separator —
+`--adds="Ghalta, Primal Hunger;"` — with the empty segment dropped. Both forms
+are pinned as cases, because the trailing `;` looks like a typo and is exactly
+the sort of thing a later tidy-up removes.
+
+**Deliberately not fixed, because every fix considered was worse:**
+
+- *Detect the mis-split and refuse*, the way `parse_swaps` does. `parse_swaps`
+  can only do that because a pair has an `->` in it to validate against; a bare
+  name has no structure to check.
+- *Validate the names against the deck.* Decidable for `--adds`, whose names
+  must be present — and not for `--cuts`, whose names must be absent, which is
+  the case that needs it. A guard that covers the safe half of an asymmetric
+  pair is worse than none: it makes the unguarded half look guarded.
+- *Make the flags repeatable* (`action="append"`). Does not actually help —
+  each occurrence still has to be split on something, so a comma inside one
+  occurrence splits exactly as before.
+- *Stop splitting on commas.* Breaks every existing invocation, and the CLI
+  surface only grows.
+
+The residual is a lone name, in a flag that is checking a deck the user just
+wrote by hand, with the idiom in `--help` one line away. Priced and kept.

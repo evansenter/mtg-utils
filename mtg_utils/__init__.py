@@ -58,7 +58,8 @@ from mtg_utils.castability import (_match, at_least_in_draw, castable,
                                    castable_faces, pips_from_cost, playable_set,
                                    playsim, playsim_report, probability)
 from mtg_utils.decklist import (DECISION, apply_swaps, as_cmdrs, diff_multiset, flat,
-                                parse_swaps, read_decisions, read_decklist, write_deck)
+                                parse_swaps, read_decisions, read_decklist,
+                                split_names, write_deck)
 from mtg_utils.primer import LINK_RE, parse_primer_links, unclosed_openers
 from mtg_utils.roster import (ANY_COLOUR, OFF_ROSTER_RANK, PAIR_CYCLES,
                               TRIPLE_CYCLES, WUBRG, identity_pairs,
