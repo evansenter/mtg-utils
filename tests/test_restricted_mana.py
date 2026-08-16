@@ -34,6 +34,12 @@ def multi_scry():
         return json.load(f)
 
 
+@pytest.fixture(scope="module")
+def colourless_scry():
+    with open(os.path.join(FIXTURES, "colourless.scry.json"), encoding="utf-8") as f:
+        return json.load(f)
+
+
 def test_restricted_flag_is_set_from_real_oracle_text(mm, mono_scry):
     """restricted/Fíli and Kíli is flagged"""
     p = mm.build_accel_profiles(["Fíli and Kíli, Joyous"], mono_scry)
@@ -99,6 +105,35 @@ def test_restricted_amount_is_still_read(mm, mono_scry):
     """
     p = mm.build_accel_profiles(["Fíli and Kíli, Joyous"], mono_scry)
     assert p[0]["amount"] == 2
+
+
+def test_an_unreadable_free_line_falls_back_to_produced_mana(mm, colourless_scry):
+    """restricted/a free line with no readable colours keeps produced_mana
+
+    unrestricted_mana reads colours off {w..c} symbols and the literal "any
+    color". Real cards are worded past both -- Gilded Lotus taps for "three
+    mana of any one color", Reflecting Pool for "one mana of any type that a
+    land you control could produce" -- so a free line worded that way returns
+    NO colours with a non-zero amount. Left alone that is a source counting
+    toward the generic total that can pay no pip.
+
+    The FIRST assertion is the one that keeps this honest: it pins that Gilded
+    Lotus' real, printed line is genuinely unreadable to the parser, so the
+    branch below is guarding a wording that exists rather than one invented to
+    make a test pass. The second line -- the restriction -- is synthetic, and
+    is the only synthetic part: no printed card combines the two, which is why
+    nothing in the fixtures reaches this.
+    """
+    lotus = colourless_scry["gilded lotus"]["oracle_text"].lower()
+    assert "any one color" in lotus
+    assert mm.unrestricted_mana(lotus) == (set(), 3), "wording became readable"
+
+    txt = lotus + "\n{t}: add {b}. spend this mana only to cast zombie spells."
+    pm = {"W", "U", "B", "R", "G"}
+    cols, amount, restricted = mm.drop_restricted(txt, pm, 1)
+    assert restricted is False
+    assert amount == 3
+    assert cols == pm, "an unreadable free line must not empty the colour set"
 
 
 # --- and the part that actually matters: both models must DROP it ---------

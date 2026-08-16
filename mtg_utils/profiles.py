@@ -83,6 +83,23 @@ def drop_restricted(txt, pm, amount):
     free_cols, free_amount = unrestricted_mana(txt)
     if not free_amount:
         return pm, amount, True
+    # unrestricted_mana reads colours off {w..c} symbols and the literal
+    # "any color", and real cards are worded past both: Gilded Lotus taps for
+    # "three mana of any one color" and Reflecting Pool for "one mana of any
+    # type that a land you control could produce". Neither matches, so a free
+    # line worded that way returns NO colours with a non-zero amount -- a
+    # source that counts toward the generic total and can pay no pip.
+    #
+    # produced_mana is Scryfall's own answer to what the card can make, so it
+    # is the honest fallback: over-broad on colour, right on quantity, and
+    # never that empty inconsistency. Neither of those two cards carries a
+    # restricted line, so nothing in the fixtures reaches this -- it is
+    # closed because the accelerant path only started coming through here in
+    # this commit, and `if not pm: continue` used to make an empty set
+    # impossible there. Widening unrestricted_mana instead would move land
+    # numbers and belongs in its own commit.
+    if not free_cols:
+        return pm, free_amount, False
     return {x for x in free_cols if x in MANA_SYMBOLS}, free_amount, False
 
 

@@ -489,6 +489,23 @@ replaced by the free lines' colours, exactly as the land path already did.
 | Fíli and Kíli, Joyous | excluded (restricted) | unchanged — every line is restricted |
 | every land | — | unchanged, byte for byte |
 
+One gap was closed on the way in, because sharing the code moved it onto a path
+where it was newly reachable. `unrestricted_mana` reads colours off `{w..c}`
+symbols and the literal `"any color"`, and real cards are worded past both —
+Gilded Lotus taps for "three mana of any one color", Reflecting Pool for "one
+mana of any type that a land you control could produce". A free line worded
+that way returns **no colours with a non-zero amount**: a source that counts
+toward the generic total and can pay no pip. On the accelerant path
+`if not pm: continue` used to make an empty colour set impossible, so this
+would have been new surface. `drop_restricted` now falls back to
+`produced_mana` there — over-broad on colour, right on quantity, never the
+empty inconsistency.
+
+Neither of those two cards carries a restricted line, so no fixture reaches it
+and no number moves. Widening `unrestricted_mana` to read those wordings
+properly is the other repair, and it would move land figures, so it belongs in
+its own commit.
+
 Movement: the multicolour fixture only, 13 counted accelerants -> 14, every
 figure up. Largest +2.6 (Memory T6 sources model, 68.6% -> 71.2%); the
 generic baseline moves +1.5 on the play and +1.5 on the draw; the colour
@@ -553,7 +570,17 @@ cardlists, and the audit reporting nothing missing).
 
 **Fixed** by giving all three flags one separator rule, `split_names`, built on
 the `_sep` helper `parse_swaps` now shares. `;` wins when present, `,`
-otherwise, so every existing invocation splits exactly as it did.
+otherwise, so every existing invocation splits on the same character it did.
+
+**It is not purely a separator change, though**, and the distinction matters to
+anyone tracking down why an invocation that used to report success now fails.
+The old split kept whitespace: `--cuts "Sol Ring, Island"` produced `Sol Ring`
+and `' Island'`, and the leading space made the second match nothing in the
+read-back — **another vacuous pass**. `split_names` strips each segment, so
+that cut is now genuinely checked and can legitimately start failing. That is
+the direction you want and it is part of the same fix, but it does mean
+"nothing observable changed for existing callers" would be too strong a claim
+for any spec written with spaces after its commas.
 
 Costs one `--help` snapshot: `--adds` and `--cuts` had no help text at all, and
 an escape hatch nobody can find is not an escape hatch. Both entries now state
