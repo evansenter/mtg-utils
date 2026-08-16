@@ -510,12 +510,29 @@ unaffected. Admitting it is correct; the expectation was the error.
 **Known residuals, priced and kept:**
 
 - **The sources that pay for the ritual are not spent.** The burst is added to
-  the board rather than swapped for the sources it cost, so a Seething Song
-  paid for with two Islands keeps that blue available alongside the red it
-  made. Overstates colour flexibility by at most the pips of the ritual's own
-  cost, and only when the paying source is a dual. Modelling the payment
-  properly means choosing WHICH sources are tapped — a search, inside the trial
-  loop, for a fraction of a pip.
+  the board rather than swapped for the sources it cost, so every source that
+  paid for it keeps its own colours on top of the mana it made. The bound is
+  **up to the ritual's mana value**, and it is the GENERIC portion of the cost
+  that carries it: `pips_from_cost("{2}{R}")` is one red pip, so Seething Song
+  is gated on a single red source and the other two are arbitrary. Off Island,
+  Island, Mountain the model holds `{U}{U}{R}` plus a two-red burst and will
+  pay a double-blue cost, where reality is five red and three tapped lands —
+  two surplus coloured units, off basics, with no dual involved. Dark Ritual is
+  the benign end: its whole cost is the pip it is gated on, so the source it
+  spends produces the colour the burst produces anyway. It costs nothing on
+  `mono`, whose surplus units are red in a red deck, which is why the fixtures
+  do not show it. Modelling the payment properly means choosing WHICH sources
+  are tapped — a search, inside the trial loop, for a fraction of a pip.
+- **Mana already spent deploying an accelerant is still available to the
+  burst.** The gate reads the board from `online()`, which is not reduced by
+  `spent`, so on a turn that deployed a rock the ritual can be paid for with
+  mana the rock already consumed. This is the convention the reading itself
+  uses rather than a new departure from it: `out[t].append(srcs)` has never
+  deducted `spent` either, which is the residual #1 left behind when it fixed
+  the deployment DECISION. Tightening only the gate would make the ritual
+  stricter than the figure it feeds — the line would be refused a mana the
+  same turn's reported total still counts — so the two move together or not at
+  all.
 - **A held ritual is available on every turn it is held.** It is re-read from
   hand each turn and never lands on the battlefield, so it cannot compound; but
   turn five's reading assumes you did not fire it on turn one. That is the

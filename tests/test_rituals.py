@@ -218,6 +218,17 @@ def test_a_ritual_is_never_an_accelerant(mm, scry):
     The `accelerants counted:` line, `skeleton` and the `variants --accel`
     sweep all COUNT accelerants. A ritual arriving in that list would change
     what the count means without changing what the sweep varies.
+
+    Checked against the LAND profiles too, and that pair is the one with teeth.
+    `build_land_profiles` emits a profile for any card with a land FACE, which
+    is how MDFC land backs are counted, while this builder rejects only a land
+    FRONT -- so a spell-front / land-back card whose front were a bare Add
+    clause would land in both lists, `playsim` would enter it into the deck
+    twice, and the deck would hold one more source than the list runs. No
+    printed card is that shape, so it is a boundary rather than a bug, and it
+    is asserted for the same reason the docstring states the permanent-type
+    boundary it does not need: the disjointness is a property of the builders,
+    not a lucky fact about these four decks.
     """
     for deck in ("mono", "multi", "colourless", "partner"):
         with open(os.path.join(FIXTURES, f"{deck}.scry.json"), encoding="utf-8") as f:
@@ -225,8 +236,10 @@ def test_a_ritual_is_never_an_accelerant(mm, scry):
         names = list(cache)
         rituals = mm.build_ritual_profiles(names, cache)
         accels = mm.build_accel_profiles(names, cache)
+        lands = mm.build_land_profiles(names, cache)
         assert all(r["kind"] == "ritual" for r in rituals), deck
         assert not ({r["name"] for r in rituals} & {a["name"] for a in accels}), deck
+        assert not ({r["name"] for r in rituals} & {l["name"] for l in lands}), deck
 
 
 # --- the burst --------------------------------------------------------

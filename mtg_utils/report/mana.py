@@ -126,6 +126,15 @@ def report_variants(cmdr, entries, scry, land_deltas, accel_deltas, trials,
     creq = pips_from_cost(_cpips)
     print(f"\n=== VARIANTS SWEEP ({trials} trials over {_reps(reps)}, seed {seed})"
           f" — commander line and generic baseline ===")
+    # Named here for the same reason report_mana names it, and it matters more
+    # here: this table exists to attribute a movement to the thing that was
+    # varied, and the burst is in EVERY row while the config column says
+    # nothing about it. Without this line, someone diffing a stored sweep
+    # against a fresh one sees identical configs and moved numbers.
+    if rituals:
+        burst = ", ".join("%s +%d" % (r["name"], r["amount"]) for r in rituals)
+        print(f"  every row includes the ritual burst, held constant and not in "
+              f"the accel count: {burst}")
     print(f"  {'config':26s} {'cmdr on curve':>20} {'any N on turn N':>22}")
     for dl in land_deltas:
         for da in accel_deltas:

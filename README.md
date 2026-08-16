@@ -727,7 +727,8 @@ Run both copies and diff them. Do not reason about the code.
 looked wrong and were deliberately left alone, because fixing any of them would
 change a reported number and the migration's contract was that none do. Each
 entry says what it costs and which way it moves the figure. Most are now FIXED;
-#13 and #14 are RESOLVED — examined and kept, with the reasoning written down.
+#8, #11, #13 and #14 are RESOLVED — examined and kept, with the reasoning
+written down.
 
 It did not stop being useful when the list emptied. #15 is an entry of the
 other kind: a limitation priced and kept in #2, revisited later on purpose, with
