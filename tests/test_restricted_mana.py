@@ -6,7 +6,12 @@ number, and the flag is only worth having if the two models actually drop it.
 
 Uses the real cards out of the frozen caches rather than invented oracle text:
 Fíli and Kíli, Joyous taps for {R}{R} for Dwarf, Equipment and Saga spells
-only; Delighted Halfling's coloured mana is legendary-only.
+only; Delighted Halfling's coloured mana is legendary-only but its {C} is not.
+
+Those two are the two halves of the rule and both are needed. A card whose
+mana is restricted end to end is excluded; a card with one free line keeps
+that line and is counted. Reading the restriction off the whole oracle text
+collapses the second case into the first, which is what used to happen.
 """
 import json
 import os
@@ -37,11 +42,45 @@ def test_restricted_flag_is_set_from_real_oracle_text(mm, mono_scry):
     assert "spend this mana only" in mono_scry["fíli and kíli, joyous"]["oracle_text"].lower()
 
 
-def test_restricted_flag_is_set_for_legendary_only_mana(mm, multi_scry):
-    """restricted/Delighted Halfling is flagged"""
+def test_partly_restricted_accelerant_keeps_its_free_line(mm, multi_scry):
+    """restricted/Delighted Halfling keeps its {C}
+
+    The flag is per LINE, not per card. Delighted Halfling taps for {C} with
+    no strings and for any colour on legendary spells only, and the whole-text
+    substring read that used to set this flag saw the second line and threw
+    the card away -- a turn-one dork missing from the accelerant count
+    entirely, while the identical two-line shape on a LAND (Cavern of Souls)
+    was correctly counted as a {C} source.
+
+    Both halves are asserted, because getting the flag right and the colours
+    wrong is the other way to be wrong here: produced_mana lists all five
+    colours plus {C} without saying what they may be spent on, so counting
+    the card unrestricted while keeping that set would hand a legendary-only
+    ability to every pip in the deck.
+    """
     p = mm.build_accel_profiles(["Delighted Halfling"], multi_scry)
     assert len(p) == 1
-    assert p[0]["restricted"] is True
+    assert p[0]["restricted"] is False
+    assert p[0]["colours"] == frozenset("C")
+    assert set(multi_scry["delighted halfling"]["produced_mana"]) > {"C"}
+
+
+def test_the_free_line_and_the_restricted_line_are_the_same_shape(mm,
+                                                                  multi_scry):
+    """restricted/land and accel agree on one card shape
+
+    The bug was a DIVERGENCE, not a bad rule: the land path already read this
+    per line and the accelerant path did not. Cavern of Souls and Delighted
+    Halfling print the same two lines -- free {C}, then any colour with a
+    restriction -- so if the two paths ever disagree again, they disagree
+    here first.
+    """
+    land = mm.build_land_profiles(["Cavern of Souls"], multi_scry)
+    accel = mm.build_accel_profiles(["Delighted Halfling"], multi_scry)
+    assert len(land) == len(accel) == 1
+    assert (land[0]["restricted"], land[0]["colours"]) == \
+           (accel[0]["restricted"], accel[0]["colours"]) == \
+           (False, frozenset("C"))
 
 
 def test_unrestricted_accelerant_is_not_flagged(mm, mono_scry):

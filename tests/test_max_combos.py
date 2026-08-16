@@ -29,6 +29,18 @@ from conftest import FIXTURES
 SIMS = 4000
 EXHAUSTIVE = (2000, 20000)
 
+# The non-bias check gets its own, larger budget, and it is not a preference.
+# At SIMS=4000 the PAIRED difference between the truncated and the exhaustive
+# figure has an sd of about 0.0066 across seeds, so a per-seed tolerance of
+# 0.01 is roughly 1.5 sd -- it is a coin flip on noise, not a measurement of
+# bias, and it passed only because these three seeds happened to land inside
+# it. Counting Delighted Halfling put one more source in the turn-7 hand, the
+# gap at seed 17 came out at exactly 0.0100, and the test failed with nothing
+# actually wrong. At 20000 the sd is 0.0034 and the three seeds sit at 0.0033,
+# 0.0010 and 0.0005, so the same tolerance is a real guard: half a point of
+# genuine bias would trip it. Two seconds, once.
+BIAS_SIMS = 20000
+
 
 @pytest.fixture(scope="module")
 def multi(mm):
@@ -41,19 +53,27 @@ def multi(mm):
 
 
 # (label, req, mv, turn, {max_combos: expected})
-# These moved once, deliberately, when the accelerant gate was tightened to
-# permanents with a mana ability: the multicolour deck went from 18 counted
-# accelerants to 14, dropping Dark Ritual and three Treasure-makers. The
-# previous values were 0.758 / 0.86075 / 0.73375 at max_combos=250. They are
-# output-invariance guards, so they are expected to fail on any accidental
-# change and to be updated only alongside an intended one.
+# These have moved twice, deliberately, both times because the multicolour
+# deck's accelerant COUNT changed:
+#
+#   18 -> 14  the accelerant gate was tightened to permanents with a mana
+#             ability, dropping Dark Ritual and three Treasure-makers.
+#             Values were 0.758 / 0.86075 / 0.73375 at max_combos=250.
+#   13 -> 14  restricted mana was read per LINE rather than per card, so
+#             Delighted Halfling stopped being excluded outright and started
+#             counting as the {C} dork it is. (The 14 above is a different
+#             14: that pass also counted a card this one does not.)
+#             Values were 0.73275 / 0.7865 / 0.61825 at max_combos=250.
+#
+# They are output-invariance guards, so they are expected to fail on any
+# accidental change and to be updated only alongside an intended one.
 CASES = [
     ("T2 {U}{U} never truncates at all", ["U", "U"], 2, 2,
-     {250: 0.73275, 2000: 0.73275, 20000: 0.73275}),
+     {250: 0.73675, 2000: 0.73675, 20000: 0.73675}),
     ("T5 {B}{B}{G}", ["B", "B", "G"], 5, 5,
-     {250: 0.7865, 2000: 0.78675, 20000: 0.78675}),
+     {250: 0.80425, 2000: 0.8045, 20000: 0.8045}),
     ("T7 {U}{B}{G} truncates hardest", ["U", "B", "G"], 7, 7,
-     {250: 0.61825, 2000: 0.6095, 20000: 0.6095}),
+     {250: 0.6525, 2000: 0.6425, 20000: 0.6425}),
 ]
 
 
@@ -98,13 +118,16 @@ def test_250_is_not_biased_against_exhaustive(mm, multi, seed):
 
     The hardest line in the deck, where truncation bites hardest: 1716
     subsets available, 250 sampled. Across seeds the truncated figure sits
-    within half a point of exhaustive and does not sit consistently on one
-    side of it.
+    within half a point of exhaustive; over 30 seeds at BIAS_SIMS it also
+    lands on either side 15 times each, which is the part that makes it
+    non-bias rather than merely small. Three seeds cannot assert that second
+    half, so it is measured and written down rather than claimed by a test
+    that could not fail on it.
     """
     lands, accels = multi
-    trunc = mm.probability(lands, accels, 99, ["U", "B", "G"], 7, 7, SIMS,
+    trunc = mm.probability(lands, accels, 99, ["U", "B", "G"], 7, 7, BIAS_SIMS,
                            random.Random(seed), max_combos=250)
-    full = mm.probability(lands, accels, 99, ["U", "B", "G"], 7, 7, SIMS,
+    full = mm.probability(lands, accels, 99, ["U", "B", "G"], 7, 7, BIAS_SIMS,
                           random.Random(seed), max_combos=20000)
     assert abs(trunc - full) < 0.01, (seed, trunc, full)
 

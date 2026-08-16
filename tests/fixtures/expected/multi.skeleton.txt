@@ -1,7 +1,7 @@
 
 === SKELETON: Muldrotha, the Gravetide ===
   100 = 1 commander + 37 lands + 62 non-land   [checked]
-  manabase levers: 37 lands (+3 MDFC land backs)   13 accelerants at MV<=3
+  manabase levers: 37 lands (+3 MDFC land backs)   14 accelerants at MV<=3
   average non-land MV 2.50   Game Changers 7
 
 --- curve (62 non-land cards) ---

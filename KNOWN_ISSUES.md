@@ -431,3 +431,83 @@ commander-on-curve figure by about five points. A London mulligan with a
 "keep 2-5 lands" rule is defensible and standard, but it is a modelling
 choice that would move every number in the repo, and it should arrive as its
 own commit with the snapshot diff shown.
+
+---
+
+## 15. Restricted mana is read per line for lands and per card for accelerants — FIXED
+
+The return leg of #3, and it was created by the fix for it. #3 taught
+`build_land_profiles` to drop restricted mana one ORACLE LINE at a time, via
+`unrestricted_mana`. `build_accel_profiles` was left on the substring test it
+had always used:
+
+```python
+"restricted": "spend this mana only" in txt,
+```
+
+which is a whole-card verdict. One restricted line anywhere condemns the card,
+and both models then drop it entirely.
+
+The two shapes are printed on the same cards, so the divergence is not
+theoretical:
+
+```
+Cavern of Souls (LAND)          {T}: Add {C}.
+                                {T}: Add one mana of any color. Spend this
+                                     mana only to cast a creature spell of
+                                     the chosen type...
+Delighted Halfling (CREATURE)   {T}: Add {C}.
+                                {T}: Add one mana of any color. Spend this
+                                     mana only to cast a legendary spell...
+```
+
+Identical two-line shape. The land was counted as a `{C}` source. The creature
+was excluded from the accelerant list altogether — a one-mana dork, in the
+multi fixture, invisible to every figure the tool reports.
+
+**Cost:** understates any deck running a partly-restricted accelerant, and
+understates it in the direction that matters least visibly. The free half of
+Delighted Halfling's ability is colourless, so what it moves is the QUANTITY
+question — the generic baseline and the on-curve line — while the colour lines
+it cannot pay for stay put. A missing colourless source does not make a colour
+line look bad; it makes the deck look one land short.
+
+**Fixed** by lifting the per-line logic into `drop_restricted`, called by both
+builders, so the two paths cannot drift again. The `restricted` flag now means
+"no line of this card produces mana with no strings attached", which is what
+both models already assumed it meant.
+
+Getting the flag right is only half of it. `produced_mana` lists what a card
+CAN make without saying what it may be spent on — Delighted Halfling's is all
+five colours plus `{C}` — so a card counted unrestricted while keeping that set
+would hand a legendary-only ability to every pip in the deck. The colours are
+replaced by the free lines' colours, exactly as the land path already did.
+
+| card | was | now |
+|---|---|---|
+| Delighted Halfling | excluded (restricted) | `{C}`, amount 1, counted |
+| Fíli and Kíli, Joyous | excluded (restricted) | unchanged — every line is restricted |
+| every land | — | unchanged, byte for byte |
+
+Movement: the multicolour fixture only, 13 counted accelerants -> 14, every
+figure up. Largest +2.6 (Memory T6 sources model, 68.6% -> 71.2%); the
+generic baseline moves +1.5 on the play and +1.5 on the draw; the colour
+lines it cannot pay for move by less than the error bar (T2 `{U}{U}` 73.5% ->
+73.3%, T1 `{B}` 81.1% -> 81.0%), which is the shape a colourless source
+should have.
+
+### Found while fixing it: the max_combos non-bias test was a coin flip
+
+`test_250_is_not_biased_against_exhaustive` asserts the truncated figure sits
+within one point of the exhaustive one, at `SIMS=4000`, on three fixed seeds.
+The PAIRED difference at that budget has an sd of about 0.0066 across seeds, so
+one point is 1.5 sd — the test passed because those three seeds happened to
+land inside it, not because 250 is unbiased. Counting Delighted Halfling put
+one more source in the turn-7 hand and seed 17 came out at exactly 0.0100.
+
+Raised to 20000 sims for that test alone (two seconds). The sd falls to 0.0034,
+the three seeds sit at 0.0033 / 0.0010 / 0.0005, and over 30 seeds the
+truncated figure lands above exhaustive 15 times and below it 15 times. The
+tolerance was **not** loosened; the measurement was made precise enough for it
+to mean something. 250 is genuinely non-biasing — that was never in doubt, only
+untested.
