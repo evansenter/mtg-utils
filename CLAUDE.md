@@ -36,7 +36,7 @@ written down beside it. Nothing in it is currently outstanding.
 Its job did not end when the list emptied. It exists because "a finding that
 lives only in scrollback is a finding that gets rediscovered", so when you
 decide NOT to do something, record it there rather than in a commit message
-nobody greps. #13 (conditional accelerants), #14 (no mulligan model) and #16
+nobody greps. #13 (conditional accelerants), #14 (no mulligan model) and #18
 (where the Monte Carlo optimisation stops, and the faster ideas that were
 measured and rejected) are all that shape: deliberate limitations, priced and
 kept.
@@ -195,7 +195,7 @@ state left behind, against the stdlib, over a shared generator.
 
 Two measurements worth keeping in mind before optimising further. Well over
 half of what `mana` now costs is those draws themselves, which cannot be
-reduced without changing the numbers — `KNOWN_ISSUES.md` #16 has the per-deck
+reduced without changing the numbers — `KNOWN_ISSUES.md` #18 has the per-deck
 table and the method, and a warning that the obvious ways of pricing them
 overstate. And batching `getrandbits` into blocks — the obvious next idea —
 was measured **2.7x slower** than calling it per draw, so the per-call version

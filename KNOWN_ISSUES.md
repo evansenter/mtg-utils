@@ -8,8 +8,10 @@ a reported number was moved on purpose, with what moved written down beside it.
 The file's job does not end when the list empties. It exists because a finding
 that lives only in scrollback gets rediscovered — so a decision NOT to do
 something belongs here too, not in a commit message nobody greps. #13, #14 and
-#16 are that shape, and #15 is the other one: a limitation that was priced,
+#17 are that shape, and #15 is the other one: a limitation that was priced,
 kept, and later revisited deliberately, with the earlier entry left standing.
+#16 carries a residual of the same kind inside an otherwise-fixed entry, with
+the four repairs considered and why each was worse.
 
 Everything here was found while moving `mana_model.py` into `mtg_utils/`, and
 every one was left exactly as it was, because **fixing any of them would change
@@ -557,17 +559,247 @@ unaffected. Admitting it is correct; the expectation was the error.
 
 ---
 
-## 16. The Monte Carlo core is optimised, and where it stops — RESOLVED, measured
+## 16. Restricted mana is read per line for lands and per card for accelerants — FIXED
 
-`mana` on the four fixture decks went 27.8s to 6.5s, and `variants` 82.3s to
-15.5s, with every snapshot byte-identical. Measured end to end against the
+The return leg of #3, and it was created by the fix for it. #3 taught
+`build_land_profiles` to drop restricted mana one ORACLE LINE at a time, via
+`unrestricted_mana`. `build_accel_profiles` was left on the substring test it
+had always used:
+
+```python
+"restricted": "spend this mana only" in txt,
+```
+
+which is a whole-card verdict. One restricted line anywhere condemns the card,
+and both models then drop it entirely.
+
+The two shapes are printed on the same cards, so the divergence is not
+theoretical:
+
+```
+Cavern of Souls (LAND)          {T}: Add {C}.
+                                {T}: Add one mana of any color. Spend this
+                                     mana only to cast a creature spell of
+                                     the chosen type...
+Delighted Halfling (CREATURE)   {T}: Add {C}.
+                                {T}: Add one mana of any color. Spend this
+                                     mana only to cast a legendary spell...
+```
+
+Identical two-line shape. The land was counted as a `{C}` source. The creature
+was excluded from the accelerant list altogether — a one-mana dork, in the
+multi fixture, invisible to every figure the tool reports.
+
+**Cost:** understates any deck running a partly-restricted accelerant, and
+understates it in the direction that matters least visibly. The free half of
+Delighted Halfling's ability is colourless, so what it moves is the QUANTITY
+question — the generic baseline and the on-curve line — while the colour lines
+its restricted half could pay for move only by the free half. A missing
+colourless source does not make a colour line look bad; it makes the deck look
+one land short.
+
+### Still per card: what the mana may be SPENT on
+
+The flag is per line now. The consumption is not. `castability` either drops a
+profile whole (`restricted`) or spends its colours freely; there is no third
+option, no notion of "this mana pays only for spells matching X". So the free
+lines' colours are all a partly-restricted card ever contributes.
+
+The multi fixture is where that shows. Delighted Halfling's restricted half is
+*legendary spells only*, and `Muldrotha, the Gravetide` is a Legendary Creature
+— so the one line in that report its restricted half genuinely could pay for is
+the commander line, and that is exactly the line it is not counted for. The
+observed movement there (78.0 → 79.5 on the play) is the free colourless half
+and nothing else.
+
+Not a regression — the card went from invisible to a `{C}` source, which is
+strictly closer — and not attempted here. Pricing it means threading the pip
+requirement and the spell's characteristics down to the profile, which is the
+turn-and-context coupling the sources model deliberately does not have. Written
+down because the direction is conservative, and **an understatement nobody
+records is one that gets rediscovered as a bug**.
+
+**Fixed** by lifting the per-line logic into `drop_restricted`, called by both
+builders, so the two paths cannot drift again. The `restricted` flag now means
+"no line of this card produces mana with no strings attached", which is what
+both models already assumed it meant.
+
+Getting the flag right is only half of it. `produced_mana` lists what a card
+CAN make without saying what it may be spent on — Delighted Halfling's is all
+five colours plus `{C}` — so a card counted unrestricted while keeping that set
+would hand a legendary-only ability to every pip in the deck. The colours are
+replaced by the free lines' colours, exactly as the land path already did.
+
+| card | was | now |
+|---|---|---|
+| Delighted Halfling | excluded (restricted) | `{C}`, amount 1, counted |
+| Fíli and Kíli, Joyous | excluded (restricted) | unchanged — every line is restricted |
+| every land | — | unchanged, byte for byte |
+
+One gap was closed on the way in, because sharing the code moved it onto a path
+where it was newly reachable. `unrestricted_mana` reads colours off `{w..c}`
+symbols and the literal `"any color"`, and real cards are worded past both —
+Gilded Lotus taps for "three mana of any one color", Reflecting Pool for "one
+mana of any type that a land you control could produce". A free line worded
+that way returns **no colours with a non-zero amount**: a source that counts
+toward the generic total and can pay no pip. On the accelerant path
+`if not pm: continue` used to make an empty colour set impossible, so this
+would have been new surface. `drop_restricted` now falls back to
+`produced_mana` there — over-broad on colour, right on quantity, never the
+empty inconsistency.
+
+Neither of those two cards carries a restricted line, so no fixture reaches it
+and no number moves. Widening `unrestricted_mana` to read those wordings
+properly is the other repair, and it would move land figures, so it belongs in
+its own commit.
+
+Movement: the multicolour fixture only, 13 counted accelerants -> 14, every
+figure up. Largest +2.6 (Memory T6 sources model, 68.6% -> 71.2%); the
+generic baseline moves +1.7 on the play and +1.4 on the draw; the colour
+lines it cannot pay for move by less than the error bar (T2 `{U}{U}` 73.5% ->
+73.3%, T1 `{B}` 81.1% -> 81.0%), which is the shape a colourless source
+should have.
+
+The play-simulation halves of those figures are quoted against #15's
+snapshot, not the one before it — this landed on top of the ritual work and
+the two touch the same table. The sources-model figures are untouched by
+#15, rituals being play-simulation only, so those two numbers mean the same
+thing before and after. #15's own line ("rituals counted... dark ritual +2")
+is still printed above them.
+
+### Found while fixing it: the max_combos non-bias test was a coin flip
+
+`test_250_is_not_biased_against_exhaustive` asserts the truncated figure sits
+within one point of the exhaustive one, at `SIMS=4000`, on three fixed seeds.
+The PAIRED difference at that budget has an sd of about 0.0066 across seeds, so
+one point is 1.5 sd — the test passed because those three seeds happened to
+land inside it, not because 250 is unbiased. Counting Delighted Halfling put
+one more source in the turn-7 hand and seed 17 came out at exactly 0.0100.
+
+Raised to 20000 sims for that test alone (2.1s total for the case — three
+seeds, two `probability` calls each — up from 0.4s). The sd falls to 0.0034,
+the three seeds sit at 0.0033 / 0.0010 / 0.0005, and over 30 seeds the
+truncated figure lands above exhaustive 15 times and below it 15 times. The
+tolerance was **not** loosened; the measurement was made precise enough for it
+to mean something. 250 is genuinely non-biasing — that was never in doubt, only
+untested.
+
+---
+
+## 17. `--adds` / `--cuts` split on commas, which are in card names — FIXED
+
+`mtg_utils/cli.py`, the `write` branch:
+
+```python
+[x for x in a.adds.split(",") if x],
+[x for x in a.cuts.split(",") if x])
+```
+
+Comma is the only separator, and roughly every legendary creature has a comma
+in its name. `--adds "Ghalta, Primal Hunger"` becomes two names, `Ghalta` and
+`Primal Hunger`, neither of which is a card. `write_deck` then asserts and
+fails with
+
+```
+AssertionError: MISSING ADD: Ghalta
+```
+
+which reads as a typo in a name that was spelled correctly. The assertion is
+checking the deck it wrote; it has no way to know the name it was handed had
+already been cut in half.
+
+`--swap` already solved this: `parse_swaps` accepts `;` and lets it WIN when
+present. `--adds` and `--cuts` never got the escape hatch, so the same name
+could be swapped in but not added.
+
+**Cost on `--adds`:** no wrong number — the assertion catches it — but the
+flag is unusable for a large class of card names and the error points at the
+wrong thing.
+
+**Cost on `--cuts` is worse, and is the half worth remembering.** A cut
+asserts *absence*. Split in half, neither `Ghalta` nor `Primal Hunger` is in
+the deck, so the assertion passes — **vacuously**. The check reports success
+without having checked anything, which is the silent-all-clear shape this repo
+has been bitten by before (a non-canonical EDHREC slug answering 200 with no
+cardlists, and the audit reporting nothing missing).
+
+**Fixed** by giving all three flags one separator rule, `split_names`, built on
+the `_sep` helper `parse_swaps` now shares. `;` wins when present, `,`
+otherwise, so every existing invocation splits on the same character it did.
+
+**It is not purely a separator change, though**, and the distinction matters to
+anyone tracking down why an invocation that used to report success now fails.
+The old split kept whitespace: `--cuts "Sol Ring, Island"` produced `Sol Ring`
+and `' Island'`, and the leading space made the second match nothing in the
+read-back — **another vacuous pass**. `split_names` strips each segment, so
+that cut is now genuinely checked and can legitimately start failing. That is
+the direction you want and it is part of the same fix, but it does mean
+"nothing observable changed for existing callers" would be too strong a claim
+for any spec written with spaces after its commas.
+
+Costs one `--help` snapshot: `--adds` and `--cuts` had no help text at all, and
+an escape hatch nobody can find is not an escape hatch. Both entries now state
+the rule, and `--cuts` states the vacuous pass.
+
+### Not fixed: a lone comma'd name still needs a trailing `;`
+
+`;` only wins when it is PRESENT, so one name with a comma and no semicolon
+anywhere still splits. The idiom is a trailing separator —
+`--adds="Ghalta, Primal Hunger;"` — with the empty segment dropped. Both forms
+are pinned as cases, because the trailing `;` looks like a typo and is exactly
+the sort of thing a later tidy-up removes.
+
+**Deliberately not fixed, because every fix considered was worse:**
+
+- *Detect the mis-split and refuse*, the way `parse_swaps` does. `parse_swaps`
+  can only do that because a pair has an `->` in it to validate against; a bare
+  name has no structure to check.
+- *Validate the names against the deck.* Decidable for `--adds`, whose names
+  must be present — and not for `--cuts`, whose names must be absent, which is
+  the case that needs it. A guard that covers the safe half of an asymmetric
+  pair is worse than none: it makes the unguarded half look guarded.
+- *Make the flags repeatable* (`action="append"`). Does not actually help —
+  each occurrence still has to be split on something, so a comma inside one
+  occurrence splits exactly as before.
+- *Stop splitting on commas.* Breaks every existing invocation, and the CLI
+  surface only grows.
+
+The residual is a lone name, in a flag that is checking a deck the user just
+wrote by hand, with the idiom in `--help` one line away. Priced and kept.
+
+**The next thing to try is not a fifth fix — it is making it loud.** All four
+options above try to *decide* whether a name was halved, which is the part
+that cannot be done. An advisory does not have to decide. When a spec contains
+a comma and no `;`, print one line to stderr naming the segments it produced —
+
+```
+--cuts: split on comma into 2 names: Urborg / Tomb of Yawgmoth
+```
+
+— and split exactly as before. It moves no number, no snapshot and no split;
+it just refuses to be silent at the moment the mistake is made. The cost is
+that it cannot tell a halved name from a legitimate two-name spec, so it fires
+on `--cuts "Sol Ring,Island"` too. That noise is arguably worth paying on
+`--cuts` specifically, whose failure mode is a *pass*, and not on `--adds`,
+which already fails loudly with `MISSING ADD`.
+
+Not done here because it is a behaviour addition rather than a repair to
+either reported finding, and it belongs in its own commit where the asymmetry
+between the two flags can be argued on its own terms. Recorded because it is
+the first option considered that does not require solving the undecidable
+part, and it would otherwise be rediscovered.
+
+---
+
+## 18. The Monte Carlo core is optimised, and where it stops — RESOLVED, measured
+
+`mana` on the four fixture decks went 27.7s to 6.2s, and `variants` 83.0s to
+15.4s, with every snapshot byte-identical. Measured end to end against the
 merged tree -- not against the branch point, which had moved under this work
-three times over; earlier drafts of this entry quoted the older figures and
+four times over; earlier drafts of this entry quoted the older figures and
 read as freshly measured when they were not, and re-measuring after each merge
-is the only thing that stops that. The figures above are against #15's tree,
-which added the ritual burst and so costs both sides a little more than the
-draft before it. `castability.py` is now the one file
-here written for speed rather than plainly, so the reasoning belongs somewhere
+is the only thing that stops that. `castability.py` is now the one file here
+written for speed rather than plainly, so the reasoning belongs somewhere
 greppable rather than in four commit messages.
 
 **What was actually slow.** Not the maths. The models asked the same question
@@ -693,7 +925,7 @@ the shuffle look at the deck.
 
 ---
 
-## 17. `variants` crashed on a commander past turn seven — FIXED
+## 19. `variants` crashed on a commander past turn seven — FIXED
 
 ```
 python3 mana_model.py variants deck.txt --cache=scry.json

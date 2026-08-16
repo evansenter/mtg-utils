@@ -359,9 +359,15 @@ def test_the_report_names_the_ritual_and_its_net(mm, capsys):
     mm.report_mana(cmdr, entries, cache, 200, 200, reps=1)
     out = capsys.readouterr().out
     assert "rituals counted, play simulation only (net burst): dark ritual +2" in out
-    # The accelerant count is the number the sweep varies and must not have
-    # grown by one.
-    assert "accelerants counted: 13" in out
+    # The accelerant count is the number the sweep varies, and the ritual must
+    # not be in it. 14, not 13: this figure moved once after the ritual work
+    # landed, when restricted mana started being read per LINE and Delighted
+    # Halfling stopped being excluded outright -- a different card, for an
+    # unrelated reason, and NOT the ritual leaking in. That the ritual stays
+    # out is asserted structurally above (rituals and accels are disjoint
+    # across all four decks), so this literal is the second lock, not the only
+    # one.
+    assert "accelerants counted: 14" in out
 
 
 def test_a_deck_with_no_ritual_prints_no_ritual_line(mm, capsys):

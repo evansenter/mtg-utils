@@ -54,14 +54,15 @@ from mtg_utils.cards import (BASIC_TYPE_COLOUR, COLOURS, CONDITIONAL_TAP_MARKERS
 from mtg_utils.profiles import (ADDITIONAL_COST, FILTER_LANDS, OMNI_TYPE,
                                 RITUAL_ADD, TRIGGERED_EVENT, TRIGGERED_PHASE,
                                 build_accel_profiles, build_land_profiles,
-                                build_ritual_profiles, ritual_add,
-                                triggered_mana)
+                                build_ritual_profiles, drop_restricted,
+                                ritual_add, triggered_mana, unrestricted_mana)
 from mtg_utils.castability import (_match, at_least_in_draw, castable,
                                    castable_faces, pips_from_cost, playable_set,
                                    playsim, playsim_report, probability,
                                    ritual_burst)
 from mtg_utils.decklist import (DECISION, apply_swaps, as_cmdrs, diff_multiset, flat,
-                                parse_swaps, read_decisions, read_decklist, write_deck)
+                                parse_swaps, read_decisions, read_decklist,
+                                split_names, write_deck)
 from mtg_utils.primer import LINK_RE, parse_primer_links, unclosed_openers
 from mtg_utils.roster import (ANY_COLOUR, OFF_ROSTER_RANK, PAIR_CYCLES,
                               TRIPLE_CYCLES, WUBRG, identity_pairs,
