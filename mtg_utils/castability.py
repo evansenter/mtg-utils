@@ -655,6 +655,43 @@ def at_least_in_draw(k, sources, cards_seen, deck=99):
 
 
 # ============================================================ play simulation
+def ritual_burst(srcs, cands):
+    """The best single ritual castable off `srcs` this turn, or None.
+
+    `cands` are hand entries -- {"p": profile, "pips": [...]} -- and the
+    profile that comes back IS the burst: `amount` is the net, so appending it
+    to `srcs` leaves the board at total + net, which is what the turn actually
+    has after the ritual resolves.
+
+    The gate is `castable` against the ritual's OWN cost, so a Dark Ritual
+    with no untapped black source contributes nothing. That is the whole
+    difference between this and a flat bonus, and the reason a ritual is worth
+    less in a deck that cannot reliably make its colour -- which is exactly
+    the question the play simulation exists to answer.
+
+    ONE per turn, best first. Two rituals really do chain in play, and the
+    second is paid for out of the first's mana -- a burst funding a burst,
+    which is the shape of every overstatement this model has already had. The
+    cap costs a line that needs two rituals in one hand and can only ever
+    lower a figure, which is the safe direction.
+
+    Ordered by net then name so the choice is deterministic: the same board
+    and the same hand pick the same ritual on every run and every seed. That
+    is determinism, which is NOT the same property as best. The choice is made
+    once per turn, here, before any line is evaluated, so it is blind to the
+    pips the reading will ask for: holding Dark Ritual and Pyretic Ritual on a
+    Swamp-Mountain-Mountain board, the larger net wins and yields two black
+    for a line wanting {R}{R}{R} that the smaller one would have paid. It errs
+    DOWNWARD, which is the safe direction, and picking per line would mean
+    moving this decision into playsim_report and searching inside the trial
+    loop. Priced and kept -- KNOWN_ISSUES.md #15.
+    """
+    for c in sorted(cands, key=lambda c: (-c["p"]["amount"], c["p"]["name"])):
+        if castable(srcs, list(c["pips"]), c["p"]["cost"]):
+            return c["p"]
+    return None
+
+
 #
 # One implementation, two shapes. `playsim` hands back the source profiles in
 # play, which is its published contract and what the unit tests read; the
@@ -671,7 +708,7 @@ _MODE_KEYED = 2            # per turn: available mana and the memo key
 
 
 def _playsim_core(lands, accels, deck_size, turns, on_draw, trials, rng,
-                  count_restricted, count_triggered, mode):
+                  count_restricted, count_triggered, rituals, mode):
     """mode: None for the profile lists, else a per-turn list of _MODE_*.
 
     Returns (per-turn records, per-turn count of trials with >= t mana).
@@ -686,12 +723,13 @@ def _playsim_core(lands, accels, deck_size, turns, on_draw, trials, rng,
               if (count_restricted or not a.get("restricted"))
               and (count_triggered or a.get("trigger") != "event")]
     lands = [l for l in lands if count_restricted or not l.get("restricted")]
-    nL, nA = len(lands), len(accels)
-    # Codes: 0..nL-1 a land, nL..nL+nA-1 an accelerant, -1 anything else. A
-    # shuffle permutes POSITIONS and never looks at what it is moving, so
-    # standing ints in for the card dicts changes nothing about which card
-    # comes up -- it just makes dealing one cheap.
-    deck = list(range(nL + nA)) + [-1] * (deck_size - nL - nA)
+    rituals = rituals or []
+    nL, nA, nR = len(lands), len(accels), len(rituals)
+    # Codes: 0..nL-1 a land, then the accelerants, then the rituals, -1
+    # anything else. A shuffle permutes POSITIONS and never looks at what it
+    # is moving, so standing ints in for the card dicts changes nothing about
+    # which card comes up -- it just makes dealing one cheap.
+    deck = list(range(nL + nA + nR)) + [-1] * (deck_size - nL - nA - nR)
     assert len(deck) == deck_size, (len(deck), deck_size)
 
     l_tap = [p["tapped"] for p in lands]
@@ -715,12 +753,23 @@ def _playsim_core(lands, accels, deck_size, turns, on_draw, trials, rng,
     # the one direction this model must never err in.
     a_late = [bool(p["tapped"] or p.get("creature")
                    or p.get("trigger") == "phase") for p in accels]
+    # A ritual is read out of HAND, once a turn, and never enters play, so it
+    # needs none of the online bookkeeping -- only what `ritual_burst` asks:
+    # its own cost, its own pips, its net, and the order to try them in. The
+    # pips are solved ONCE here rather than per turn per trial, and the rank
+    # is `(-net, name)` so the same board and hand pick the same ritual every
+    # run and every seed.
+    r_cost = [r["cost"] for r in rituals]
+    r_amt = [r["amount"] for r in rituals]
+    r_req = [tuple(sorted(pips_from_cost(r["mana_cost"]))) for r in rituals]
+    r_rank = [(-r["amount"], r["name"]) for r in rituals]
 
     # One land a turn plus at most the four accelerants the deployment loop
-    # will place, so nothing can come online often enough to overflow a
-    # signature's field in the packed hand. Same precondition as the assert in
-    # `probability`, established by a different caller.
-    assert 5 * turns <= _SIG_LIMIT, (turns, _SIG_LIMIT)
+    # will place, plus the single ritual burst a turn can read, so nothing can
+    # come online often enough to overflow a signature's field in the packed
+    # hand. Same precondition as the assert in `probability`, established by a
+    # different caller.
+    assert 5 * turns + 1 <= _SIG_LIMIT, (turns, _SIG_LIMIT)
     out = [[] for _ in range(turns + 1)]
     ghits = [0] * (turns + 1)
     if not trials:
@@ -735,11 +784,14 @@ def _playsim_core(lands, accels, deck_size, turns, on_draw, trials, rng,
     getrandbits = rng.getrandbits
     opening = 7 + (1 if on_draw else 0)
     shape = mode is None
-    track = (not shape) and _MODE_KEYED in mode
+    # `live` is the board the ritual gate tests against, so it is tracked
+    # whenever a ritual could be read -- not only when the digest wants keys.
+    track = bool(rituals) or ((not shape) and _MODE_KEYED in mode)
     if track:
         # The packed contribution of each source, so coming online is one add.
         l_sid = [_SIG_POW[_sig_id(p)] for p in lands]
         a_sid = [_SIG_POW[_sig_id(p)] for p in accels]
+        r_sid = [_SIG_POW[_sig_id(r)] for r in rituals]
     insort = bisect.insort
     # The cards this trial ever looks at, taken off the top in one slice
     # rather than one index at a time. `pop()` takes from the end, so the top
@@ -763,15 +815,19 @@ def _playsim_core(lands, accels, deck_size, turns, on_draw, trials, rng,
         # is `[0]` rather than a scan. Entries carry their draw order and
         # `insort` places equals last, so a tie still goes to whichever was
         # drawn first -- which is what the stable sort and its `[0]` did.
-        hand_l, hand_a = [], []
+        hand_l, hand_a, hand_r = [], [], []
         seq = 0
         for c in x[open_sl]:
             if c >= 0:
                 if c < nL:
                     insort(hand_l, (l_key[c], seq, c))
+                elif c < nL + nA:
+                    insort(hand_a, (a_cost[c - nL], seq, c - nL))
                 else:
-                    c -= nL
-                    insort(hand_a, (a_cost[c], seq, c))
+                    # Kept in the order `ritual_burst` tries them, and never
+                    # removed: a ritual stays in hand across turns, because
+                    # each turn asks its own question of it.
+                    insort(hand_r, (r_rank[c - nL - nA], seq, c - nL - nA))
                 seq += 1
         online_l = []                 # land profiles online, in play order
         rk_p, rk_ready = [], []       # rocks in deploy order, and from when
@@ -786,9 +842,11 @@ def _playsim_core(lands, accels, deck_size, turns, on_draw, trials, rng,
                 if c >= 0:
                     if c < nL:
                         insort(hand_l, (l_key[c], seq, c))
+                    elif c < nL + nA:
+                        insort(hand_a, (a_cost[c - nL], seq, c - nL))
                     else:
-                        c -= nL
-                        insort(hand_a, (a_cost[c], seq, c))
+                        insort(hand_r, (r_rank[c - nL - nA], seq,
+                                        c - nL - nA))
                     seq += 1
                 # Everything that entered last turn is online now.
                 if pend_land >= 0:
@@ -850,30 +908,59 @@ def _playsim_core(lands, accels, deck_size, turns, on_draw, trials, rng,
                     if not hand_a:
                         break
 
-            if online_total >= t:
+            # AFTER the deployment loop, so a ritual can never pay for an
+            # accelerant. The burst is one turn of mana; a rock it bought
+            # would be on the battlefield for the rest of the game.
+            #
+            # It is added to the READING and never to the board: `turn_total`
+            # and `turn_live` are local, so the burst cannot compound into the
+            # next turn, and the ritual stays in hand to be re-read there.
+            # This is `ritual_burst` against the packed board -- same order,
+            # same `castable` gate, without rebuilding the source list.
+            turn_total, turn_live = online_total, live
+            if hand_r:
+                for _rank, _seq, code in hand_r:
+                    if online_total < r_cost[code]:
+                        continue
+                    rk = r_req[code]
+                    if rk and not _ask(live, rk):
+                        continue
+                    turn_total = online_total + r_amt[code]
+                    turn_live = live + r_sid[code]
+                    burst_code = code
+                    break
+                else:
+                    burst_code = -1
+            else:
+                burst_code = -1
+
+            if turn_total >= t:
                 ghits[t] += 1
             if shape:
                 if rk_p:
-                    out[t].append(online_l + [p for p, r in zip(rk_p, rk_ready)
-                                              if r <= t])
+                    srcs = online_l + [p for p, r in zip(rk_p, rk_ready)
+                                       if r <= t]
                 else:
-                    out[t].append(online_l[:])
+                    srcs = online_l[:]
+                if burst_code >= 0:
+                    srcs.append(rituals[burst_code])
+                out[t].append(srcs)
                 continue
             m = mode[t]
             if m == _MODE_KEYED:
-                out[t].append((online_total, live))
+                out[t].append((turn_total, turn_live))
             elif m == _MODE_TOTAL:
-                out[t].append(online_total)
+                out[t].append(turn_total)
     return out, ghits
 
 
 def playsim(lands, accels, deck_size, turns, on_draw, trials, rng,
-            count_restricted=False, count_triggered=False):
+            count_restricted=False, count_triggered=False, rituals=None):
     """Draw seven (+1 on the draw), draw one per turn, play a land if you have
     one, deploy the cheapest affordable accelerant, then read off available
     mana. Returns per-turn lists of (available source profiles, total mana)."""
     return _playsim_core(lands, accels, deck_size, turns, on_draw, trials, rng,
-                         count_restricted, count_triggered, None)[0]
+                         count_restricted, count_triggered, rituals, None)[0]
 
 
 # How far the play simulation runs. Seven turns is where a Commander game is
@@ -885,7 +972,7 @@ PLAYSIM_TURNS = 7
 
 
 def playsim_report(lands, accels, deck_size, lines, trials, rng,
-                   turns=PLAYSIM_TURNS):
+                   turns=PLAYSIM_TURNS, rituals=None):
     """lines: list of (label, mana_value, pip_string like '{R}{R}')."""
     _bound_caches()
     specs = []
@@ -908,7 +995,7 @@ def playsim_report(lands, accels, deck_size, lines, trials, rng,
     memo = _CASTABLE_MEMO
     for on_draw in (False, True):
         rows, ghits = _playsim_core(lands, accels, deck_size, turns, on_draw,
-                                    trials, rng, False, False, mode)
+                                    trials, rng, False, False, rituals, mode)
         generic = {t: 100.0 * ghits[t] / trials for t in range(1, turns + 1)}
         labelled = {}
         for label, mv, req, req_key, turn in specs:

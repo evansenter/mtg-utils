@@ -28,14 +28,15 @@ at full budget would cost the suite more than everything else in it together.
   about the code.
 
 `KNOWN_ISSUES.md` is the durable record of things that look wrong. Every entry
-in it is marked **FIXED** or **RESOLVED** — resolved meaning the behaviour was
-examined and deliberately kept, with the reasoning written down. Nothing in it
-is currently outstanding.
+in it is now marked **FIXED**, **RESOLVED** or **CHANGED** — resolved meaning
+the behaviour was examined and deliberately kept, with the reasoning written
+down; changed meaning a reported number was moved on purpose, with what moved
+written down beside it. Nothing in it is currently outstanding.
 
 Its job did not end when the list emptied. It exists because "a finding that
 lives only in scrollback is a finding that gets rediscovered", so when you
 decide NOT to do something, record it there rather than in a commit message
-nobody greps. #13 (conditional accelerants), #14 (no mulligan model) and #15
+nobody greps. #13 (conditional accelerants), #14 (no mulligan model) and #16
 (where the Monte Carlo optimisation stops, and the faster ideas that were
 measured and rejected) are all that shape: deliberate limitations, priced and
 kept.
@@ -99,10 +100,26 @@ Getting these confused is the most consequential mistake available here.
   play and on the draw separately, because you are on the draw three turns in
   four at a four-player table.
 
+The two models **disagree by design on a deck running rituals**. A ritual is a
+one-shot burst in `playsim` only — `build_ritual_profiles` builds it, `kind` is
+`"ritual"` and never `"accel"`, it contributes its NET off a payability check
+against the board that turn, and the sources model counts it at zero because it
+has no turn ordering to attach "available on exactly this turn" to. So the
+play-simulation row is the higher of the two on those decks, and that is not a
+bug to reconcile. `KNOWN_ISSUES.md` #15 has the model and its residuals.
+
 Any figure quoted anywhere must say which model produced it.
 `at_least_in_draw()` (renamed from `hypergeometric()`, which is not aliased and
 raises) counts cards in the draw and is **not** a castability figure — it is
 used for the opening-hand land count and nothing else.
+
+A ritual is **not** a mana source and must never be counted as one. Anything
+that counts accelerants — the `accelerants counted:` line, `skeleton`, the
+`variants --accel` sweep — counts `build_accel_profiles` only, and the two
+builders are disjoint by construction. `mana` prints the ritual line only when
+the deck runs one, so a ritual-free deck's output is byte-identical to what it
+was before rituals existed and the colourless fixture stays a live control on
+the gate.
 
 Mana sources are lands **plus** accelerants of mana value ≤ 3 plus MDFC land
 backs — lands-only understates castability badly. Restricted mana ("spend this
@@ -176,11 +193,13 @@ generator or every later trial desynchronises; that drain is not dead code.
 `tests/test_rng_equivalence.py` asserts both the cards dealt and the generator
 state left behind, against the stdlib, over a shared generator.
 
-Two measurements worth keeping in mind before optimising further. About half
-of what `mana` now costs is those draws themselves, which cannot be reduced
-without changing the numbers. And batching `getrandbits` into blocks — the
-obvious next idea — was measured **2.7x slower** than calling it per draw, so
-the per-call version is not there for want of trying.
+Two measurements worth keeping in mind before optimising further. Well over
+half of what `mana` now costs is those draws themselves, which cannot be
+reduced without changing the numbers — `KNOWN_ISSUES.md` #16 has the per-deck
+table and the method, and a warning that the obvious ways of pricing them
+overstate. And batching `getrandbits` into blocks — the obvious next idea —
+was measured **2.7x slower** than calling it per draw, so the per-call version
+is not there for want of trying.
 
 `tests/test_solver_equivalence.py` keeps the pre-rewrite solver verbatim and
 compares the two over generated hands. If you rewrite the solver again, that

@@ -6,7 +6,20 @@ a figure with its noise beside it. analysis.py does the measuring.
 from mtg_utils.analysis import analyse_mana, commander_lines, compare_swap, replicate_playsim
 from mtg_utils.castability import PLAYSIM_TURNS, pips_from_cost
 from mtg_utils.decklist import as_cmdrs, flat
-from mtg_utils.profiles import build_accel_profiles, build_land_profiles
+from mtg_utils.profiles import (build_accel_profiles, build_land_profiles,
+                                build_ritual_profiles)
+
+
+def _burst_note(rituals):
+    """'dark ritual +2' -- the rituals counted, with their NETS.
+
+    Shared by the two tables that mention rituals. What they say ABOUT the
+    burst legitimately differs -- report_mana says which model uses it,
+    report_variants says it is held constant across the sweep -- but the fact
+    itself is one fact, and rendering it twice is how the two drift into
+    quoting different nets for the same deck.
+    """
+    return ", ".join("%s +%d" % (r["name"], r["amount"]) for r in rituals)
 
 
 def _reps(n):
@@ -22,6 +35,7 @@ def report_mana(cmdr, entries, scry, sims, trials, seed=17, lines=None, reps=3):
     # float and a TypeError several lines from the cause.
     v, accels, rows, lines, res, floor = (a["verify"], a["accels"], a["rows"],
                                           a["lines"], a["sim"], a["floor"])
+    rituals = a["rituals"]
 
     print(f"\n=== MANA BASE ({v['lands']} front-face lands"
           f" + {v['mdfc_land_backs']} MDFC land-backs, "
@@ -33,6 +47,22 @@ def report_mana(cmdr, entries, scry, sims, trials, seed=17, lines=None, reps=3):
     restricted = [a["name"] for a in accels if a.get("restricted")]
     print(f"  accelerants counted: {len([a for a in accels if not a.get('restricted')])}"
           f"  (restricted, excluded: {', '.join(restricted) if restricted else 'none'})")
+    # Printed on its own line, and never added to the accelerant count above.
+    # A ritual is not a source: it is one turn of mana, it appears in the play
+    # simulation only, and the sources model below does not see it. Saying so
+    # here is what stops the two tables in this report reading as a
+    # contradiction on a deck that runs one.
+    #
+    # Printed only when there ARE rituals, unlike the "restricted ... none"
+    # note above it. That is not a formatting preference: a deck with no
+    # ritual then produces output byte-identical to before rituals existed, so
+    # the ritual-free fixtures stay a live control on this gate. If the
+    # colourless snapshot ever moves, the gate is admitting something it
+    # should not, and the golden suite says so instead of showing a diff that
+    # is all header line.
+    if rituals:
+        print(f"  rituals counted, play simulation only (net burst): "
+              f"{_burst_note(rituals)}")
 
     # Every figure carries the wobble of its own reported value. Without it a
     # 0.4-point gap between two variants reads exactly like a 4-point one, and
@@ -85,6 +115,11 @@ def report_variants(cmdr, entries, scry, land_deltas, accel_deltas, trials,
     base_lands = build_land_profiles(names, scry)
     accels = build_accel_profiles(names, scry)
     accels = [a for a in accels if not a.get("restricted")]
+    # Held CONSTANT across the sweep, and not counted in the "N accel" label:
+    # --accel varies how many accelerants the deck runs, and a ritual is not
+    # one. Folding them into that count would make the config column disagree
+    # with what the sweep actually varied.
+    rituals = build_ritual_profiles(names, scry)
     basic = next((p for p in base_lands if not p["tapped"] and p["colours"]), None)
     if basic is None and any(d > 0 for d in land_deltas):
         # dict(None) raises TypeError several frames later, which reads as a
@@ -129,6 +164,14 @@ def report_variants(cmdr, entries, scry, land_deltas, accel_deltas, trials,
     # the turns simulated for nothing on a two-drop.
     print(f"\n=== VARIANTS SWEEP ({trials} trials over {_reps(reps)}, seed {seed})"
           f" — commander line and generic baseline ===")
+    # Named here for the same reason report_mana names it, and it matters more
+    # here: this table exists to attribute a movement to the thing that was
+    # varied, and the burst is in EVERY row while the config column says
+    # nothing about it. Without this line, someone diffing a stored sweep
+    # against a fresh one sees identical configs and moved numbers.
+    if rituals:
+        print(f"  every row includes the ritual burst, held constant and not in "
+              f"the accel count: {_burst_note(rituals)}")
     print(f"  {'config':26s} {'cmdr on curve':>20} {'any N on turn N':>22}")
     for dl in land_deltas:
         for da in accel_deltas:
@@ -150,7 +193,8 @@ def report_variants(cmdr, entries, scry, land_deltas, accel_deltas, trials,
             # question is always whether one row differs from another.
             r = replicate_playsim(lands, acc, 99,
                                   [("cmdr", cmv, "".join(f"{{{x}}}" for x in creq))],
-                                  trials, seed, reps, turns=_cturn)
+                                  trials, seed, reps, turns=_cturn,
+                                  rituals=rituals)
             a, turn, sa = r["play"]["lines"]["cmdr"]
             b, _, sb = r["draw"]["lines"]["cmdr"]
             g1, s1 = r["play"]["generic"][turn]
