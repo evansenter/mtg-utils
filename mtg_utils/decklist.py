@@ -78,14 +78,44 @@ def write_deck(cmdr, entries, out_path, expect_adds=(), expect_cuts=()):
     return total
 
 
-# ============================================================ named swaps
+# ============================================================ card-name lists
+def _sep(spec):
+    """The separator a name list is using: ';' when present, else ','.
+
+    Card names contain commas -- 'Muldrotha, the Gravetide', 'Ghalta, Primal
+    Hunger' -- so a comma is not a safe separator in general. A semicolon
+    WINS when present, which is the escape hatch for a name with a comma in
+    it, and every flag that takes card names uses this same rule.
+
+    One function rather than the rule written out at each caller, because it
+    was written out at one caller and not the others for a while: --swap had
+    the escape hatch and --adds/--cuts split on ',' alone, so 'Ghalta, Primal
+    Hunger' could be swapped in but not added.
+    """
+    return ";" if ";" in spec else ","
+
+
+def split_names(spec):
+    """'A,B' -> ['A', 'B'], ';' winning when present. Empty spec -> [].
+
+    Used by --adds and --cuts, which are names and nothing else. A comma
+    inside a name used to split it: --adds "Ghalta, Primal Hunger" became
+    'Ghalta' and 'Primal Hunger', and write_deck's read-back assertion then
+    failed with "MISSING ADD: Ghalta" -- an error that reads as a typo in a
+    name that was spelled correctly. The assertion is checking the deck it
+    wrote; it cannot know the name it was handed had already been halved.
+    """
+    spec = (spec or "").strip()
+    if not spec:
+        return []
+    return [x.strip() for x in spec.split(_sep(spec)) if x.strip()]
+
+
 def parse_swaps(spec):
     """'A->B,C->D' -> [('A', 'B'), ('C', 'D')]. Empty spec -> [].
 
-    Card names contain commas -- 'Muldrotha, the Gravetide', 'Yawgmoth, Thran
-    Physician' -- so a comma is not a safe pair separator in general. A
-    semicolon is accepted too and WINS when present, which is the escape
-    hatch for a name with a comma in it.
+    Separator rule is _sep's: ';' wins when present, for the reason given
+    there.
 
     A segment that does not hold exactly one '->' is rejected by name rather
     than mis-split quietly. A mis-split swap would cut a card nobody asked to
@@ -95,7 +125,7 @@ def parse_swaps(spec):
     spec = (spec or "").strip()
     if not spec:
         return []
-    sep = ";" if ";" in spec else ","
+    sep = _sep(spec)
     swaps = []
     for seg in spec.split(sep):
         seg = seg.strip()

@@ -5,6 +5,8 @@ from collections import Counter
 
 import pytest
 
+from conftest import deck_args, run_cli
+
 
 # --- read_decklist -----------------------------------------------------
 # The front door for eight subcommands, previously untested. A partner deck
@@ -117,6 +119,63 @@ def test_write_deck_idempotent(mm, good, quiet, tmp_path):
     path = str(tmp_path / "e.txt")
     quiet(lambda: mm.write_deck("Cmdr", good, path))
     assert quiet(lambda: mm.write_deck("Cmdr", good, path)) == 100
+
+
+# --- and the same contract reached through the CLI flag ---------------
+@pytest.mark.parametrize("spec", [
+    "Urborg, Tomb of Yawgmoth;Sol Ring",
+    "Urborg, Tomb of Yawgmoth;",
+], ids=["write/--adds with a comma'd name beside another",
+        "write/--adds with a comma'd name alone"])
+def test_write_adds_accepts_a_card_name_containing_a_comma(mm, tmp_path, spec):
+    """End to end, because the two halves were both fine on their own: --adds
+    split on ',' in cli.py, write_deck asserted on whatever names it was
+    handed, and neither could see that a name had been halved on the way
+    through. 'Urborg, Tomb of Yawgmoth' is in the multicolour fixture, so this
+    used to die on `MISSING ADD: Urborg` -- a card the user never typed.
+
+    Both forms are pinned because the second is the one that looks wrong. A
+    lone name needs a trailing ';' to switch the separator over, since ';'
+    only wins when it is PRESENT; the empty segment it leaves is dropped. That
+    is the documented idiom and it is easy to "tidy away", so it is a case.
+
+    Asserted on the exit code and the written file rather than on the flag
+    parsing, which test_split_names covers: the failure being guarded is the
+    CLI wiring, and the wiring is only visible from outside.
+    """
+    out = str(tmp_path / "written.txt")
+    got = run_cli(mm, deck_args("multi", "write",
+                                [f"--out={out}", f"--adds={spec}"]),
+                  str(tmp_path))
+    assert "[exit" not in got, got
+    assert "read back: " in got, got
+    with open(out, encoding="utf-8") as f:
+        assert any(l.strip() == "1 Urborg, Tomb of Yawgmoth"
+                   for l in f), "the add is not in the written deck"
+
+
+def test_write_cuts_still_checks_a_comma_d_name(mm, tmp_path):
+    """write/--cuts on a comma'd name still checks
+
+    The mirror of the case above, and the one that matters more. A cut asserts
+    ABSENCE, so a mis-split cut passes VACUOUSLY: neither 'Urborg' nor 'Tomb of
+    Yawgmoth' is in the deck, write_deck's `assert not any(...)` holds, and the
+    check reports success having verified nothing.
+
+    So this asserts the FAILURE. 'Urborg, Tomb of Yawgmoth' IS in the
+    multicolour fixture and `write` does not remove anything, so a cut naming
+    it must be caught -- and that is precisely the assertion that goes vacuous
+    under the old comma-only split. A passing run here would mean the check had
+    stopped checking.
+
+    Without this, split_names(a.cuts) could be reverted on its own and every
+    other case in this file would still pass: the wiring is per-flag, and the
+    --adds case only exercises the --adds half of it.
+    """
+    out = str(tmp_path / "cut.txt")
+    with pytest.raises(AssertionError, match="CUT STILL PRESENT"):
+        run_cli(mm, deck_args("multi", "write", [
+            f"--out={out}", "--cuts=Urborg, Tomb of Yawgmoth;"]), str(tmp_path))
 
 
 # --- write_deck with two commanders -----------------------------------

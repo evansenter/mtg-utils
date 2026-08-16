@@ -39,7 +39,7 @@ def unrestricted_mana(txt):
     creature type, and counting it as free colour made a mono-red deck look
     like it had five.
 
-    Returns (set(), 0) when every ability is restricted, which flags the land
+    Returns (set(), 0) when every ability is restricted, which flags the card
     for exclusion the same way build_accel_profiles flags a restricted rock.
     """
     free = "\n".join(l for l in txt.split("\n") if RESTRICTED_MANA not in l)
@@ -51,6 +51,68 @@ def unrestricted_mana(txt):
             cols |= set(COLOURS)
         amount = max(amount, 1)
     return cols, (mana_amount(free) if amount else 0)
+
+
+def drop_restricted(txt, pm, amount):
+    """(colours, amount, restricted) with every restricted line taken out.
+
+    Lands and accelerants must answer this the same way, and for a while they
+    did not. Lands recomputed per line through unrestricted_mana; accelerants
+    set the flag from a substring search over the WHOLE oracle text, so one
+    restricted line anywhere condemned the card entire.
+
+    That is not a cosmetic difference, because the two-line shape
+
+        {T}: Add {C}.
+        {T}: Add one mana of any color. Spend this mana only to cast a
+             legendary spell...
+
+    is printed on both. On a LAND (Cavern of Souls, Unclaimed Territory,
+    Plaza of Heroes) it was read correctly as a {C} source. On a CREATURE
+    (Delighted Halfling) the substring read dropped a turn-one dork out of
+    the accelerant count altogether -- and the free half of its ability, the
+    {C}, is exactly the half a generic on-curve figure is allowed to spend.
+
+    Cards whose mana is restricted end to end still come back restricted:
+    Fíli and Kíli, Joyous taps for {R}{R} for Dwarf, Equipment and Saga
+    spells and for nothing else, and unrestricted_mana finds no free line.
+
+    `amount` is returned unchanged when there is no restriction to drop, and
+    also when EVERY line is restricted -- the flag excludes the card from the
+    totals, it does not pretend the card taps for less than it does. See
+    test_restricted_amount_is_still_read. (`pm` is not: it is narrowed on
+    every path, per the paragraph below.)
+
+    Every colour set returned is narrowed to MANA_SYMBOLS here rather than at
+    the call sites. Both builders happen to pre-filter `pm` already, so this
+    changes nothing today -- but the function is exported, and a postcondition
+    that holds because of caller discipline is one an outside caller can
+    break.
+    """
+    pm = {x for x in pm if x in MANA_SYMBOLS}
+    if RESTRICTED_MANA not in txt:
+        return pm, amount, False
+    free_cols, free_amount = unrestricted_mana(txt)
+    if not free_amount:
+        return pm, amount, True
+    # unrestricted_mana reads colours off {w..c} symbols and the literal
+    # "any color", and real cards are worded past both: Gilded Lotus taps for
+    # "three mana of any one color" and Reflecting Pool for "one mana of any
+    # type that a land you control could produce". Neither matches, so a free
+    # line worded that way returns NO colours with a non-zero amount -- a
+    # source that counts toward the generic total and can pay no pip.
+    #
+    # produced_mana is Scryfall's own answer to what the card can make, so it
+    # is the honest fallback: over-broad on colour, right on quantity, and
+    # never that empty inconsistency. Neither of those two cards carries a
+    # restricted line, so nothing in the fixtures reaches this -- it is
+    # closed because the accelerant path only started coming through here in
+    # this commit, and `if not pm: continue` used to make an empty set
+    # impossible there. Widening unrestricted_mana instead would move land
+    # numbers and belongs in its own commit.
+    if not free_cols:
+        return pm, free_amount, False
+    return {x for x in free_cols if x in MANA_SYMBOLS}, free_amount, False
 
 
 def build_land_profiles(deck_names, scry):
@@ -90,13 +152,11 @@ def build_land_profiles(deck_names, scry):
         restricted = False
         # "Spend this mana only to cast..." is not mana for a generic total,
         # on a land exactly as on a rock. Recomputed only for lands that
-        # carry the clause, so every other land is untouched.
-        if kind == "normal" and RESTRICTED_MANA in txt:
-            free_cols, free_amount = unrestricted_mana(txt)
-            restricted = not free_amount
-            if free_amount:
-                pm = {x for x in free_cols if x in MANA_SYMBOLS}
-                amount = free_amount
+        # carry the clause, so every other land is untouched -- and a filter
+        # or fetch land is skipped outright, since its `pm` was rebuilt above
+        # from the pairing or the fetch targets rather than read off the text.
+        if kind == "normal":
+            pm, amount, restricted = drop_restricted(txt, pm, amount)
         profiles.append({
             "name": name, "kind": "land",
             "colours": frozenset(pm),
@@ -208,14 +268,21 @@ def build_accel_profiles(deck_names, scry, max_mv=3):
             pm = {"C"}
         if not pm:
             continue
+        # Per LINE, not per card -- see drop_restricted. `pm` comes off
+        # produced_mana, which lists what the card can make without saying
+        # what it may be spent on, so a card with one free line and one
+        # restricted line has to have the restricted colours taken back out
+        # as well as the flag left down: Delighted Halfling's produced_mana
+        # is all five colours plus {C}, and only the {C} is free.
+        pm, amount, restricted = drop_restricted(txt, pm, mana_amount(txt))
         tapped, cond = enters_tapped(c, c)
         out.append({
             "name": c["name"].lower(), "kind": "accel",
             "colours": frozenset(pm), "filter": None, "omni": None,
-            "amount": mana_amount(txt),
+            "amount": amount,
             "cost": int(mv),
             "tapped": tapped, "cond_tap": cond,
-            "restricted": "spend this mana only" in txt,
+            "restricted": restricted,
             # None for an ordinary activated ability. "phase" and "event"
             # are consumed differently by both models -- see castability.
             "trigger": trigger,

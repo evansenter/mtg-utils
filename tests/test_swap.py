@@ -55,6 +55,51 @@ def test_semicolon_wins_so_a_comma_can_live_in_a_name(mm):
     assert got == [("Muldrotha, the Gravetide", "Sol Ring"), ("Island", "Swamp")]
 
 
+# --- the same separator rule, for the flags that take bare names ------
+@pytest.mark.parametrize("spec,want", [
+    ("", []),
+    ("   ", []),
+    ("A", ["A"]),
+    ("A,B", ["A", "B"]),
+    ("  A , B  ", ["A", "B"]),
+    ("A,,B", ["A", "B"]),
+    ("A;B", ["A", "B"]),
+], ids=["names/empty is no names", "names/blank is no names", "names/one name",
+        "names/two names", "names/whitespace is trimmed",
+        "names/empty segment is dropped", "names/semicolon separates"])
+def test_split_names(mm, spec, want):
+    assert mm.split_names(spec) == want
+
+
+def test_split_names_keeps_a_comma_inside_a_name(mm):
+    """names/a comma in a name survives
+
+    'Ghalta, Primal Hunger' is one card. --adds and --cuts split on ',' alone,
+    so it arrived at write_deck as two names, and the read-back assertion
+    failed with "MISSING ADD: Ghalta" -- an error naming a card the user never
+    typed, about a name they spelled correctly.
+
+    Asserted as one element rather than as a substring: 'Ghalta' is a prefix of
+    the full name, so `any("Ghalta" in n for n in got)` passes on the split
+    output too and would have caught nothing.
+    """
+    got = mm.split_names("Ghalta, Primal Hunger;Sol Ring")
+    assert got == ["Ghalta, Primal Hunger", "Sol Ring"]
+
+
+def test_the_two_name_flags_agree_on_the_separator(mm):
+    """names/--swap and --adds split alike
+
+    The bug was a divergence: --swap had the ';' escape hatch and --adds/--cuts
+    did not, so the same card name could be swapped in but not added. Both go
+    through _sep now, and this is where they would disagree again first.
+    """
+    name = "Ghalta, Primal Hunger"
+    assert mm.split_names(f"{name};Sol Ring") == [name, "Sol Ring"]
+    assert mm.parse_swaps(f"Island->{name};Sol Ring->Swamp") == [
+        ("Island", name), ("Sol Ring", "Swamp")]
+
+
 @pytest.mark.parametrize("spec", ["Mystic Gate", "A->B->C", "->B", "A->"],
                          ids=["swap/no arrow", "swap/two arrows",
                               "swap/empty cut", "swap/empty add"])
