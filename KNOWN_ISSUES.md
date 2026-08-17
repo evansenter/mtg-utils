@@ -7,8 +7,8 @@ a reported number was moved on purpose, with what moved written down beside it.
 
 The file's job does not end when the list empties. It exists because a finding
 that lives only in scrollback gets rediscovered — so a decision NOT to do
-something belongs here too, not in a commit message nobody greps. #13, #14 and
-#18 are that shape, and #15 is the other one: a limitation that was priced,
+something belongs here too, not in a commit message nobody greps. #13, #14,
+#18 and #20 are that shape, and #15 is the other one: a limitation that was priced,
 kept, and later revisited deliberately, with the earlier entry left standing.
 #17 carries a residual of the same kind inside an otherwise-fixed entry, with
 the four repairs considered and why each was worse.
@@ -974,3 +974,101 @@ comes back.
 what any other command does for one outside it. `mana`, `skeleton` and
 `compare_swap` were all checked against a mana-value-15 commander and all
 complete.
+
+---
+
+## 20. `floor` prices a cut against a display floor, not against zero — RESOLVED, documented
+
+`floor` reports the cards that ARE in the list, ascending by inclusion, so a
+cut has a number beside it. Most of them do not have one. On the partner
+fixture, 28 of 60 non-land cards are not ranked on the EDHREC page at all, and
+for those the report prints a **bound** rather than a figure.
+
+That is the honest answer and it is also a weak one, so the limitation is
+recorded here rather than left to be rediscovered as a bug.
+
+**What the bound is.** EDHREC prints the top of each cardlist and stops, and
+each list stops somewhere different. Read off one live commander page,
+2026-08-16 — the page `tests/fixtures/floor.rec.json` was captured from:
+
+| list | rows | lowest shown |
+|---|---|---|
+| Instants | 42 | 5.06% |
+| Enchantments | 11 | 5.34% |
+| Sorceries | 15 | 5.36% |
+| Lands | 48 | 5.41% |
+| Battles | 1 | 5.44% |
+| Mana Artifacts | 16 | 5.44% |
+| Utility Artifacts | 6 | 5.55% |
+| Creatures | 50 | 5.80% |
+| Planeswalkers | 2 | 5.82% |
+| Utility Lands | 11 | 6.02% |
+
+All ten type lists, so the table is the page rather than a selection from it.
+The four selection lists sit far above them and bound nothing; see below.
+
+So absence tells you `<=5.3%` for an enchantment and only `<=5.8%` for a
+creature, where the number is the point the 50-row cap fell rather than the
+point the population stopped. `display_floors` reads the depths off the page
+fetched in that run; they are never pinned in code, because they move.
+
+**Why the bound is not tightened.** The obvious tightening — assume EDHREC
+files a card on the one list its primary type names, and quote that list's
+floor — was rejected. Nothing in the payload says which face or which type a
+page filed a modal or multi-type card by: `Sorcery // Land` is filed under
+Lands, an Artifact Creature under Creatures. `display_floor_bound` therefore
+takes the WEAKEST bound over every list the card could be on. A tighter number
+here would be a claim about EDHREC's filing rules wearing the costume of a
+claim about the card.
+
+**Why four of the page's cardlists bound nothing at all.** `New Cards`,
+`High Synergy Cards` and `Game Changers` filter on recency, synergy skew and
+the bracket list rather than on inclusion, so absence from one says nothing
+whatever; on the captured page they stop at 8.21%, 73.87% and 74.47%. Read as
+display floors they would report Sol Ring, at 96.6% inclusion, as "below
+74.5%" and rank it the safest cut in the deck. `Top Cards` is ranked on
+inclusion and its 68.67% is a real bound, excluded because it would win the
+weakest-bound rule against every type list and swamp them. Only a
+cardlist whose header names a card type is allowed to bound anything, and
+`test_a_selection_cardlist_never_bounds_anything` asserts the four real depths
+so the case cannot pass by testing a list that happens to be absent.
+
+**`--cedh` does not have this problem, and must not inherit its rule.**
+edhtop16 returns whole decklists, so a card it does not rank was in zero of
+them: a measured 0% with a real denominator, printed as `0/6`. The two
+conventions are opposite and each is wrong applied to the other source —
+bounding an edhtop16 absence understates the one source that can actually say
+"nobody plays this", and zeroing an EDHREC absence invents a figure for every
+card the page merely stopped short of.
+
+**Not fixed, deliberately: there is no deeper endpoint.** EDHREC's per-type
+pages go further down than the commander page does, at one request per type
+per commander. That is 8–13 extra fetches on a rate-limited endpoint to
+sharpen numbers that are all, already, below any bar anyone sets. The bound as
+printed says "this card is in the bottom few percent"; the sharper number
+would say which bottom few percent, which no cut decision turns on.
+
+**Lands are excluded rather than bounded.** EDHREC land data reflects a budget
+population, so inclusion is the wrong instrument; `roster` already walks every
+cycle slot best-first and `ceiling` annotates its land rows against that walk.
+Excluded and counted, never silently absent — a shorter table reads as less
+work to do.
+
+Under `--cedh` that argument does not hold, and the report says so rather than
+repeating it: edhtop16 counts tournament decklists, where a land's inclusion is
+as measured as anything else on the page. Lands are still excluded there, but
+as a **choice** — so a `--cedh` run cuts from the same set an EDHREC run does,
+and because `roster` ranks a manabase on quality rather than on how many people
+play it. Printing the EDHREC reason under `--cedh` justified dropping 38 of 98
+cards with a fact about the other source, which is the same shape as the two
+absence conventions above: each is wrong applied to the wrong source.
+
+**Rows above the bar are printed rather than counted away.** This is the
+incident the command was written after: four cuts proposed in one session with
+the inclusion figure pulled for none of them, two of which were at 75.5% and
+64.5% under that commander and went back in a day later. A row above the bar
+is not a finding, but if it is omitted its absence from the table is
+indistinguishable from "safe to cut" — which is the belief that caused the
+incident. Every non-land card in the list therefore appears in exactly one of
+three blocks, and `floor_audit` asserts that identity rather than printing
+arithmetic for a reader to check.

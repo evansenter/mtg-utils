@@ -18,6 +18,10 @@ NOT evidence a card is unplayed, and this module never lets a caller confuse
 the two: `parse_commander_page` marks each list that came back at the cap, and
 a card missing from a capped list is reported as "below cutoff" rather than
 scored.
+
+**Each cardlist stops at a DIFFERENT depth**, and that difference is the only
+thing on the page that says anything about a card it did not rank.
+`display_floors` reads it off; the numbers are in that docstring.
 """
 import json
 import os
@@ -163,3 +167,74 @@ def parse_commander_page(data):
     # and the edhtop16 parser had exactly that bug.
     return sorted(rows.values(),
                   key=lambda r: (-r["inclusion"], r["name"])), capped
+
+
+def display_floors(data):
+    """EDHREC commander JSON -> {header: {header, entries, floor, capped}}.
+
+    The complement of `parse_commander_page`. That function reports what the
+    page RANKED; this one reports how deep each list went, which is the only
+    thing on the page that says anything at all about a card it did not rank.
+
+    Absence is worth wildly different amounts per type, because EDHREC stops
+    each list at a different depth. Every type list on the live commander page
+    this repo's floor.rec.json fixture was captured from, 2026-08-16 -- all
+    ten, so the table is the page rather than a selection from it:
+
+        Instants            42 rows, lowest shown  5.06%
+        Enchantments        11 rows, lowest shown  5.34%
+        Sorceries           15 rows, lowest shown  5.36%
+        Lands               48 rows, lowest shown  5.41%
+        Battles              1 row,  lowest shown  5.44%
+        Mana Artifacts      16 rows, lowest shown  5.44%
+        Utility Artifacts    6 rows, lowest shown  5.55%
+        Creatures           50 rows, lowest shown  5.80%   (at the cap)
+        Planeswalkers        2 rows, lowest shown  5.82%
+        Utility Lands       11 rows, lowest shown  6.02%
+
+    so a single number for the whole page would throw the difference away.
+    Utility Lands is the deepest, which is why an MDFC bounded across every
+    face lands there -- see display_floor_bound.
+    The depths MOVE with the population, so they are read off the page
+    fetched in this run and never pinned in code.
+
+    `floor` is the lowest inclusion the list actually printed, so a card the
+    list omits sits AT OR BELOW it -- at, not strictly below, because a tie
+    on the boundary row is broken by something this end cannot see. Callers
+    report it as `<=` for that reason.
+
+    A list that ranked nothing is dropped rather than recorded at 0.0: a
+    floor of zero reads as "everything is below 0%", which is the strongest
+    possible claim drawn from the weakest possible evidence -- the same
+    mistake `parse_commander_page` refuses to make on a cardview with no
+    ratio.
+
+    `entries` and `ranked` are BOTH carried, and they are different numbers
+    whenever a cardview came back without a ratio. `entries` is how many rows
+    the page displayed, which is what `capped` is a statement about and what
+    keeps this agreeing with `parse_commander_page`. `ranked` is how many of
+    them carried a figure, which is the depth `floor` was actually measured
+    over -- so it is the one a caller must quote as the justification for a
+    bound. Collapsing the two would have a list print "50 rows" as the
+    evidence for a floor read off however many of them happened to be
+    scoreable.
+    """
+    lists = (((data or {}).get("container") or {}).get("json_dict") or {}).get("cardlists") or []
+    out = {}
+    for cl in lists:
+        header = cl.get("header") or "?"
+        views = cl.get("cardviews") or []
+        pcts = [100.0 * cv["num_decks"] / cv["potential_decks"] for cv in views
+                if cv.get("num_decks") and cv.get("potential_decks")]
+        if not pcts:
+            continue
+        entry = {"header": header, "entries": len(views), "ranked": len(pcts),
+                 "floor": min(pcts), "capped": len(views) >= PAGE_CAP}
+        prev = out.get(header)
+        # A repeated header keeps the HIGHER floor. Every use of this is a
+        # bound of the form "below x", so the weaker of two candidates is the
+        # safe one -- the same reason display_floor_bound takes the max over
+        # the lists a card could have been filed under.
+        if prev is None or entry["floor"] > prev["floor"]:
+            out[header] = entry
+    return out

@@ -460,6 +460,242 @@ def ceiling_audit(cmdr, entries, rows, capped, owned, scry, threshold=50.0,
                              if m["price"] and not m["owned"])}
 
 
+# Card type -> the substring an EDHREC cardlist header carries when it is the
+# list for that type. Not identity: the header for Sorcery is "Sorceries",
+# which does not contain "Sorcery" at all, so a naive `type in header` test
+# silently bounds no sorcery on any page.
+#
+# The mapping is also the FILTER. A header matching none of these stems is a
+# SELECTION across types rather than a type list, and no selection may bound
+# anything. Three of them filter on something that is not inclusion at all --
+# "New Cards" on recency, "High Synergy Cards" on synergy, "Game Changers" on
+# the bracket list -- so absence from one says nothing whatever, and on the
+# page floor.rec.json was captured from they stop at 8.2%, 73.9% and 74.5%.
+# Read as display floors they would report Sol Ring, at 96.6% inclusion, as a
+# card the population has abandoned.
+#
+# "Top Cards" is excluded for the other reason: it IS ranked on inclusion, so
+# its floor (68.7% there) is a real bound -- and a uselessly weak one that
+# would win the max below against every type list and swamp them all.
+FLOOR_HEADER_STEMS = {"Artifact": "Artifact", "Battle": "Battle",
+                      "Creature": "Creature", "Enchantment": "Enchantment",
+                      "Instant": "Instant", "Land": "Land",
+                      "Planeswalker": "Planeswalker", "Sorcery": "Sorcer"}
+
+
+def display_floor_bound(type_line, floors):
+    """The bound an EDHREC page supports for a card it did not rank, or None.
+
+    A cardlist bounds a card only if the card would have been filed on it, so
+    the answer is chosen from the lists whose header names a type this card
+    has. Where more than one could hold it -- an Artifact Creature is a
+    creature to EDHREC, but nothing in the payload says so -- the WEAKEST
+    bound is the only safe one, so the highest floor wins. Taking the
+    tightest would turn a guess about EDHREC's filing rules into a confident
+    claim about the card.
+
+    None means the page cannot say anything: it ranked no list this card
+    could have appeared on. That is not the same as "below the floor" and
+    must not be rendered as a number.
+
+    EVERY face counts, which is the one place here that does not reduce to
+    the front. Agadeem's Awakening is `Sorcery // Land -- Cave` and EDHREC
+    files it under Lands, not Sorceries; nothing in the payload says which
+    face it filed a modal card by, so both are candidates and the weaker
+    bound wins. Bounding it on the front alone would quote the Sorceries
+    floor for a card the page had ranked deeper, or not at all.
+    """
+    stems = [stem for t, stem in FLOOR_HEADER_STEMS.items()
+             if t in (type_line or "")]
+    cands = [f for header, f in (floors or {}).items()
+             if any(stem in header for stem in stems)]
+    if not cands:
+        return None
+    # Ties break on the header so the choice is total and a rerun names the
+    # same list -- floors is a dict and two lists really can stop at the same
+    # percentage.
+    return max(cands, key=lambda f: (f["floor"], f["header"]))
+
+
+def floor_audit(cmdr, entries, rows, floors, scry, threshold=50.0,
+                sort="inclusion", exhaustive=False, sample=None):
+    """What the population thinks of the cards this list ALREADY runs.
+
+    Pure compute; report_floor only formats it. The inverse of ceiling_audit,
+    and it exists because nothing in this repo priced a CUT -- every cut was
+    therefore decided by hand, and by hand it put two cards on the block that
+    were at 75.5% and 64.5% inclusion under the commander in question.
+
+    Three groups, and the split is the whole point:
+
+        below       ranked, and under the bar          -- cut candidates
+        above       ranked, and at or over the bar     -- NOT cut candidates
+        unranked    the page never ranked it; carries a BOUND, never a figure
+
+    Every non-land, non-commander card in the list lands in exactly one of
+    those (or in `unresolved`, if Scryfall has never heard of it), and that
+    identity is ASSERTED here rather than printed for a reader to check --
+    the same discipline deck_skeleton uses. A card that silently belonged to
+    no group would read as a card nobody needs to think about.
+
+    LANDS ARE EXCLUDED, not scored and hidden. EDHREC's land data reflects a
+    budget population, so inclusion is the wrong instrument for them and
+    `roster` is the right one; `ceiling` already says so on its land rows and
+    repeating that judgement here would just be a second, weaker copy of it.
+
+    `exhaustive` is the source distinction. edhtop16 counts whole decklists,
+    so a card it does not rank was in zero of them -- a measured 0%, which
+    belongs in `below` with a real ratio beside it. EDHREC ranks the top of
+    each cardlist and stops, so absence there is a bound and can never be
+    turned into a number. See mtg_utils/sources/ranking.py.
+
+    `sample` is the denominator those zeroes are quoted against: how many
+    decklists the source counted. Passed in rather than read off a ranked row,
+    because a zero row is exactly the case where there might not BE one -- five
+    tournament entries whose maindecks all came back empty pass the
+    MIN_ENTRIES guard and rank nothing, and the denominator then fell to None
+    and printed every card in the list at `0/None`.
+    """
+    have_cmdr = {front_name(n).lower() for n in as_cmdrs(cmdr)}
+    ranked = {}
+    for r in rows:
+        key = front_name(r["name"]).lower()
+        prev = ranked.get(key)
+        # The max-inclusion branch guards HAND-BUILT rows, not anything either
+        # parser emits: parse_commander_page already keys its dict on the
+        # lowered front face and keeps the highest, and parse_edhtop16 counts
+        # into a Counter over front faces, so a card reaches here once from
+        # both. floor_audit takes `rows` from anywhere, which is the case this
+        # covers -- it is not dedup a parser change could make load-bearing.
+        if prev is None or r["inclusion"] > prev["inclusion"]:
+            ranked[key] = r
+    # Every edhtop16 row shares one denominator -- the entries counted -- so
+    # the zero rows quote the same sample the ranked ones do. Falls back to a
+    # ranked row's only when no sample was passed, which is every EDHREC
+    # caller, where nothing is zeroed and the value is never read.
+    pot = sample if sample is not None else (
+        rows[0]["potential_decks"] if rows else None)
+
+    # QUANTITY, not distinct names. `entries` is a Counter: `verify` sums it
+    # to reach 100 and deck_skeleton asserts its identity against that total,
+    # so a figure this report prints [checked] has to be in the same units or
+    # it reconciles with nothing. Counted by name it read "94 cards ... 34
+    # lands" against verify's "100 cards = 2 commanders + 60 non-land + 38
+    # lands" on the same file -- the four duplicate basics dropped out of both
+    # totals while the non-land half agreed exactly, which is the hardest
+    # possible way for the discrepancy to be noticed.
+    #
+    # Summed per front face, because two decklist lines can reduce to one:
+    # `Agadeem's Awakening` and `Agadeem's Awakening // Agadeem, the
+    # Undercrypt` are the same card, and dropping the second line's quantity
+    # would lose cards the same way again.
+    #
+    # `label` picks which spelling the row prints under when a list carries
+    # more than one. The LONGEST wins, which is the full MDFC name -- taking
+    # whichever the loop below reached first meant taking whichever sorted
+    # first, and the front-face spelling is a PREFIX of the full one, so it
+    # always won. That is the exact spelling the comment on the row says a
+    # reader cannot search for. Sorted so a length tie breaks the same way on
+    # every run rather than on decklist order.
+    qty, label = {}, {}
+    for name in sorted(entries):
+        key = front_name(name).lower()
+        if key not in have_cmdr:
+            qty[key] = qty.get(key, 0) + entries[name]
+            if len(name) > len(label.get(key, "")):
+                label[key] = name
+
+    below, above, unranked, lands, unresolved = [], [], [], [], []
+    land_cards = unresolved_cards = 0
+    seen = set()
+    for name in sorted(entries):
+        key = front_name(name).lower()
+        if key in have_cmdr or key in seen:
+            continue
+        seen.add(key)
+        q, name = qty[key], label[key]
+        card = scry.get(key) or scry.get(name.lower())
+        if not card:
+            # Carries its quantity like every other group, so the line that
+            # names these is in the same units as the line that counts them.
+            unresolved.append({"name": name, "qty": q})
+            unresolved_cards += q
+            continue
+        if is_front_land(card):
+            lands.append(name)
+            land_cards += q
+            continue
+        type_line = card.get("type_line", "")
+        r = ranked.get(key)
+        if r is None and exhaustive:
+            r = {"name": name, "num_decks": 0, "potential_decks": pot,
+                 "inclusion": 0.0, "synergy": None, "cardlist": "-"}
+        if r is None:
+            unranked.append({"name": name, "type_line": type_line, "qty": q,
+                             "bound": display_floor_bound(type_line, floors)})
+            continue
+        # The DECKLIST's spelling, not the source's. This is the one report
+        # whose rows are all cards the reader is holding, and they will look
+        # each one up in their own list -- where an MDFC is written out in
+        # full and EDHREC's front-face-only name is not what they will find.
+        # (`ceiling` keeps the source's name for the mirror-image reason:
+        # its rows are by definition not in the list.)
+        row = dict(r, name=name, type_line=type_line, qty=q)
+        (below if r["inclusion"] < threshold else above).append(row)
+
+    counts = {"below": sum(r["qty"] for r in below),
+              "above": sum(r["qty"] for r in above),
+              "unranked": sum(u["qty"] for u in unranked),
+              "lands": land_cards, "unresolved": unresolved_cards,
+              # Re-summed from `entries`, NOT from sum(qty.values()): every
+              # group total was drawn from the same qty[key] the loop read, so
+              # checking one against the other compares a loop against its own
+              # arithmetic. Derived here from the decklist instead, the check
+              # compares the two traversals -- which is what would actually
+              # diverge if a later edit gave the classification loop a path
+              # that skips a card without filing it anywhere.
+              "cards": sum(q for n, q in entries.items()
+                           if front_name(n).lower() not in have_cmdr)}
+    counts["nonland"] = counts["below"] + counts["above"] + counts["unranked"]
+    parts = counts["nonland"] + counts["lands"] + counts["unresolved"]
+    if parts != counts["cards"]:
+        raise SystemExit(
+            f"floor: {counts['cards']} non-commander cards but "
+            f"{counts['below']} below + {counts['above']} above + "
+            f"{counts['unranked']} unranked + {counts['lands']} lands + "
+            f"{counts['unresolved']} unresolved = {parts}. A card in no group "
+            f"is a card the report would not print and would not count.")
+
+    # Ascending throughout: the most cuttable row first, which is the
+    # ordering the command exists to produce. A card with no synergy figure
+    # sorts LAST rather than at zero -- unknown is not "no synergy", every
+    # --cedh row is unknown, and floating them to the top of a cut list on a
+    # 0.0 they were never measured at is how the column would start lying.
+    if sort == "synergy":
+        def key_of(r):
+            return (r.get("synergy") is None, r.get("synergy") or 0.0,
+                    r["inclusion"], r["name"])
+    else:
+        def key_of(r):
+            return (r["inclusion"], r["name"])
+    below.sort(key=key_of)
+    above.sort(key=key_of)
+    # An unranked card with NO bound sorts last for the same reason: the page
+    # said nothing about it, which is not evidence for cutting it.
+    unranked.sort(key=lambda u: (u["bound"] is None,
+                                 (u["bound"] or {}).get("floor", 0.0),
+                                 u["name"]))
+    # Every figure the report prints comes out of `counts`, in CARDS, so the
+    # header, the block headings and the identity line cannot drift into
+    # different units from each other. `lands` and `unresolved` stay lists of
+    # NAMES beside it, because a caller wanting to name them should not have
+    # to re-derive them from a total.
+    return {"below": below, "above": above, "unranked": unranked,
+            "lands": lands, "unresolved": unresolved, "counts": counts,
+            "threshold": threshold, "sort": sort, "exhaustive": exhaustive,
+            "considered": len(rows)}
+
+
 # Skeleton buckets are NOT report_own's buckets, and the two must not be
 # "deduplicated" into one list. `own` groups for SHOPPING -- it splits
 # Equipment out because that is how a buy list reads, and it skips basics

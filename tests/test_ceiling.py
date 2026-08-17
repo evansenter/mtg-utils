@@ -337,6 +337,27 @@ def test_an_empty_page_refuses_to_report_an_all_clear(mm, monkeypatch, tmp_path)
     assert "ranked no cards" in str(e.value)
 
 
+def test_an_edhtop16_sample_carrying_no_decklists_is_refused(mm, monkeypatch,
+                                                            tmp_path):
+    """The empty-payload guard covered EDHREC only, as an `elif`.
+
+    Entries whose maindecks all come back empty pass MIN_ENTRIES and rank
+    nothing, so `want` is empty, no Scryfall call is made, and the audit finds
+    nothing missing. Verified before fixing: the output was a header,
+    "0 cards ranked", an empty table and a $0.00 buy total -- the all-clear
+    from a source that told us nothing that the EDHREC arm already refused.
+    """
+    cache = os.path.join(str(tmp_path), "hollow.json")
+    data = {"entries": {"edges": [{"node": {"maindeck": []}} for _ in range(6)]}}
+    with open(cache, "w", encoding="utf-8") as f:
+        json.dump({"edhtop16/100/Thrasios, Triton Hero / Tymna the Weaver":
+                   data}, f)
+    with pytest.raises(SystemExit) as e:
+        _run_ceiling(mm, monkeypatch, tmp_path, rec_cache=cache, cedh=True)
+    assert "ranked no cards" in str(e.value)
+    assert "6 entries" in str(e.value)
+
+
 def test_a_thin_edhtop16_sample_prints_the_count_and_quotes_nothing(
         mm, monkeypatch, tmp_path, capsys):
     """The acceptance criterion. Below five entries every card is 25%, 50%,
@@ -365,6 +386,20 @@ def test_a_sufficient_edhtop16_sample_does_quote_percentages(
     assert "6 tournament entries counted" in out
     assert "FEWER THAN" not in out
     assert got is not None and got["missing"]
+
+
+def test_a_fractional_bar_is_printed_unrounded(mm, monkeypatch, tmp_path,
+                                              capsys):
+    """--bar is a float, so `.0f` announced a bar the rows were not filed
+    against: at --bar 74.5 the header read "bar is 74% inclusion" while a card
+    at 74.2% was correctly excluded as below it. Integral bars -- every one in
+    the snapshots -- print identically either way, which is why this moved no
+    bytes."""
+    _run_ceiling(mm, monkeypatch, tmp_path, rec_cache=REC, threshold=74.5)
+    out = capsys.readouterr().out
+    assert "bar is 74.5% inclusion" in out
+    assert "bar is 74%" not in out
+    assert "bar is 75%" not in out
 
 
 # --- synergy ----------------------------------------------------------

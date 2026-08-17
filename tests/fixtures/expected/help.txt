@@ -4,7 +4,7 @@ usage: mana_model.py [-h] [--cache CACHE] [--sims SIMS] [--trials TRIALS]
                      [--cuts CUTS] [--rec-cache REC_CACHE] [--cedh]
                      [--bar BAR] [--no-combos] [--sort {inclusion,synergy}]
                      [--primer PRIMER] [--swap SWAP]
-                     {fetch,verify,mana,variants,combos,own,contention,moxfield,write,audit,roster,diff,selftest,calibrate,ceiling,skeleton,primer}
+                     {fetch,verify,mana,variants,combos,own,contention,moxfield,write,audit,roster,diff,selftest,calibrate,ceiling,floor,skeleton,primer}
                      [target]
 
 mana_model.py — deck validation and castability for Commander decks.
@@ -32,6 +32,8 @@ Subcommands
   skeleton    slot budget and curve: 100 = commanders + lands + non-land
   ceiling     EDHREC (or --cedh edhtop16) inclusion: what is above the bar
               and missing from the list, with ownership and price
+  floor       the inverse of ceiling: what is IN the list and below the bar,
+              so a cut has a number beside it. Lands excluded; see `roster`
   variants    opt-in land/accelerant sweep; slow, run when the base is unsettled
   combos      Commander Spellbook full-deck audit
   own         ownership vs ManaBox + grouped buy list
@@ -48,7 +50,7 @@ Decklist format: first non-blank line is the commander, then one entry per
 line as "N Card Name" or bare "Card Name".
 
 positional arguments:
-  {fetch,verify,mana,variants,combos,own,contention,moxfield,write,audit,roster,diff,selftest,calibrate,ceiling,skeleton,primer}
+  {fetch,verify,mana,variants,combos,own,contention,moxfield,write,audit,roster,diff,selftest,calibrate,ceiling,floor,skeleton,primer}
   target                decklist path, or deck id for `moxfield`; unused by
                         `selftest`
 
@@ -72,16 +74,18 @@ options:
                         separator rule as --adds, and note that a mis-split
                         cut PASSES vacuously, so use ';' when in doubt
   --rec-cache REC_CACHE
-                        ceiling: on-disk cache for EDHREC / edhtop16 pages
-  --cedh                ceiling: use edhtop16 tournament data instead of
+                        ceiling/floor: on-disk cache for EDHREC / edhtop16
+                        pages
+  --cedh                ceiling/floor: use edhtop16 tournament data instead of
                         EDHREC
   --bar BAR             ceiling: inclusion % above which a missing card is
-                        reported
+                        reported; floor: the same line, read the other way --
+                        an in-deck card below it is a cut candidate
   --no-combos           ceiling: skip the Commander Spellbook cross-check (on
                         by default)
   --sort {inclusion,synergy}
-                        ceiling: order the reported rows; the bar stays on
-                        inclusion either way
+                        ceiling/floor: order the reported rows; the bar stays
+                        on inclusion either way
   --primer PRIMER       primer: path to the primer markdown to check
   --swap SWAP           variants: measure named swaps, 'Cut->Add,Cut2->Add2'
                         (use ';' between pairs if a name contains a comma)

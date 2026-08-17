@@ -1,0 +1,85 @@
+
+=== FLOOR vs edhtop16: Thrasios, Triton Hero / Tymna the Weaver ===
+  6 tournament entries counted
+  170 cards ranked; 60 non-land cards in this list, 38 lands skipped
+  bar is 50% inclusion, sorted by inclusion, ascending -- the most cuttable row first
+
+  --- BELOW THE BAR (43) ---
+  card                                           incl     syn          n/of  cardlist
+  Agadeem's Awakening                            0.0%       -           0/6  -
+  Arcane Denial                                  0.0%       -           0/6  -
+  Assassin's Trophy                              0.0%       -           0/6  -
+  Beast Within                                   0.0%       -           0/6  -
+  Brainstorm                                     0.0%       -           0/6  -
+  Chromatic Lantern                              0.0%       -           0/6  -
+  Commander's Sphere                             0.0%       -           0/6  -
+  Counterspell                                   0.0%       -           0/6  -
+  Cultivate                                      0.0%       -           0/6  -
+  Elvish Mystic                                  0.0%       -           0/6  -
+  Farseek                                        0.0%       -           0/6  -
+  Feed the Swarm                                 0.0%       -           0/6  -
+  Frantic Search                                 0.0%       -           0/6  -
+  Garruk's Uprising                              0.0%       -           0/6  -
+  Generous Gift                                  0.0%       -           0/6  -
+  Heroic Intervention                            0.0%       -           0/6  -
+  Kodama's Reach                                 0.0%       -           0/6  -
+  Lightning Greaves                              0.0%       -           0/6  -
+  Llanowar Elves                                 0.0%       -           0/6  -
+  Mana Drain                                     0.0%       -           0/6  -
+  Mind Stone                                     0.0%       -           0/6  -
+  Nature's Lore                                  0.0%       -           0/6  -
+  Negate                                         0.0%       -           0/6  -
+  Path to Exile                                  0.0%       -           0/6  -
+  Phyrexian Arena                                0.0%       -           0/6  -
+  Propaganda                                     0.0%       -           0/6  -
+  Rampant Growth                                 0.0%       -           0/6  -
+  Sakura-Tribe Elder                             0.0%       -           0/6  -
+  Skullclamp                                     0.0%       -           0/6  -
+  Solemn Simulacrum                              0.0%       -           0/6  -
+  Swiftfoot Boots                                0.0%       -           0/6  -
+  Talisman of Dominance                          0.0%       -           0/6  -
+  Teferi's Protection                            0.0%       -           0/6  -
+  Thought Vessel                                 0.0%       -           0/6  -
+  Three Visits                                   0.0%       -           0/6  -
+  Toxic Deluge                                   0.0%       -           0/6  -
+  Wayfarer's Bauble                              0.0%       -           0/6  -
+  Cyclonic Rift                                 16.7%       -           1/6  edhtop16
+  Eternal Witness                               16.7%       -           1/6  edhtop16
+  Reanimate                                     16.7%       -           1/6  edhtop16
+  Swords to Plowshares                          16.7%       -           1/6  edhtop16
+  The One Ring                                  16.7%       -           1/6  edhtop16
+  Fellwar Stone                                 33.3%       -           2/6  edhtop16
+
+  --- NOT RANKED ON THIS PAGE (0) ---
+  (none, and there cannot be: this source counts whole decklists, so a card
+  it does not rank was in zero of them and is a measured 0% above)
+
+  --- AT OR ABOVE THE BAR (17) ---
+  These are NOT cut candidates. Listed so a cut already half-decided can be
+  looked up and found, rather than being absent for a reason the table does not give.
+  card                                           incl     syn          n/of  cardlist
+  Arcane Signet                                 50.0%       -           3/6  edhtop16
+  Deadly Rollick                                50.0%       -           3/6  edhtop16
+  Swan Song                                     66.7%       -           4/6  edhtop16
+  Smothering Tithe                              83.3%       -           5/6  edhtop16
+  An Offer You Can't Refuse                    100.0%       -           6/6  edhtop16
+  Birds of Paradise                            100.0%       -           6/6  edhtop16
+  Dark Ritual                                  100.0%       -           6/6  edhtop16
+  Demonic Tutor                                100.0%       -           6/6  edhtop16
+  Enlightened Tutor                            100.0%       -           6/6  edhtop16
+  Esper Sentinel                               100.0%       -           6/6  edhtop16
+  Fierce Guardianship                          100.0%       -           6/6  edhtop16
+  Lotus Petal                                  100.0%       -           6/6  edhtop16
+  Mana Vault                                   100.0%       -           6/6  edhtop16
+  Mystic Remora                                100.0%       -           6/6  edhtop16
+  Rhystic Study                                100.0%       -           6/6  edhtop16
+  Sol Ring                                     100.0%       -           6/6  edhtop16
+  Vampiric Tutor                               100.0%       -           6/6  edhtop16
+
+  98 cards (commanders aside) = 38 lands + 43 below + 0 unranked + 17 at or above   [checked]
+  LANDS ARE EXCLUDED, and here that is a choice rather than a limit of the data:
+  this source measures a land's inclusion exactly as it measures anything else.
+  They are left out so a --cedh run cuts from the same set an EDHREC run does, and
+  because `roster` ranks a manabase on quality rather than on how many play it.
+  This source counts whole decklists, so every figure above is measured and a
+  card it does not rank is a real 0%, not a card the page stopped short of.

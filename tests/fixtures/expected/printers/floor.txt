@@ -1,0 +1,84 @@
+
+=== FLOOR vs EDHREC: thrasios-triton-hero-tymna-the-weaver ===
+  236 cards ranked; 60 non-land cards in this list, 38 lands skipped
+  bar is 50% inclusion, sorted by inclusion, ascending -- the most cuttable row first
+
+  --- BELOW THE BAR (14) ---
+  card                                           incl     syn          n/of  cardlist
+  Brainstorm                                     6.1%  +0.002     690/11374  Instants
+  Toxic Deluge                                   8.7%  -0.060     985/11374  Sorceries
+  Counterspell                                   9.7%  -0.222    1108/11374  Instants
+  Talisman of Dominance                          9.8%  +0.014    1116/11374  Mana Artifacts
+  Elvish Mystic                                 10.6%  +0.067    1204/11374  Creatures
+  Llanowar Elves                                13.5%  +0.076    1535/11374  Creatures
+  Path to Exile                                 13.9%  -0.186    1585/11374  Instants
+  Assassin's Trophy                             14.4%  -0.054    1641/11374  Instants
+  Reanimate                                     17.5%  +0.098    1988/11374  Sorceries
+  Mana Drain                                    18.1%  +0.003    2059/11374  Instants
+  Dark Ritual                                   39.5%  +0.232    4497/11374  Instants
+  Eternal Witness                               41.5%  +0.235    4715/11374  Creatures
+  Fellwar Stone                                 44.0%  +0.101    5000/11374  Mana Artifacts
+  An Offer You Can't Refuse                     47.1%  +0.246    5360/11374  Instants
+
+  --- NOT RANKED ON THIS PAGE (28) ---
+  card                                           bound  what the page shows
+  Arcane Denial                                 <=5.1%  below the 'Instants' display floor (42 ranked rows)
+  Beast Within                                  <=5.1%  below the 'Instants' display floor (42 ranked rows)
+  Frantic Search                                <=5.1%  below the 'Instants' display floor (42 ranked rows)
+  Generous Gift                                 <=5.1%  below the 'Instants' display floor (42 ranked rows)
+  Heroic Intervention                           <=5.1%  below the 'Instants' display floor (42 ranked rows)
+  Negate                                        <=5.1%  below the 'Instants' display floor (42 ranked rows)
+  Teferi's Protection                           <=5.1%  below the 'Instants' display floor (42 ranked rows)
+  Garruk's Uprising                             <=5.3%  below the 'Enchantments' display floor (11 ranked rows)
+  Phyrexian Arena                               <=5.3%  below the 'Enchantments' display floor (11 ranked rows)
+  Propaganda                                    <=5.3%  below the 'Enchantments' display floor (11 ranked rows)
+  Cultivate                                     <=5.4%  below the 'Sorceries' display floor (15 ranked rows)
+  Farseek                                       <=5.4%  below the 'Sorceries' display floor (15 ranked rows)
+  Feed the Swarm                                <=5.4%  below the 'Sorceries' display floor (15 ranked rows)
+  Kodama's Reach                                <=5.4%  below the 'Sorceries' display floor (15 ranked rows)
+  Nature's Lore                                 <=5.4%  below the 'Sorceries' display floor (15 ranked rows)
+  Rampant Growth                                <=5.4%  below the 'Sorceries' display floor (15 ranked rows)
+  Three Visits                                  <=5.4%  below the 'Sorceries' display floor (15 ranked rows)
+  Chromatic Lantern                             <=5.5%  below the 'Utility Artifacts' display floor (6 ranked rows)
+  Commander's Sphere                            <=5.5%  below the 'Utility Artifacts' display floor (6 ranked rows)
+  Lightning Greaves                             <=5.5%  below the 'Utility Artifacts' display floor (6 ranked rows)
+  Mind Stone                                    <=5.5%  below the 'Utility Artifacts' display floor (6 ranked rows)
+  Skullclamp                                    <=5.5%  below the 'Utility Artifacts' display floor (6 ranked rows)
+  Swiftfoot Boots                               <=5.5%  below the 'Utility Artifacts' display floor (6 ranked rows)
+  Thought Vessel                                <=5.5%  below the 'Utility Artifacts' display floor (6 ranked rows)
+  Wayfarer's Bauble                             <=5.5%  below the 'Utility Artifacts' display floor (6 ranked rows)
+  Sakura-Tribe Elder                            <=5.8%  below the 'Creatures' display floor (50 ranked rows, at the 50-row cap)
+  Solemn Simulacrum                             <=5.8%  below the 'Creatures' display floor (50 ranked rows, at the 50-row cap)
+  Agadeem's Awakening                           <=6.0%  below the 'Utility Lands' display floor (11 ranked rows)
+
+  --- AT OR ABOVE THE BAR (18) ---
+  These are NOT cut candidates. Listed so a cut already half-decided can be
+  looked up and found, rather than being absent for a reason the table does not give.
+  card                                           incl     syn          n/of  cardlist
+  Deadly Rollick                                57.1%  +0.441    6498/11374  Instants
+  The One Ring                                  57.7%  +0.385    6561/11374  Utility Artifacts
+  Cyclonic Rift                                 58.7%  +0.275    6681/11374  Instants
+  Swords to Plowshares                          63.7%  +0.057    7244/11374  Instants
+  Mana Vault                                    73.2%  +0.554    8331/11374  Mana Artifacts
+  Smothering Tithe                              74.5%  +0.414    8470/11374  Game Changers
+  Arcane Signet                                 75.6%  -0.033    8594/11374  Mana Artifacts
+  Enlightened Tutor                             79.7%  +0.551    9063/11374  Game Changers
+  Lotus Petal                                   81.7%  +0.623    9293/11374  Mana Artifacts
+  Swan Song                                     81.9%  +0.563    9311/11374  Top Cards
+  Fierce Guardianship                           84.9%  +0.606    9660/11374  Game Changers
+  Vampiric Tutor                                86.0%  +0.574    9782/11374  Game Changers
+  Esper Sentinel                                87.1%  +0.576    9905/11374  Top Cards
+  Demonic Tutor                                 88.1%  +0.534   10022/11374  Game Changers
+  Mystic Remora                                 88.7%  +0.615   10092/11374  High Synergy Cards
+  Rhystic Study                                 88.9%  +0.497   10109/11374  Game Changers
+  Birds of Paradise                             91.8%  +0.471   10436/11374  Top Cards
+  Sol Ring                                      96.6%  +0.096   10986/11374  Mana Artifacts
+
+  98 cards (commanders aside) = 38 lands + 14 below + 28 unranked + 18 at or above   [checked]
+  LANDS ARE EXCLUDED. EDHREC land data reflects a budget population, so inclusion is
+  the wrong instrument for them; `roster` is the right one and already walks every slot.
+  A bound is not a figure. EDHREC ranks the top of each cardlist and stops, and
+  each list stops at its own depth -- so the same absence is worth far more on a
+  short list than on a capped one.
+  NOTE: 'Creatures' came back at the 50-card display cutoff -- its floor is where
+  the cap fell, not where the population stopped playing these.

@@ -24,6 +24,8 @@ Subcommands
   skeleton    slot budget and curve: 100 = commanders + lands + non-land
   ceiling     EDHREC (or --cedh edhtop16) inclusion: what is above the bar
               and missing from the list, with ownership and price
+  floor       the inverse of ceiling: what is IN the list and below the bar,
+              so a cut has a number beside it. Lands excluded; see `roster`
   variants    opt-in land/accelerant sweep; slow, run when the base is unsettled
   combos      Commander Spellbook full-deck audit
   own         ownership vs ManaBox + grouped buy list
@@ -68,10 +70,12 @@ from mtg_utils.roster import (ANY_COLOUR, OFF_ROSTER_RANK, PAIR_CYCLES,
                               TRIPLE_CYCLES, WUBRG, identity_pairs,
                               pair_from_type_line, pair_key, roster_names,
                               roster_slot, roster_status)
-from mtg_utils.analysis import (CURVE_TOP, SKELETON_TYPES, analyse_mana,
+from mtg_utils.analysis import (CURVE_TOP, FLOOR_HEADER_STEMS, SKELETON_TYPES,
+                                analyse_mana,
                                 ceiling_audit, collapse_temps,
                                 combo_completions, commander_lines,
                                 compare_swap, deck_base_name, deck_skeleton, decisions_audit,
+                                display_floor_bound, floor_audit,
                                 land_roster_note, mean_spread,
                                 opening_hand_floor, primer_audit,
                                 replicate_playsim, split_budget, t95,
@@ -80,16 +84,18 @@ from mtg_utils.sources import UA_BROWSER, UA_TOOL
 from mtg_utils.sources.collection import COLLECTION, load_collection
 from mtg_utils.sources.moxfield import (moxfield_deck, moxfield_user_decks,
                                         parse_moxfield)
-from mtg_utils.sources.edhrec import (PAGE_CAP, edhrec_fetch, edhrec_slug,
-                                      parse_commander_page)
+from mtg_utils.sources.edhrec import (PAGE_CAP, display_floors, edhrec_fetch,
+                                      edhrec_slug, parse_commander_page)
 from mtg_utils.sources.edhtop16 import (MIN_ENTRIES, edhtop16_commander_name,
                                         edhtop16_fetch, parse_edhtop16)
+from mtg_utils.sources.ranking import SOURCE_LABEL, fetch_ranking
 from mtg_utils.sources.scryfall import scry_fetch
 from mtg_utils.sources.spellbook import spellbook
 from mtg_utils.report import (report_calibrate, report_combos, report_contention,
-                              report_ceiling, report_diff, report_mana,
-                              report_own, report_primer, report_roster,
-                              report_skeleton, report_swap, report_variants)
+                              report_ceiling, report_diff, report_floor,
+                              report_mana, report_own, report_primer,
+                              report_roster, report_skeleton, report_swap,
+                              report_variants)
 
 
 # `hypergeometric` was renamed to `at_least_in_draw`. Everything here is
