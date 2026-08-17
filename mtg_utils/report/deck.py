@@ -295,10 +295,15 @@ def _floor_unranked_rows(rows, width):
                   f"no ranked cardlist on this page could have held it")
             continue
         cap = f", at the {PAGE_CAP}-row cap" if b["capped"] else ""
+        # Pluralised on the count: the captured page's Battles list came back
+        # with exactly one row, so "(1 ranked rows)" is reachable on the very
+        # commander this repo's fixture was taken from -- it stays out of the
+        # snapshots only because partner.txt runs no battle.
+        n = b["ranked"]
         print(f"  {_floor_label(u):{width}s} "
               f"{'<=' + format(b['floor'], '.1f') + '%':>7}  "
               f"below the {b['header']!r} display floor "
-              f"({b['ranked']} ranked rows{cap})")
+              f"({n} ranked row{'' if n == 1 else 's'}{cap})")
 
 
 def report_floor(cmdr, entries, scry, rec_cache=None, cedh=False,
@@ -354,7 +359,11 @@ def report_floor(cmdr, entries, scry, rec_cache=None, cedh=False,
     width = _floor_name_width(a)
     print(f"  {a['considered']} cards ranked; {c['nonland']} non-land cards in "
           f"this list, {c['lands']} lands skipped")
-    print(f"  bar is {threshold:.0f}% inclusion, sorted by {sort}, ascending "
+    # `g`, not `.0f`: --bar is a float, so `--bar 47.5` printed "bar is 48%"
+    # and then filed a 47.8% row under BELOW THE BAR -- below the bar it was
+    # measured against, above the bar the report named. Integral bars, which
+    # is every one in the snapshots, print identically either way.
+    print(f"  bar is {threshold:g}% inclusion, sorted by {sort}, ascending "
           f"-- the most cuttable row first")
 
     print(f"\n  --- BELOW THE BAR ({c['below']}) ---")

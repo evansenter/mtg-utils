@@ -367,6 +367,20 @@ def test_a_sufficient_edhtop16_sample_does_quote_percentages(
     assert got is not None and got["missing"]
 
 
+def test_a_fractional_bar_is_printed_unrounded(mm, monkeypatch, tmp_path,
+                                              capsys):
+    """--bar is a float, so `.0f` announced a bar the rows were not filed
+    against: at --bar 74.5 the header read "bar is 74% inclusion" while a card
+    at 74.2% was correctly excluded as below it. Integral bars -- every one in
+    the snapshots -- print identically either way, which is why this moved no
+    bytes."""
+    _run_ceiling(mm, monkeypatch, tmp_path, rec_cache=REC, threshold=74.5)
+    out = capsys.readouterr().out
+    assert "bar is 74.5% inclusion" in out
+    assert "bar is 74%" not in out
+    assert "bar is 75%" not in out
+
+
 # --- synergy ----------------------------------------------------------
 # Inclusion alone cannot separate a commander-specific card from generic
 # goodstuff: Sol Ring is 80% in every deck ever built and says nothing about

@@ -283,9 +283,19 @@ def test_every_card_lands_in_exactly_one_group(mm):
     """A card in no group is a card the report neither prints nor counts, and
     a shorter table reads as less work to do. floor_audit asserts this
     itself; the case pins the arithmetic the report prints from."""
-    c = _audit(mm)["counts"]
-    assert c["cards"] == (c["lands"] + c["below"] + c["above"]
-                          + c["unranked"] + c["unresolved"])
+    cmdr, entries, scry = _partner(mm)
+    a = _audit(mm)
+    c = a["counts"]
+    # Derived from the DECKLIST, not by re-adding the audit's own figures.
+    # Summing c["lands"] + c["below"] + ... and comparing it to c["cards"]
+    # compares one loop against its own arithmetic and cannot fail; this
+    # compares the audit against the file it was handed.
+    want = sum(q for n, q in entries.items()
+               if mm.front_name(n).lower() not in
+               {mm.front_name(x).lower() for x in mm.as_cmdrs(cmdr)})
+    assert c["cards"] == want
+    assert (c["lands"] + c["below"] + c["above"] + c["unranked"]
+            + c["unresolved"]) == want
     assert c["nonland"] == c["below"] + c["above"] + c["unranked"]
 
 
@@ -526,10 +536,28 @@ def test_the_report_quotes_the_ranked_depth_not_the_displayed_count(
         mm, tmp_path,
         [{"header": "Instants", "cardviews": [
             {"name": "Swan Song", "num_decks": 5, "potential_decks": 10},
+            {"name": "Fierce Guardianship", "num_decks": 4,
+             "potential_decks": 10},
             {"name": "Mana Crypt"}, {"name": "Mox Diamond"}]}],
         {"Negate": 1}, {"negate": {"type_line": "Instant"}})
-    assert "(1 ranked rows" in out
-    assert "3 ranked" not in out
+    assert "(2 ranked rows" in out
+    assert "4 ranked" not in out
+
+
+def test_a_single_row_cardlist_is_not_pluralised(mm, no_network, tmp_path):
+    """Reachable on the very page this repo captured: Battles came back with
+    exactly one row, at 5.44%. Any deck running a battle would read "below the
+    'Battles' display floor (1 ranked rows)". It stays out of the committed
+    snapshots only because partner.txt runs no battle."""
+    out = _run_synthetic(
+        mm, tmp_path,
+        [{"header": "Battles", "cardviews": [
+            {"name": "Invasion of Ikoria", "num_decks": 5,
+             "potential_decks": 92}]}],
+        {"Invasion of Alara": 1},
+        {"invasion of alara": {"type_line": "Battle — Siege"}})
+    assert "(1 ranked row)" in out
+    assert "1 ranked rows" not in out
 
 
 def test_a_capped_selection_list_gets_no_cap_note(mm, no_network, tmp_path):
@@ -605,6 +633,17 @@ def test_a_repeated_card_prints_its_quantity(mm, no_network, tmp_path):
     assert "  Negate" in out and "1 Negate" not in out
     assert "NOT RANKED ON THIS PAGE (5)" in out
     assert "5 cards (commanders aside) = 0 lands + 0 below + 5 unranked" in out
+
+
+def test_a_fractional_bar_is_printed_unrounded(mm, no_network):
+    """--bar is a float. Rounded to `.0f` for printing, `--bar 47.5` announced
+    "bar is 48% inclusion" and then filed a 47.1% row under BELOW THE BAR --
+    below the bar it was measured against, above the bar the report named."""
+    a, out = _run(mm, rec_cache=REC, threshold=47.5)
+    assert "bar is 47.5% inclusion" in out
+    assert "48%" not in out
+    below = {r["name"]: r["inclusion"] for r in a["below"]}
+    assert below["An Offer You Can't Refuse"] < 47.5
 
 
 def test_the_report_says_lands_are_excluded(mm, no_network):

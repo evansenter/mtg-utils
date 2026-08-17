@@ -974,6 +974,7 @@ comes back.
 what any other command does for one outside it. `mana`, `skeleton` and
 `compare_swap` were all checked against a mana-value-15 commander and all
 complete.
+
 ---
 
 ## 20. `floor` prices a cut against a display floor, not against zero — RESOLVED, documented

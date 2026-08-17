@@ -232,7 +232,11 @@ def report_ceiling(cmdr, entries, scry, cache=None, rec_cache=None, cedh=False,
             combo_note = str(e)
     a = ceiling_audit(cmdr, entries, rows, capped, load_collection(), scry,
                       threshold, sort, completions)
-    print(f"  {a['considered']} cards ranked; bar is {threshold:.0f}% inclusion"
+    # `g` rather than `.0f` for the same reason `floor` uses it: --bar is a
+    # float and rounding it in print puts the bar the report NAMES on the far
+    # side of a row from the bar it was measured against. No snapshot moves --
+    # every bar in them is integral, which prints identically either way.
+    print(f"  {a['considered']} cards ranked; bar is {threshold:g}% inclusion"
           f", sorted by {sort}")
     print(f"\n  {'card':34s} {'incl':>7} {'syn':>7} {'n/of':>13} {'own':>4}  price")
     for m in a["missing"]:

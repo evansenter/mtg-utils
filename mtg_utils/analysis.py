@@ -635,7 +635,15 @@ def floor_audit(cmdr, entries, rows, floors, scry, threshold=50.0,
               "above": sum(r["qty"] for r in above),
               "unranked": sum(u["qty"] for u in unranked),
               "lands": land_cards, "unresolved": unresolved_cards,
-              "cards": sum(qty.values())}
+              # Re-summed from `entries`, NOT from sum(qty.values()): every
+              # group total was drawn from the same qty[key] the loop read, so
+              # checking one against the other compares a loop against its own
+              # arithmetic. Derived here from the decklist instead, the check
+              # compares the two traversals -- which is what would actually
+              # diverge if a later edit gave the classification loop a path
+              # that skips a card without filing it anywhere.
+              "cards": sum(q for n, q in entries.items()
+                           if front_name(n).lower() not in have_cmdr)}
     counts["nonland"] = counts["below"] + counts["above"] + counts["unranked"]
     parts = counts["nonland"] + counts["lands"] + counts["unresolved"]
     if parts != counts["cards"]:
