@@ -813,9 +813,13 @@ def primer_audit(text, cmdr, entries, scry):
     `not_found` -- Scryfall does not know the name. A typo in a link renders as
                    a dead link, and the primer still reads as if the card is in
                    the deck.
-    `not_in_deck` -- a real card that is no longer in the list. THE failure a
-                   primer accumulates on its own: editing a decklist touches
-                   nothing in the prose that argues for the cards.
+    `not_in_deck` -- a real card the list does not hold. Worth surfacing
+                   because editing a decklist touches nothing in the prose
+                   that discusses it -- but NOT necessarily a stale reference,
+                   and the report no longer says it is: on the primer that
+                   prompted the neutral heading, 21 of 21 were traps entries
+                   arguing AGAINST the card or suggestions not yet adopted,
+                   and none was stale. What a link means is the reader's call.
 
     A wrapped link is NOT also reported as not-found or not-in-deck even when
     its normalised name would qualify. One broken link is one problem, and

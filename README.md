@@ -540,9 +540,16 @@ are invisible in the source text:
   is written with `re.S`: *without* DOTALL a wrapped link does not match at
   all, and the check walks past the one link on the page that is broken and
   reports the primer clean.
-- **A link outlives the card.** Cut a card and the primer still argues for it.
-  Editing a decklist touches nothing in the prose that discusses it, which is
-  the single most common way a primer goes quietly wrong.
+- **A link names a card the list does not hold.** Editing a decklist touches
+  nothing in the prose that discusses it, so a cut card keeps its link. But
+  that is not the usual reason a link is flagged: on the primer that prompted
+  the neutral heading, 21 of 21 were traps entries arguing *against* the card
+  or suggestions not yet adopted, and **zero** were stale. The check surfaces
+  them with line numbers; what each one means is yours to decide.
+
+  Scope worth knowing: it matches `[[Card]]` links only, so a cut card
+  discussed in plain prose passes clean. Extending it to bare decklist names
+  would be a bigger change and a noisy one.
 
 Also reported: a name Scryfall does not know (a typo renders as a dead link),
 and an opening `[[` with no closer — which the link pattern cannot match by

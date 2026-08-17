@@ -727,6 +727,32 @@ def test_no_cap_note_when_the_bound_was_not_read_off_a_capped_list(
     assert "came back at the" not in out
 
 
+def test_the_cap_note_does_fire_when_the_kept_entry_is_the_capped_one(
+        mm, no_network, tmp_path):
+    """The mirror of the case above, and it has to exist.
+
+    That one covers a duplicated header where the kept higher-floor entry is
+    the UNcapped one. Alone it is one-sided: an edit inverting the floor
+    tiebreak in display_floors would be caught there and leave this direction
+    silently unmarked. Here the deeper list is also the higher-floored one, so
+    the kept entry IS capped -- the row must carry the marker and the note
+    must fire.
+    """
+    deep = [{"name": f"Deep {i}", "num_decks": 90 + (mm.PAGE_CAP - 1 - i),
+             "potential_decks": 1000} for i in range(mm.PAGE_CAP)]
+    shallow = [{"name": f"Shallow {i}", "num_decks": 50 + (11 - i),
+                "potential_decks": 1000} for i in range(12)]
+    out = _run_synthetic(
+        mm, tmp_path,
+        [{"header": "Creatures", "cardviews": deep},
+         {"header": "Creatures", "cardviews": shallow}],
+        {"Birds of Paradise": 1},
+        {"birds of paradise": {"type_line": "Creature — Bird"}})
+    assert "<=9.0%" in out
+    assert "at the 50-row cap" in out
+    assert out.count("'Creatures' came back at the") == 1
+
+
 def test_the_report_says_lands_are_excluded(mm, no_network):
     _a, out = _run(mm, rec_cache=REC)
     assert "LANDS ARE EXCLUDED" in out
