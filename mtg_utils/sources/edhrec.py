@@ -170,7 +170,7 @@ def parse_commander_page(data):
 
 
 def display_floors(data):
-    """EDHREC commander JSON -> {header: {header, entries, floor, capped}}.
+    """EDHREC commander JSON -> {header: {header, entries, ranked, floor, capped}}.
 
     The complement of `parse_commander_page`. That function reports what the
     page RANKED; this one reports how deep each list went, which is the only

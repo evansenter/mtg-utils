@@ -12,6 +12,12 @@ hit by hand in a single session, and both are invisible in the source text:
                               still argues for it, because editing a decklist
                               touches nothing in the prose
 
+That second one is ONE instance, not what the finding usually turns out to be:
+on the primer that prompted the neutral heading, 21 of 21 flagged links were
+traps entries arguing AGAINST the card or suggestions not yet adopted, and none
+was stale. Hence test_the_report_names_the_line_of_every_finding asserting the
+"still argues for these" framing is absent from the output.
+
 The wrapped case is the one that motivated the regex being written with
 re.S. WITHOUT DOTALL a wrapped link does not match the link pattern at all --
 so the scan walks past the single link on the page that does not render, and
@@ -233,8 +239,16 @@ def test_the_report_names_the_line_of_every_finding(mm, monkeypatch, tmp_path,
     out = capsys.readouterr().out
     assert "BROKEN ACROSS LINES (1)" in out
     assert "line 21: Agadeem's Awakening" in out
-    assert "NO LONGER IN THE DECK (1)" in out
+    assert "LINKED BUT NOT IN THE DECK (1)" in out
     assert "line 28: Force of Will" in out
+    # NEUTRAL wording. "the primer still argues for these" asserted the
+    # opposite of what the section usually holds -- on the primer that
+    # prompted this, 21 of 21 links here were traps entries arguing AGAINST
+    # the card or suggestions not yet adopted, and zero were stale. A heading
+    # that mis-frames the hit in the reassuring direction is the one that
+    # trains a reader to skim past a real finding.
+    assert "still argues for these" not in out
+    assert "confirm each is deliberate" in out
     assert "UNCLOSED" in out and "line 42" in out
 
 
@@ -245,7 +259,7 @@ def test_the_report_says_so_when_the_primer_is_clean(mm, monkeypatch, tmp_path,
     out = capsys.readouterr().out
     assert a["ok"] is True
     assert "every link renders" in out
-    assert "BROKEN" not in out and "NO LONGER" not in out
+    assert "BROKEN" not in out and "LINKED BUT NOT IN THE DECK" not in out
 
 
 def test_a_wrapped_link_is_never_sent_to_scryfall(mm, monkeypatch, tmp_path):

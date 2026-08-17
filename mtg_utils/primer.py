@@ -9,10 +9,13 @@ a newline inside the brackets, and `[[Sword of Feast\nand Famine]]` renders as
 literal text with the brackets showing. Reading the markdown back does not
 surface it -- the words are all present and in the right order.
 
-**A link outlives the card.** Cut a card from the list and the primer still
-argues for it. That paragraph is now describing a deck that does not exist, and
-it is the single most common way a primer goes quietly wrong: nothing about
-editing a decklist touches the prose that discusses it.
+**A link names a card the list does not hold.** Nothing about editing a
+decklist touches the prose that discusses it, so a cut card keeps its link and
+that paragraph describes a deck that does not exist. But that is not the usual
+reason a link is flagged, and this module does not claim it is: on the primer
+that prompted the neutral heading, 21 of 21 were traps entries arguing AGAINST
+the card or suggestions not yet adopted, and none was stale. What a flagged
+link means is the reader's to decide -- the check only surfaces it.
 
 Both were hit by hand twice in one session, which is what a mechanical check is
 for.

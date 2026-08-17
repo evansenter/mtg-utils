@@ -1069,6 +1069,8 @@ the inclusion figure pulled for none of them, two of which were at 75.5% and
 64.5% under that commander and went back in a day later. A row above the bar
 is not a finding, but if it is omitted its absence from the table is
 indistinguishable from "safe to cut" — which is the belief that caused the
-incident. Every non-land card in the list therefore appears in exactly one of
-three blocks, and `floor_audit` asserts that identity rather than printing
-arithmetic for a reader to check.
+incident. Every non-land card the report could resolve therefore appears in
+exactly one of three blocks, and `floor_audit` asserts that identity rather
+than printing arithmetic for a reader to check. A name Scryfall does not know
+is in none of them — it is filed before its type line is read, so it is neither
+excluded as a land nor bounded — and is counted and named separately.

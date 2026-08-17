@@ -228,8 +228,15 @@ def report_primer(cmdr, entries, scry, primer_path, cache=None):
         for l in a["not_found"]:
             print(f"    line {l['line']}: {l['name']}")
     if a["not_in_deck"]:
-        print(f"\n  NO LONGER IN THE DECK ({len(a['not_in_deck'])}) -- the primer "
-              f"still argues for these:")
+        # Neutral. "the primer still argues for these" asserts the opposite
+        # of what the section usually holds: on a real primer most of these
+        # are traps entries arguing AGAINST the card, or evidenced suggestions
+        # not yet adopted -- 21 of 21 on the list that prompted this, with
+        # zero stale references. A heading that mis-frames the result in the
+        # reassuring direction trains the reader to skim past a genuine hit.
+        print(f"\n  LINKED BUT NOT IN THE DECK ({len(a['not_in_deck'])}) -- "
+              f"expect traps and suggestions\n  here; confirm each is "
+              f"deliberate:")
         for l in a["not_in_deck"]:
             print(f"    line {l['line']}: {l['name']}")
     if a["ok"]:
@@ -391,7 +398,12 @@ def report_floor(cmdr, entries, scry, rec_cache=None, cedh=False,
         print("  it does not rank was in zero of them and is a measured 0% "
               "above)")
     else:
-        print("  (none -- every non-land card in this list is ranked)")
+        # "could resolve", not "in this list": a name Scryfall does not know
+        # never reaches the unranked branch -- it is filed in `unresolved`
+        # before its type line is read -- so the stronger sentence would sit
+        # a few lines above a report saying those cards are in no group.
+        print("  (none -- every non-land card this report could resolve is "
+              "ranked)")
 
     print(f"\n  --- AT OR ABOVE THE BAR ({c['above']}) ---")
     if a["above"]:
@@ -464,7 +476,20 @@ def report_floor(cmdr, entries, scry, rec_cache=None, cedh=False,
     # it. Gating on what was quoted also dedupes -- parse_commander_page
     # appends to `capped` per cardlist while display_floors keys per header,
     # so one header appearing twice on a page would print the note twice.
-    quoted = {u["bound"]["header"] for u in a["unranked"] if u["bound"]}
+    #
+    # Read off the ROW's own `capped`, not off rank["capped"], so the note and
+    # the inline ", at the 50-row cap" marker rest on the same fact. They can
+    # disagree: display_floors keeps the entry with the higher floor when one
+    # header appears twice, and that entry may be the one that was NOT capped
+    # -- the row then correctly prints no marker while rank["capped"] still
+    # carries the header from the other cardlist.
+    # Iterated in PAGE order off rank["capped"], never over `quoted` itself:
+    # a set's iteration order moves with PYTHONHASHSEED, so two capped headers
+    # would print their notes in a different order run to run. `quoted` is a
+    # subset of rank["capped"] -- a row can only carry capped=True if its
+    # cardlist came back at the cap, which is what put the header there.
+    quoted = {u["bound"]["header"] for u in a["unranked"]
+              if u["bound"] and u["bound"]["capped"]}
     said = set()
     for header in rank["capped"]:
         if header not in quoted or header in said:
