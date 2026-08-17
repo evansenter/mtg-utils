@@ -12,6 +12,12 @@ hit by hand in a single session, and both are invisible in the source text:
                               still argues for it, because editing a decklist
                               touches nothing in the prose
 
+That second one is ONE instance, not what the finding usually turns out to be:
+on the primer that prompted the neutral heading, 21 of 21 flagged links were
+traps entries arguing AGAINST the card or suggestions not yet adopted, and none
+was stale. Hence test_the_report_names_the_line_of_every_finding asserting the
+"still argues for these" framing is absent from the output.
+
 The wrapped case is the one that motivated the regex being written with
 re.S. WITHOUT DOTALL a wrapped link does not match the link pattern at all --
 so the scan walks past the single link on the page that does not render, and

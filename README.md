@@ -443,9 +443,11 @@ inclusion figure pulled for none of them. Two of those four were at **75.5%**
 and **64.5%** under that commander and went back in a day later.
 
 Same flags as `ceiling`, same bar, read the other way: a card in the list and
-*below* the bar is a cut candidate. Three blocks, and every non-land card in
-the list appears in exactly one of them — the identity is asserted, not printed
-for you to check.
+*below* the bar is a cut candidate. Three blocks, and every non-land card the
+report could resolve appears in exactly one of them — the identity is asserted,
+not printed for you to check. A name Scryfall does not know is in **none** of
+the three: it is filed before its type line is read, counted separately, and
+named in the output as being in no group at all.
 
 **Rows above the bar are printed, not counted away.** They are not findings,
 but they have to be *findable*: a cut you have already half-decided has to be
