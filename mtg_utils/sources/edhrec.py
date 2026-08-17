@@ -177,17 +177,24 @@ def display_floors(data):
     thing on the page that says anything at all about a card it did not rank.
 
     Absence is worth wildly different amounts per type, because EDHREC stops
-    each list at a different depth. Measured on the live commander page this
-    repo's floor.rec.json fixture was captured from, 2026-08-16:
+    each list at a different depth. Every type list on the live commander page
+    this repo's floor.rec.json fixture was captured from, 2026-08-16 -- all
+    ten, so the table is the page rather than a selection from it:
 
-        Creatures           50 rows, lowest shown  5.80%   (at the cap)
         Instants            42 rows, lowest shown  5.06%
-        Mana Artifacts      16 rows, lowest shown  5.44%
         Enchantments        11 rows, lowest shown  5.34%
-        Utility Artifacts    6 rows, lowest shown  5.55%
+        Sorceries           15 rows, lowest shown  5.36%
+        Lands               48 rows, lowest shown  5.41%
         Battles              1 row,  lowest shown  5.44%
+        Mana Artifacts      16 rows, lowest shown  5.44%
+        Utility Artifacts    6 rows, lowest shown  5.55%
+        Creatures           50 rows, lowest shown  5.80%   (at the cap)
+        Planeswalkers        2 rows, lowest shown  5.82%
+        Utility Lands       11 rows, lowest shown  6.02%
 
     so a single number for the whole page would throw the difference away.
+    Utility Lands is the deepest, which is why an MDFC bounded across every
+    face lands there -- see display_floor_bound.
     The depths MOVE with the population, so they are read off the page
     fetched in this run and never pinned in code.
 

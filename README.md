@@ -459,12 +459,19 @@ somewhere different**. Measured on one commander page, 2026-08-16:
 
 | list | rows | lowest shown |
 |---|---|---|
-| Creatures | 50 | 5.80% |
 | Instants | 42 | 5.06% |
-| Mana Artifacts | 16 | 5.44% |
-| Sorceries | 15 | 5.36% |
 | Enchantments | 11 | 5.34% |
+| Sorceries | 15 | 5.36% |
+| Lands | 48 | 5.41% |
+| Battles | 1 | 5.44% |
+| Mana Artifacts | 16 | 5.44% |
 | Utility Artifacts | 6 | 5.55% |
+| Creatures | 50 | 5.80% |
+| Planeswalkers | 2 | 5.82% |
+| Utility Lands | 11 | 6.02% |
+
+That is every type list on the page, not a selection from it — the spread is
+the whole argument for reading the depths per list.
 
 So an absent creature is only known to be below the point where the 50-row cap
 fell, while an absent enchantment is below 5.3% and that is real evidence. The

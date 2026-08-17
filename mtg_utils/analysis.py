@@ -534,7 +534,7 @@ def display_floor_bound(type_line, floors):
 
 
 def floor_audit(cmdr, entries, rows, floors, scry, threshold=50.0,
-                sort="inclusion", exhaustive=False):
+                sort="inclusion", exhaustive=False, sample=None):
     """What the population thinks of the cards this list ALREADY runs.
 
     Pure compute; report_floor only formats it. The inverse of ceiling_audit,
@@ -564,17 +564,33 @@ def floor_audit(cmdr, entries, rows, floors, scry, threshold=50.0,
     belongs in `below` with a real ratio beside it. EDHREC ranks the top of
     each cardlist and stops, so absence there is a bound and can never be
     turned into a number. See mtg_utils/sources/ranking.py.
+
+    `sample` is the denominator those zeroes are quoted against: how many
+    decklists the source counted. Passed in rather than read off a ranked row,
+    because a zero row is exactly the case where there might not BE one -- five
+    tournament entries whose maindecks all came back empty pass the
+    MIN_ENTRIES guard and rank nothing, and the denominator then fell to None
+    and printed every card in the list at `0/None`.
     """
     have_cmdr = {front_name(n).lower() for n in as_cmdrs(cmdr)}
     ranked = {}
     for r in rows:
         key = front_name(r["name"]).lower()
         prev = ranked.get(key)
+        # The max-inclusion branch guards HAND-BUILT rows, not anything either
+        # parser emits: parse_commander_page already keys its dict on the
+        # lowered front face and keeps the highest, and parse_edhtop16 counts
+        # into a Counter over front faces, so a card reaches here once from
+        # both. floor_audit takes `rows` from anywhere, which is the case this
+        # covers -- it is not dedup a parser change could make load-bearing.
         if prev is None or r["inclusion"] > prev["inclusion"]:
             ranked[key] = r
     # Every edhtop16 row shares one denominator -- the entries counted -- so
-    # the zero rows can quote the same sample the ranked ones do.
-    pot = rows[0]["potential_decks"] if rows else None
+    # the zero rows quote the same sample the ranked ones do. Falls back to a
+    # ranked row's only when no sample was passed, which is every EDHREC
+    # caller, where nothing is zeroed and the value is never read.
+    pot = sample if sample is not None else (
+        rows[0]["potential_decks"] if rows else None)
 
     # QUANTITY, not distinct names. `entries` is a Counter: `verify` sums it
     # to reach 100 and deck_skeleton asserts its identity against that total,

@@ -993,14 +993,19 @@ each list stops somewhere different. Read off one live commander page,
 
 | list | rows | lowest shown |
 |---|---|---|
-| Creatures | 50 | 5.80% |
 | Instants | 42 | 5.06% |
-| Mana Artifacts | 16 | 5.44% |
-| Sorceries | 15 | 5.36% |
 | Enchantments | 11 | 5.34% |
-| Utility Artifacts | 6 | 5.55% |
+| Sorceries | 15 | 5.36% |
+| Lands | 48 | 5.41% |
 | Battles | 1 | 5.44% |
+| Mana Artifacts | 16 | 5.44% |
+| Utility Artifacts | 6 | 5.55% |
+| Creatures | 50 | 5.80% |
+| Planeswalkers | 2 | 5.82% |
 | Utility Lands | 11 | 6.02% |
+
+All ten type lists, so the table is the page rather than a selection from it.
+The four selection lists sit far above them and bound nothing; see below.
 
 So absence tells you `<=5.3%` for an enchantment and only `<=5.8%` for a
 creature, where the number is the point the 50-row cap fell rather than the

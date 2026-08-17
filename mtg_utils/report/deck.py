@@ -340,18 +340,28 @@ def report_floor(cmdr, entries, scry, rec_cache=None, cedh=False,
             print("  Run again when the commander has more results, or drop "
                   "--cedh for EDHREC.")
             return None
-    elif not rank["rows"]:
-        # The mirror of ceiling's empty-page guard, and it fails louder here.
-        # Fall through and every card in the list comes back unranked with no
-        # bound -- a report that reads as a deck of pure filler, produced from
-        # a page that told us nothing.
+    # BOTH sources, not just EDHREC. As an `elif` this could never reach the
+    # edhtop16 branch, and the shape it misses is reachable: five or more
+    # entries whose maindecks all come back empty pass the MIN_ENTRIES guard
+    # and rank nothing at all. The mirror of ceiling's empty-page guard, and
+    # it fails louder here -- fall through on EDHREC and every card comes back
+    # unranked with no bound, fall through on edhtop16 and every card is
+    # printed at a measured 0%. Both read as a deck of pure filler, produced
+    # from a payload that told us nothing.
+    if not rank["rows"]:
+        detail = ("That is a fetch or slug problem, not a list the population "
+                  "has never heard of"
+                  if rank["source"] == "edhrec" else
+                  f"{rank['n_entries']} entries came back carrying no "
+                  f"decklists, which is a fetch problem, not a list nobody "
+                  f"plays")
         raise SystemExit(
-            f"EDHREC page for {rank['label']!r} ranked no cards at all. That "
-            f"is a fetch or slug problem, not a list the population has never "
-            f"heard of -- refusing to price a cut from an empty page.")
+            f"{SOURCE_LABEL[rank['source']]} ranked no cards at all for "
+            f"{rank['label']!r}. {detail} -- refusing to price a cut from a "
+            f"source that told us nothing.")
 
     a = floor_audit(cmdr, entries, rank["rows"], rank["floors"], scry,
-                    threshold, sort, rank["exhaustive"])
+                    threshold, sort, rank["exhaustive"], rank["n_entries"])
     # Every count below is in CARDS, the units `verify` and `skeleton` report
     # in, so the identity line reconciles against them rather than against a
     # distinct-name total that silently drops duplicate basics.

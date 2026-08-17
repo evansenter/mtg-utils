@@ -418,7 +418,7 @@ def test_an_edhtop16_card_the_source_never_ranked_is_a_measured_zero(mm):
         rows, n = mm.parse_edhtop16(list(json.load(f).values())[0])
     cmdr, entries, scry = _partner(mm)
     a = mm.floor_audit(cmdr, entries, rows, {}, scry, threshold=50.0,
-                       exhaustive=True)
+                       exhaustive=True, sample=n)
     assert a["unranked"] == [], "an exhaustive source leaves nothing unranked"
     zeros = [r for r in a["below"] if r["inclusion"] == 0.0]
     assert zeros
@@ -663,6 +663,44 @@ def test_an_empty_page_refuses_to_price_a_cut(mm, no_network, tmp_path):
     with pytest.raises(SystemExit) as e:
         _run(mm, rec_cache=cache)
     assert "ranked no cards" in str(e.value)
+
+
+def test_an_edhtop16_sample_carrying_no_decklists_is_refused(
+        mm, no_network, tmp_path):
+    """The guard that could not reach this source.
+
+    Five or more entries whose maindecks all come back empty PASS the
+    MIN_ENTRIES check and rank nothing, so the empty-payload guard has to
+    cover both sources -- as an `elif` on the EDHREC branch it could not. Left
+    to fall through, every card in the list prints at a measured 0% against a
+    denominator read off a ranked row that does not exist: `0/None`, the whole
+    deck, from a payload that told us nothing.
+    """
+    cache = os.path.join(str(tmp_path), "hollow.json")
+    data = {"entries": {"edges": [{"node": {"maindeck": []}} for _ in range(6)]}}
+    with open(cache, "w", encoding="utf-8") as f:
+        json.dump({"edhtop16/100/Thrasios, Triton Hero / Tymna the Weaver":
+                   data}, f)
+    with pytest.raises(SystemExit) as e:
+        _run(mm, rec_cache=cache, cedh=True)
+    assert "ranked no cards" in str(e.value)
+    # Names the shape, so the message is actionable rather than just a stop.
+    assert "6 entries" in str(e.value)
+
+
+def test_the_zero_denominator_is_the_sample_not_a_ranked_row(mm):
+    """A zero row is exactly the case where there may be no ranked row to read
+    a denominator off, so the sample is passed in rather than inferred. Given
+    one, it wins over any row: the number of decklists counted is what a 0%
+    is a fraction of."""
+    rows = [{"name": "Sol Ring", "num_decks": 6, "potential_decks": 99,
+             "inclusion": 100.0, "synergy": None, "cardlist": "x"}]
+    a = mm.floor_audit("Cmdr", {"Negate": 1}, rows, {},
+                       {"negate": {"type_line": "Instant"}},
+                       exhaustive=True, sample=6)
+    zero = a["below"][0]
+    assert (zero["name"], zero["num_decks"], zero["potential_decks"]) == \
+        ("Negate", 0, 6)
 
 
 def test_a_thin_edhtop16_sample_quotes_nothing(mm, no_network, tmp_path):
