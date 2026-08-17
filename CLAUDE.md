@@ -302,8 +302,8 @@ banner with a different module's docstring, and `--help` is snapshot-tested.
 `tests/fixtures/` holds five decks — mono-colour, multicolour, colourless, a
 partner pair and a 60-card Standard Brawl list — plus frozen Scryfall caches, a
 ManaBox export, the `ceiling.*` captures for EDHREC and edhtop16,
-`floor.rec.json` and `brawl.arena.json`. **They are frozen inputs. Never edit
-one; add a new one.**
+`floor.rec.json`, `brawl.arena.json`, and `fetchland.scry.json`, a cache with
+no deck beside it. **They are frozen inputs. Never edit one; add a new one.**
 
 The Brawl deck is the only fixture that is not Commander, and it is what makes
 a format claim falsifiable at all: four 100-card Commander decks cannot fail a
@@ -312,6 +312,14 @@ only DFC commander, the only five-colour identity on a three-colour build, the
 only gated and taxed lands (the Verge cycle, `{1}, {T}: Add one mana of any
 color`) and the only turn-conditional tap. `DECK_EXTRA` in `tests/conftest.py`
 passes `--format=standardbrawl` for it and for nothing else.
+
+A cache with no deck is the cheap way to add coverage: `fetchland.scry.json`
+exists because every fetch in the five decks is an untapped one, so the family
+that fetches TAPPED had no committed card at all and a wrong verdict on it
+moved no snapshot. A sixth golden deck would have cost the suite another
+`variants` sweep; the cases read the cache directly instead. Reach for that
+shape whenever the gap is "no fixture card exercises this branch" rather than
+"no fixture deck has this shape".
 
 The partner pair is not decoration either: it is the only shape with two
 commanders and a 98-card library, which is where "1 commander" and a hard-coded
