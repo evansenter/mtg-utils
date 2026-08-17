@@ -166,6 +166,14 @@ anything in between is a signal to look at the deck by hand rather than guess.
 - **Conditional on a choice or board state** — shocklands (pay 2), The Black
   Gate and the Zendikar-style MDFC land backs (pay **3**), checklands.
 
+A fourth shape is not the land entering tapped at all: **a fetchland whose
+fetch arrives tapped**. Evolving Wilds and Terramorphic Expanse produce no mana
+of their own and hand you a tapped basic, so the turn you play one you have
+nothing — which is what an unconditionally tapped land gives you, and they are
+scored that way. The wording is the only thing that separates them from Verdant
+Catacombs, and a land that taps for mana itself (Terminal Moraine) is an
+ordinary untapped land no matter what its activated fetch does.
+
 Classes two and three are modelled as untapped and reported separately, with
 the matched oracle text printed beside each one. The life figure varies across
 the class, so the classifier matches `you may pay \d+ life`, never a literal

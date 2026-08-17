@@ -252,9 +252,17 @@ banner with a different module's docstring, and `--help` is snapshot-tested.
 ## Fixtures
 
 `tests/fixtures/` holds four decks — mono-colour, multicolour, colourless and a
-partner pair — plus frozen Scryfall caches, a ManaBox export, and the `ceiling.*`
-captures for EDHREC and edhtop16. **They are frozen inputs. Never edit one; add
-a new one.**
+partner pair — plus frozen Scryfall caches, a ManaBox export, the `ceiling.*`
+captures for EDHREC and edhtop16, and `fetchland.scry.json`, a cache with no
+deck beside it. **They are frozen inputs. Never edit one; add a new one.**
+
+A cache with no deck is the cheap way to add coverage: `fetchland.scry.json`
+exists because every fetch in the four decks is an untapped one, so the family
+that fetches TAPPED had no committed card at all and a wrong verdict on it
+moved no snapshot. Adding a fifth golden deck would have cost the suite a
+`variants` sweep; the cases read the cache directly instead. Reach for that
+shape whenever the gap is "no fixture card exercises this branch" rather than
+"no fixture deck has this shape".
 
 The partner pair is not decoration either: it is the only shape with two
 commanders and a 98-card library, which is where "1 commander" and a hard-coded

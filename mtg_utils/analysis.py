@@ -4,7 +4,7 @@ import random
 import re
 
 from mtg_utils.cards import (enters_tapped, front, front_name, has_land_back,
-                             is_front_land, land_face)
+                             is_front_land, is_tapped_fetcher, land_face)
 from mtg_utils.castability import (PLAYSIM_TURNS, at_least_in_draw, castable_faces,
                                    pips_from_cost, playsim_report, probability)
 from mtg_utils.decklist import apply_swaps, as_cmdrs, flat, read_decisions
@@ -42,6 +42,13 @@ def verify(cmdr, entries, scry):
             lands += q
             lf = land_face(c)
             t, cm = enters_tapped(lf, c)
+            # Evolving Wilds does not enter tapped -- the basic it fetches
+            # does -- so enters_tapped answers its own question correctly and
+            # still leaves this header saying "untapped" about a land the
+            # models score as tapped. The header exists to explain the models'
+            # tapped-ness to whoever is reading the figures beside it, so the
+            # two have to agree; one predicate, both call sites.
+            t = t or is_tapped_fetcher(lf, c)
             # The name is listed once; the COUNT is by quantity, so it is in
             # the same units as `lands` beside it in the header. They coincide
             # in singleton Commander -- basics are the only entries above one

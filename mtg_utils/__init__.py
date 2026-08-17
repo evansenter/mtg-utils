@@ -47,9 +47,10 @@ line as "N Card Name" or bare "Card Name".
 # working for anything that used the single file as a library.
 
 from mtg_utils.cards import (BASIC_TYPE_COLOUR, COLOURS, CONDITIONAL_TAP_MARKERS,
-                             CONDITIONAL_TAP_PATTERNS, MANA_SYMBOLS, WORDNUM,
-                             enters_tapped, faces, fetch_targets, front,
-                             front_name, has_land_back, is_front_land, land_face,
+                             CONDITIONAL_TAP_PATTERNS, FETCH_TAPPED, MANA_SYMBOLS,
+                             WORDNUM, enters_tapped, faces, fetch_targets,
+                             fetches_tapped, front, front_name, has_land_back,
+                             is_front_land, is_tapped_fetcher, land_face,
                              mana_amount)
 from mtg_utils.profiles import (ADDITIONAL_COST, FILTER_LANDS, OMNI_TYPE,
                                 RITUAL_ADD, TRIGGERED_EVENT, TRIGGERED_PHASE,

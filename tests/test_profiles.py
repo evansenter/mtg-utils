@@ -70,8 +70,16 @@ def test_fetch_reaches_typed_lands(profs):
     assert profs["wooded foothills"]["colours"] == frozenset("RGW")
 
 
-def test_fetch_never_tapped(profs):
-    """profiles/fetch never tapped"""
+def test_untapped_fetch_is_not_tapped(profs):
+    """profiles/untapped fetch is not tapped
+
+    Named for the class it covers, not for the universal it used to assert.
+    As `profiles/fetch never tapped` it read as a claim about every fetch and
+    was checked on the one family the claim holds for -- Wooded Foothills
+    really does put its land in untapped -- so it passed with Evolving Wilds
+    and Bad River misclassified beside it. tests/test_fetchlands.py carries
+    the rest of the family.
+    """
     assert profs["wooded foothills"]["tapped"] is False
 
 

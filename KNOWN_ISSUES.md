@@ -974,3 +974,97 @@ comes back.
 what any other command does for one outside it. `mana`, `skeleton` and
 `compare_swap` were all checked against a mana-value-15 commander and all
 complete.
+
+---
+
+## 20. Every fetchland was scored untapped, including the ones that are not — CHANGED, the number moved on purpose
+
+`build_land_profiles`:
+
+```python
+"tapped": False if kind == "fetch" else tapped,
+```
+
+`kind` is `"fetch"` for any land that produces no mana of its own and whose
+text searches the library for a land, and that is three different cards under
+one label:
+
+| card | oracle text | correct |
+|---|---|---|
+| Verdant Catacombs | `...put it onto the battlefield, then shuffle.` | untapped |
+| Evolving Wilds | `...put it onto the battlefield **tapped**, then shuffle.` | **tapped** |
+| Bad River | `**This land enters tapped.**` + an untapped fetch | **tapped** |
+
+Evolving Wilds and Terramorphic Expanse produce no mana at all and hand you a
+tapped basic, so the turn you play one you have exactly what an
+unconditionally tapped land gives you: nothing. They were counted as untapped
+any-colour sources.
+
+The second row was not in the report that raised this and is the same bug from
+the other side. Bad River and the rest of the Mirage cycle *do* enter tapped,
+`enters_tapped` says so correctly, and the hard-coded `False` threw that
+verdict away — so the line was wrong in two independent ways at once, and a
+fix written as "set tapped from the fetch wording" would have repaired one and
+kept the other. It is `tapped or is_tapped_fetcher(...)` for that reason.
+
+**Cost:** overstates any deck running one, and overstates it in the direction
+that reads as reassurance. Hand-priced by the issue on a live 36-land UBG
+deck: the commander line 52.5 → 51.3% on the play, and a `{B}{B}{G}{G}`
+four-drop 48.4 → 45.0%. Worse than the points, the inflated base made `mana`
+print *"close to baseline, quantity problem, no land swap will help"* — the
+sentence that kept the manabase from being looked at.
+
+### The suite could not have caught it
+
+```python
+def test_fetch_never_tapped(profs):
+    assert profs["wooded foothills"]["tapped"] is False
+```
+
+The case asserted the code's universal claim on the one family for which the
+claim holds. It passed, and it passes with the bug in place. It is the third
+decorative case this repo has found in itself and the most expensive, because
+it was not merely uninformative — its *name* said the universal had been
+checked. Renamed to `profiles/untapped fetch is not tapped`, which is what it
+actually covers.
+
+Nor did the fixtures help. Between them the four decks hold Prismatic Vista,
+Verdant Catacombs, Wooded Foothills and six more, and **every one of them
+fetches untapped**. So no golden snapshot moves for this fix, and that is the
+finding rather than the reassurance: a snapshot suite is blind to a card shape
+it contains no card of.
+
+### What moved
+
+- **No committed snapshot.** Verified by running, not by reasoning: the whole
+  suite is byte-identical, 644 passed before and after.
+- **Any deck holding a tapped-fetch land.** Both models, downward, by roughly
+  what one tapped land costs — which is the whole point of the change.
+- **The `truly tapped` count in the `mana` header, and the `tap` column in
+  `calibrate`.** `verify` classified these lands with `enters_tapped`, which
+  answers its own question correctly (Evolving Wilds does not enter tapped;
+  the basic it fetches does) and left the header calling a land untapped on
+  the same page as a simulation scoring it tapped. Both now ask
+  `is_tapped_fetcher`. One predicate, two call sites, deliberately — the land
+  and accelerant restriction rules drifted apart exactly this way (#16).
+
+### Priced and kept
+
+- **Fabled Passage is read as tapped, full stop.** It fetches tapped and then
+  untaps *if you control four or more lands*, which is a board state, which is
+  what #13 declines to invent a probability for. Tapped is the right reading
+  for the early turns the models weigh hardest and an understatement from
+  about turn five. The alternative is not "model it properly" but "guess", and
+  guessing is what moved a commander figure five points once already.
+- **`fetch_targets` matches a basic TYPE, not a basic CARD.** *"Search your
+  library for a Swamp or Forest card"* really can find Bayou, so scanning the
+  deck for a matching type line is right for Verdant Catacombs. It is wrong
+  for Evolving Wilds, which can only find an actual basic, and today it
+  usually returns the same colour set anyway because a deck's basics cover the
+  colours its typed duals do. It bites the moment a deck runs typed duals in a
+  colour it has no basic of. Not fixed here: it would move land colours on
+  real decks and belongs in its own commit with the diff shown. The
+  `fetchland` fixture deliberately contains no typed nonbasic, so no case here
+  depends on which way it goes.
+- **A fetch still costs nothing to crack.** No life, no shuffle, no card. That
+  has always been true and is not what this entry changed.

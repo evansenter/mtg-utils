@@ -22,6 +22,29 @@ the one thing the golden suite exists to make impossible.
 | `ceiling.combos.json` | A real Commander Spellbook find-my-combos response for `partner.txt`, trimmed to whole combos |
 | `ceiling.lands.rec.json` | An EDHREC-shaped page ranking seven lands: four the roster can rank, three it deliberately cannot |
 | `ceiling.lands.scry.json` | Real Scryfall records for those seven — a **projection**, kept for their type lines |
+| `fetchland.scry.json` | Whole Scryfall records for the fetch family, captured 2026-08-17 — every way a "search your library for a land" clause can behave |
+
+## The `fetchland` fixture
+
+Not a projection: whole records, because `verify` reads `legalities` and
+`color_identity` off them as well as the oracle text. Twelve lands and one
+commander, chosen one per behaviour rather than by deck:
+
+| card | why it is here |
+|---|---|
+| Evolving Wilds, Terramorphic Expanse | produce nothing, fetch a basic **tapped** — scored untapped until `KNOWN_ISSUES.md` #20 |
+| Fabled Passage | fetches tapped, then untaps on a board state neither model prices |
+| Bad River | **enters tapped itself**, and its fetch is untapped — the other half of the same bug |
+| Prismatic Vista, Wooded Foothills | fetch **untapped**: the class the old universal claim was true of |
+| Terminal Moraine | carries the tapped-fetch wording *and* taps for `{C}` — the near miss the mana gate refuses |
+| Plains / Island / Swamp / Mountain / Forest | the fetch targets: a fetch's colours are read off the basic types in the same deck |
+| Kenrith, the Returned King | a five-colour commander, so `verify` can be run over any subset of the above |
+
+Deliberately **no typed nonbasics** (no Bayou, no shockland). `fetch_targets`
+matches a basic *type* rather than a basic *card*, which is correct for Verdant
+Catacombs and wrong for Evolving Wilds — a separate finding, listed as a
+residual under `KNOWN_ISSUES.md` #20 and not fixed there. Keeping duals out of
+this fixture means none of its cases silently depends on which way that goes.
 
 ## The `ceiling` fixtures
 

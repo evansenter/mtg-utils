@@ -127,6 +127,58 @@ def fetch_targets(txt):
     return out
 
 
+# The land a fetch clause finds can arrive TAPPED, and the wording is the only
+# thing that says so. Two phrasings are printed:
+#
+#   Verdant Catacombs  "...put it onto the battlefield, then shuffle."
+#   Evolving Wilds     "...put it onto the battlefield tapped, then shuffle."
+#   Terminal Moraine   "...put that card onto the battlefield tapped, ..."
+#
+# so the pronoun varies and the word after "battlefield" does not.
+FETCH_TAPPED = "onto the battlefield tapped"
+
+
+def fetches_tapped(txt):
+    """True when the land this text fetches arrives tapped.
+
+    A gate on the wording, nothing more: it says what the FETCH does, not what
+    the fetcher is worth. Terminal Moraine carries the clause and is an
+    ordinary untapped land. Ask is_tapped_fetcher, which reads both halves.
+    """
+    return FETCH_TAPPED in txt
+
+
+def is_tapped_fetcher(face, card=None):
+    """A land that makes no mana of its own and hands you a TAPPED land.
+
+    Evolving Wilds and Terramorphic Expanse produce nothing at all and fetch a
+    basic that enters tapped, so what you have on the turn you play one is
+    exactly what an unconditionally tapped land gives you: nothing. They were
+    scored as untapped any-colour sources, because "a fetchland is never
+    tapped" was written as a universal and holds only of the ones that fetch
+    UNTAPPED -- Verdant Catacombs, Prismatic Vista, the whole Onslaught and
+    Zendikar cycle. See KNOWN_ISSUES.md #20 for what that moved.
+
+    The no-mana half of the gate is what keeps the two families apart.
+    Terminal Moraine taps for {C} the turn it lands and its fetch sits behind
+    an activated `{2}, {T}, Sacrifice` cost, so it is an untapped land that
+    happens to carry the clause -- and it is the same gate build_land_profiles
+    uses to decide a land is a fetch at all, deliberately, so the two cannot
+    drift apart the way the land and accelerant restriction rules once did.
+
+    `card` is consulted for produced_mana only when the face carries none,
+    matching build_land_profiles: a land face on a DFC has its own entry, a
+    single-faced card has it at the top level.
+    """
+    pm = [x for x in (face.get("produced_mana")
+                      or (card or {}).get("produced_mana") or [])
+          if x in MANA_SYMBOLS]
+    if pm:
+        return False
+    txt = (face.get("oracle_text") or "").lower()
+    return bool(fetch_targets(txt)) and fetches_tapped(txt)
+
+
 def mana_amount(txt):
     """Largest number of mana a single 'Add ...' clause produces. Ancient Tomb
     is {C}{C} and counts as two sources for the quantity question."""

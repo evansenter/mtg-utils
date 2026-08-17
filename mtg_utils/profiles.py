@@ -7,7 +7,7 @@ import re
 
 from mtg_utils.cards import (COLOURS, MANA_SYMBOLS, BASIC_TYPE_COLOUR, enters_tapped,
                              fetch_targets, front, has_land_back, is_front_land,
-                             land_face, mana_amount)
+                             is_tapped_fetcher, land_face, mana_amount)
 
 FILTER_LANDS = {
     "mystic gate": "WU", "sunken ruins": "UB", "graven cairns": "BR",
@@ -161,7 +161,14 @@ def build_land_profiles(deck_names, scry):
             "name": name, "kind": "land",
             "colours": frozenset(pm),
             "filter": FILTER_LANDS.get(name),
-            "tapped": False if kind == "fetch" else tapped,
+            # `False if kind == "fetch"` used to stand here, and it was a
+            # universal claim that three different cards fall under. It is
+            # true of a fetch that puts its land in untapped and of nothing
+            # else: Evolving Wilds hands you a TAPPED basic, and Bad River
+            # enters tapped itself before it ever fetches -- the hard-coded
+            # False overrode enters_tapped's correct verdict on that one.
+            # Both were scored as untapped any-colour sources.
+            "tapped": tapped or is_tapped_fetcher(lf, c),
             "cond_tap": cond,
             "amount": amount,
             "omni": OMNI_TYPE.get(name),
