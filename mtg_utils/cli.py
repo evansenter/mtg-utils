@@ -9,7 +9,8 @@ from mtg_utils.analysis import verify
 from mtg_utils.decklist import (as_cmdrs, flat, parse_swaps, read_decklist,
                                 split_names, write_deck)
 from mtg_utils.report import (report_calibrate, report_combos, report_contention,
-                              report_ceiling, report_diff, report_mana,
+                              report_ceiling, report_diff, report_floor,
+                              report_mana,
                               report_own, report_primer, report_roster,
                               report_skeleton,
                               report_swap, report_variants)
@@ -51,7 +52,7 @@ def main():
     ap.add_argument("cmd", choices=["fetch", "verify", "mana", "variants", "combos",
                                     "own", "contention", "moxfield", "write", "audit",
                                     "roster", "diff", "selftest", "calibrate", "ceiling",
-                                    "skeleton", "primer"])
+                                    "floor", "skeleton", "primer"])
     ap.add_argument("target", nargs="?", default=None,
                     help="decklist path, or deck id for `moxfield`; unused by `selftest`")
     ap.add_argument("--cache", default="scry.json")
@@ -83,18 +84,20 @@ def main():
                          "separator rule as --adds, and note that a mis-split "
                          "cut PASSES vacuously, so use ';' when in doubt")
     ap.add_argument("--rec-cache", default="edhrec.json",
-                    help="ceiling: on-disk cache for EDHREC / edhtop16 pages")
+                    help="ceiling/floor: on-disk cache for EDHREC / edhtop16 pages")
     ap.add_argument("--cedh", action="store_true",
-                    help="ceiling: use edhtop16 tournament data instead of EDHREC")
+                    help="ceiling/floor: use edhtop16 tournament data instead of EDHREC")
     ap.add_argument("--bar", type=float, default=50.0,
-                    help="ceiling: inclusion %% above which a missing card is reported")
+                    help="ceiling: inclusion %% above which a missing card is "
+                         "reported; floor: the same line, read the other way "
+                         "-- an in-deck card below it is a cut candidate")
     ap.add_argument("--no-combos", action="store_true",
                     help="ceiling: skip the Commander Spellbook cross-check "
                          "(on by default)")
     ap.add_argument("--sort", choices=["inclusion", "synergy"],
                     default="inclusion",
-                    help="ceiling: order the reported rows; the bar stays on "
-                         "inclusion either way")
+                    help="ceiling/floor: order the reported rows; the bar "
+                         "stays on inclusion either way")
     ap.add_argument("--primer", default=None,
                     help="primer: path to the primer markdown to check")
     ap.add_argument("--swap", default="",
@@ -181,6 +184,10 @@ def main():
     if a.cmd == "ceiling":
         report_ceiling(cmdr, entries, scry, a.cache, a.rec_cache, a.cedh,
                        a.bar, a.sort, not a.no_combos, a.target)
+    if a.cmd == "floor":
+        # No --cache here, unlike `ceiling`: every card floor ranks is in the
+        # decklist, so the fetch above already has its type line.
+        report_floor(cmdr, entries, scry, a.rec_cache, a.cedh, a.bar, a.sort)
     if a.cmd in ("roster", "audit"):
         report_roster(cmdr, entries, scry, a.cache)
     if a.cmd == "variants":

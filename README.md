@@ -200,13 +200,14 @@ five points; `KNOWN_ISSUES.md` #13 records them instead.
 | `diff` | Card-multiset diff of a local list against the live Moxfield deck |
 | `audit` | verify + mana + roster + combos + own |
 | `ceiling` | EDHREC (or `--cedh` edhtop16) inclusion: what is above the bar and missing, with ownership and price |
+| `floor` | The inverse: what is **in** the list and below the bar, so a cut has a number beside it |
 | `calibrate` | Re-measure every live deck into one table |
 | `selftest` | Run the test suite |
 
 Flags: `--cache` (default `scry.json`), `--sims` (8000), `--trials` (20000),
 `--reps` (3), `--seed` (17), `--out`, `--decks`, `--lands`, `--accel`,
-`--adds`, `--cuts`, `--swap`, and for `ceiling`: `--rec-cache`
-(default `edhrec.json`), `--cedh`, `--bar` (50).
+`--adds`, `--cuts`, `--swap`, and for `ceiling` and `floor`: `--rec-cache`
+(default `edhrec.json`), `--cedh`, `--bar` (50), `--sort`.
 
 ### Every figure carries its own noise
 
@@ -427,6 +428,91 @@ Two rules the column follows:
   value — it is what a card played at the same rate everywhere scores — so a
   missing figure rendered as zero is a specific, plausible, wrong claim. Every
   `--cedh` row is unknown: edhtop16 does not carry the statistic.
+
+### `floor` — what is in the list and the population is not playing
+
+```
+python3 mana_model.py floor deck.txt --rec-cache edhrec.json
+python3 mana_model.py floor deck.txt --bar 40 --sort=synergy
+python3 mana_model.py floor deck.txt --cedh          # edhtop16 instead
+```
+
+`ceiling` prices an **addition**. Nothing here priced a **cut**, so every cut
+was decided by hand — and by hand it proposed four in one session with the
+inclusion figure pulled for none of them. Two of those four were at **75.5%**
+and **64.5%** under that commander and went back in a day later.
+
+Same flags as `ceiling`, same bar, read the other way: a card in the list and
+*below* the bar is a cut candidate. Three blocks, and every non-land card in
+the list appears in exactly one of them — the identity is asserted, not printed
+for you to check.
+
+**Rows above the bar are printed, not counted away.** They are not findings,
+but they have to be *findable*: a cut you have already half-decided has to be
+lookupable, and a card silently absent from the table teaches you that absence
+means "safe to cut". That is the exact failure this command exists to stop.
+
+#### Absence is a bound, and its size depends on the list
+
+EDHREC ranks the top of each cardlist and stops, and **each list stops
+somewhere different**. Measured on one commander page, 2026-08-16:
+
+| list | rows | lowest shown |
+|---|---|---|
+| Creatures | 50 | 5.80% |
+| Instants | 42 | 5.06% |
+| Mana Artifacts | 16 | 5.44% |
+| Sorceries | 15 | 5.36% |
+| Enchantments | 11 | 5.34% |
+| Utility Artifacts | 6 | 5.55% |
+
+So an absent creature is only known to be below the point where the 50-row cap
+fell, while an absent enchantment is below 5.3% and that is real evidence. The
+depths move with the population, so they are read off the page fetched in that
+run and never pinned in code. A row for an unranked card prints as a **bound**
+— `<=5.1%  below the 'Instants' display floor (42 rows shown)` — never as a
+number and never as blank.
+
+`<=` rather than `<` because the floor is the lowest figure the list actually
+printed, and a tie on the boundary row is broken by something the payload does
+not expose.
+
+Three rules the bound follows:
+
+- **Only a cardlist named for a card type can bound anything.** `New Cards`,
+  `High Synergy Cards` and `Game Changers` filter on recency, synergy skew and
+  the bracket list — not on inclusion — so absence from one says nothing at
+  all, and they stop at 8.2%, 73.9% and 74.5% on the page above. Read as
+  display floors they would put Sol Ring, at 96.6%, "below 74.5%" and rank it
+  the safest cut in the deck. `Top Cards` is excluded for the other reason: it
+  *is* ranked on inclusion, so its 68.7% is a real bound and a uselessly weak
+  one, and under the weakest-bound rule below it would swamp every type list.
+- **Where two lists could hold a card, the weakest bound wins.** An Artifact
+  Creature is a creature to EDHREC and `Sorcery // Land` is filed under Lands,
+  but nothing in the payload says which face a page filed a card by. Guessing
+  would turn a filing convention into a claim about the card.
+- **A type the page never ranked gets no bound at all** — printed as `?`, not
+  as a low number and not as an empty cell. "The page could not say" and
+  "below the floor" are different statements and only one is evidence.
+
+With `--cedh` the rule inverts, and it has to: edhtop16 counts **whole
+decklists**, so a card it does not rank appeared in zero of them. That is a
+*measured* 0%, printed with the entry count beside it (`0/6`), not a bound.
+Reading either source's convention onto the other is wrong in both directions.
+
+#### Lands are excluded
+
+Not scored and hidden — excluded, and the count is reported. EDHREC's land data
+reflects a budget population, so inclusion is the wrong instrument for a land;
+`roster` is the right one and already walks every cycle slot best-first.
+`ceiling` annotates its land rows against that walk, and repeating the
+judgement here would be a second, weaker copy of it.
+
+#### `--sort=synergy` runs the other way here
+
+Ascending, unlike `ceiling`: the most *negative* synergy is the most off-plan
+card, which is the end of the axis a cut list wants. Unknown synergy still
+sorts **last** rather than at zero — "we do not know" is not evidence for a cut.
 
 ### `primer` — every `[[Card]]` link, checked
 

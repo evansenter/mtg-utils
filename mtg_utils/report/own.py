@@ -3,6 +3,11 @@
 All three read the ManaBox collection. `ceiling` also reaches two ranking
 endpoints and Commander Spellbook, and cross-references the roster walk; see
 mtg_utils/sources/ for the traps each one carries.
+
+`ceiling`'s inverse, `floor`, is NOT here -- it answers "what is in the 100",
+reads no collection and prices no purchase, so it sits in report/deck.py with
+the rest of that question. The two share their fetch through
+mtg_utils/sources/ranking.py rather than through this file.
 """
 import time
 from collections import defaultdict
@@ -11,9 +16,10 @@ from mtg_utils.analysis import (ceiling_audit, collapse_temps,
 from mtg_utils.cards import front_name
 from mtg_utils.decklist import as_cmdrs, read_decisions
 from mtg_utils.sources.collection import load_collection
-from mtg_utils.sources.edhrec import PAGE_CAP, edhrec_fetch, edhrec_slug, parse_commander_page
-from mtg_utils.sources.edhtop16 import MIN_ENTRIES, edhtop16_commander_name, edhtop16_fetch, parse_edhtop16
+from mtg_utils.sources.edhrec import PAGE_CAP
+from mtg_utils.sources.edhtop16 import MIN_ENTRIES
 from mtg_utils.sources.moxfield import moxfield_deck
+from mtg_utils.sources.ranking import SOURCE_LABEL, fetch_ranking
 from mtg_utils.sources.scryfall import scry_fetch
 from mtg_utils.sources.spellbook import spellbook
 
@@ -158,14 +164,15 @@ def report_ceiling(cmdr, entries, scry, cache=None, rec_cache=None, cedh=False,
     roster cycles it walks.
     """
     cmdrs = as_cmdrs(cmdr)
-    if cedh:
-        name = edhtop16_commander_name(cmdrs)
-        data = edhtop16_fetch(name, rec_cache)
-        if data is None:
-            raise SystemExit(f"edhtop16: no response for {name!r}")
-        rows, n_entries = parse_edhtop16(data)
-        capped = []
-        print(f"\n=== CEILING vs edhtop16: {name} ===")
+    # The fetch, the slug/name rules and the "no response" guard are shared
+    # with `floor` -- see mtg_utils/sources/ranking.py. Only the guards that
+    # sit AFTER the header line are still here, because that is where they
+    # print.
+    rank = fetch_ranking(cmdrs, rec_cache, cedh)
+    rows, capped = rank["rows"], rank["capped"]
+    n_entries, slug = rank["n_entries"], rank["label"]
+    print(f"\n=== CEILING vs {SOURCE_LABEL[rank['source']]}: {slug} ===")
+    if rank["source"] == "edhtop16":
         # The entry count sits beside every percentage, never behind it. At
         # four entries every card is 25/50/75/100% and the table would read
         # like a strong signal.
@@ -176,26 +183,15 @@ def report_ceiling(cmdr, entries, scry, cache=None, rec_cache=None, cedh=False,
             print("  Run again when the commander has more results, or drop "
                   "--cedh for EDHREC.")
             return None
-    else:
-        slug = edhrec_slug(cmdrs)
-        data = edhrec_fetch(slug, rec_cache)
-        if data is None:
-            raise SystemExit(
-                f"EDHREC: no page for slug {slug!r}. Note apostrophes are "
-                f"DROPPED, not hyphenated -- a wrong slug 403s rather than "
-                f"404s, so this can read as a block.")
-        rows, capped = parse_commander_page(data)
-        n_entries = None
-        print(f"\n=== CEILING vs EDHREC: {slug} ===")
-        if not rows:
-            # Zero ranked cards is a fetch problem, never a finding. Left to
-            # fall through, the audit below reports nothing missing and the
-            # deck reads as needing no work at all -- the most reassuring
-            # possible output from a page that told us nothing.
-            raise SystemExit(
-                f"EDHREC page for {slug!r} ranked no cards at all. That is a "
-                f"fetch or slug problem, not a deck with nothing to improve "
-                f"-- refusing to report an all-clear from an empty page.")
+    elif not rows:
+        # Zero ranked cards is a fetch problem, never a finding. Left to
+        # fall through, the audit below reports nothing missing and the
+        # deck reads as needing no work at all -- the most reassuring
+        # possible output from a page that told us nothing.
+        raise SystemExit(
+            f"EDHREC page for {slug!r} ranked no cards at all. That is a "
+            f"fetch or slug problem, not a deck with nothing to improve "
+            f"-- refusing to report an all-clear from an empty page.")
 
     # The cards this command is about are the ones NOT in the deck, so their
     # Scryfall records were never fetched. Only the above-bar names are

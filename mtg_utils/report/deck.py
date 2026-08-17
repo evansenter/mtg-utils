@@ -1,18 +1,32 @@
 """Deck-composition printers: what is in the 100, and what claims to be.
 
-The slot budget, the land roster, the combo audit and the primer link check.
+The slot budget, the land roster, the combo audit, the primer link check and
+the floor -- what the population thinks of the cards the list already runs.
 None of these is a probability -- they are counts and lookups over the list as
-written, and over prose that claims to describe it.
+written, over prose that claims to describe it, and over a ranking page.
+
+`floor` fetches, which is fine: printers are the I/O boundary here. What must
+stay below them is MEASUREMENT, and floor_audit is where that lives.
 """
 import time
 from collections import defaultdict
-from mtg_utils.analysis import CURVE_TOP, deck_skeleton, primer_audit
+from mtg_utils.analysis import CURVE_TOP, deck_skeleton, floor_audit, primer_audit
 from mtg_utils.decklist import as_cmdrs, flat
 from mtg_utils.primer import parse_primer_links
 from mtg_utils.roster import ANY_COLOUR, PAIR_CYCLES, TRIPLE_CYCLES, WUBRG, identity_pairs, roster_names, roster_status
 from mtg_utils.sources.collection import load_collection
+from mtg_utils.sources.edhrec import PAGE_CAP
+from mtg_utils.sources.edhtop16 import MIN_ENTRIES
+from mtg_utils.sources.ranking import SOURCE_LABEL, fetch_ranking
 from mtg_utils.sources.scryfall import scry_fetch
 from mtg_utils.sources.spellbook import spellbook
+
+# Column width for a card name on a floor row. Wider than `ceiling`'s 34
+# because every row here is a card the reader is holding and will look up in
+# their own list, where an MDFC is spelled out in full: "Agadeem's Awakening
+# // Agadeem, the Undercrypt" is 45 characters and truncating it to 34 leaves
+# a name that matches nothing they can search for.
+FLOOR_NAME_W = 44
 
 
 def report_skeleton(cmdr, entries, scry):
@@ -211,4 +225,157 @@ def report_primer(cmdr, entries, scry, primer_path, cache=None):
             print(f"    line {l['line']}: {l['name']}")
     if a["ok"]:
         print("  every link renders, names a real card, and is in the list.")
+    return a
+
+
+def _floor_ranked_rows(rows):
+    """The ranked half of a floor table: measured figures, one row each."""
+    print(f"  {'card':{FLOOR_NAME_W}s} {'incl':>6} {'syn':>7} {'n/of':>13}"
+          f"  cardlist")
+    for r in rows:
+        n_of = f"{r['num_decks']}/{r['potential_decks']}"
+        # None prints as "-", never as 0.0. Zero is a MEASURED synergy -- it
+        # is exactly what a card played at the same rate everywhere scores --
+        # so the two must not share a rendering. Every --cedh row is unknown.
+        syn = "-" if r.get("synergy") is None else f"{r['synergy']:+.3f}"
+        print(f"  {r['name'][:FLOOR_NAME_W]:{FLOOR_NAME_W}s} "
+              f"{r['inclusion']:5.1f}% {syn:>7} {n_of:>13}  {r['cardlist']}")
+
+
+def _floor_unranked_rows(rows):
+    """The unranked half: BOUNDS, and they are never rendered as figures.
+
+    `<=` and not `<`: the display floor is the lowest figure the list
+    actually printed, so an omitted card sits at or below it -- a tie on the
+    boundary row is broken by something the payload does not expose.
+    """
+    print(f"  {'card':{FLOOR_NAME_W}s} {'bound':>7}  what the page shows")
+    for u in rows:
+        b = u["bound"]
+        if b is None:
+            # The page said nothing. Not a low number, not a blank cell --
+            # the one rendering that cannot be misread as evidence.
+            print(f"  {u['name'][:FLOOR_NAME_W]:{FLOOR_NAME_W}s} {'?':>7}  "
+                  f"no ranked cardlist on this page could have held it")
+            continue
+        cap = f", at the {PAGE_CAP}-row cap" if b["capped"] else ""
+        print(f"  {u['name'][:FLOOR_NAME_W]:{FLOOR_NAME_W}s} "
+              f"{'<=' + format(b['floor'], '.1f') + '%':>7}  "
+              f"below the {b['header']!r} display floor "
+              f"({b['entries']} rows shown{cap})")
+
+
+def report_floor(cmdr, entries, scry, rec_cache=None, cedh=False,
+                 threshold=50.0, sort="inclusion"):
+    """The inverse of `ceiling`: what is IN the list and the population is not.
+
+    NETWORK unless `rec_cache` already holds the page, exactly as `ceiling`
+    is. Unlike `ceiling` it needs no Scryfall round trip at all -- every card
+    it ranks is in the decklist, so its type line is already in the cache the
+    CLI built.
+
+    This exists because nothing in this repo priced a CUT. `ceiling` says
+    what is missing; `roster` ranks lands; `variants` measures a swap once you
+    have chosen one. Which card to put on the block was decided by hand every
+    time, and by hand it proposed four cuts in one session with the inclusion
+    figure pulled for none of them -- two of those cards were at 75.5% and
+    64.5% under that commander and were restored a day later.
+
+    So the rows above the bar are PRINTED, not counted away. A reader
+    checking a cut they have already half-decided has to be able to find the
+    card and see where it sits; a table that silently omits it teaches them
+    that absence means "fine to cut".
+    """
+    rank = fetch_ranking(as_cmdrs(cmdr), rec_cache, cedh)
+    print(f"\n=== FLOOR vs {SOURCE_LABEL[rank['source']]}: {rank['label']} ===")
+    if rank["source"] == "edhtop16":
+        # The entry count sits beside every percentage, never behind it, for
+        # the same reason it does in `ceiling`: at four entries every card is
+        # 25/50/75/100% and the table reads like a strong signal.
+        print(f"  {rank['n_entries']} tournament entries counted")
+        if rank["n_entries"] < MIN_ENTRIES:
+            print(f"  FEWER THAN {MIN_ENTRIES} ENTRIES -- no percentage is "
+                  f"quoted from this sample.")
+            print("  Run again when the commander has more results, or drop "
+                  "--cedh for EDHREC.")
+            return None
+    elif not rank["rows"]:
+        # The mirror of ceiling's empty-page guard, and it fails louder here.
+        # Fall through and every card in the list comes back unranked with no
+        # bound -- a report that reads as a deck of pure filler, produced from
+        # a page that told us nothing.
+        raise SystemExit(
+            f"EDHREC page for {rank['label']!r} ranked no cards at all. That "
+            f"is a fetch or slug problem, not a list the population has never "
+            f"heard of -- refusing to price a cut from an empty page.")
+
+    a = floor_audit(cmdr, entries, rank["rows"], rank["floors"], scry,
+                    threshold, sort, rank["exhaustive"])
+    print(f"  {a['considered']} cards ranked; {a['nonland']} non-land cards in "
+          f"this list, {len(a['lands'])} lands skipped")
+    print(f"  bar is {threshold:.0f}% inclusion, sorted by {sort}, ascending "
+          f"-- the most cuttable row first")
+
+    print(f"\n  --- BELOW THE BAR ({len(a['below'])}) ---")
+    if a["below"]:
+        _floor_ranked_rows(a["below"])
+    else:
+        print("  (nothing in this list is ranked below the bar)")
+
+    print(f"\n  --- NOT RANKED ON THIS PAGE ({len(a['unranked'])}) ---")
+    if a["unranked"]:
+        _floor_unranked_rows(a["unranked"])
+    elif a["exhaustive"]:
+        print("  (none, and there cannot be: this source counts whole "
+              "decklists, so a card")
+        print("  it does not rank was in zero of them and is a measured 0% "
+              "above)")
+    else:
+        print("  (none -- every non-land card in this list is ranked)")
+
+    print(f"\n  --- AT OR ABOVE THE BAR ({len(a['above'])}) ---")
+    if a["above"]:
+        # Printed rather than counted, deliberately. See the docstring: the
+        # incident this command was written after was four cuts proposed with
+        # the numbers pulled for none of them.
+        print("  These are NOT cut candidates. Listed so a cut already "
+              "half-decided can be")
+        print("  looked up and found, rather than being absent for a reason "
+              "the table does not give.")
+        _floor_ranked_rows(a["above"])
+    else:
+        print("  (nothing in this list is ranked at or above the bar)")
+
+    # Asserted by floor_audit before this line ran, and printed as a
+    # statement rather than as arithmetic for the reader to check -- the same
+    # discipline the skeleton header uses. A card in no group would otherwise
+    # be a card the report neither prints nor counts.
+    print(f"\n  {a['cards']} cards (commanders aside) = {len(a['lands'])} "
+          f"lands + {len(a['below'])} below + {len(a['unranked'])} unranked "
+          f"+ {len(a['above'])} at or above"
+          f"{' + ' + str(len(a['unresolved'])) + ' unresolved' if a['unresolved'] else ''}"
+          f"   [checked]")
+    if a["unresolved"]:
+        # Not silently dropped: a name Scryfall could not resolve has no type
+        # line, so it can be neither excluded as a land nor bounded, and a
+        # card in no group is a card nobody thinks about.
+        print(f"  {len(a['unresolved'])} card(s) are in no group at all "
+              f"because Scryfall does not know the name: "
+              f"{', '.join(a['unresolved'])}")
+    print("  LANDS ARE EXCLUDED. EDHREC land data reflects a budget "
+          "population, so inclusion is\n  the wrong instrument for them; "
+          "`roster` is the right one and already walks every slot.")
+    if a["exhaustive"]:
+        print("  This source counts whole decklists, so every figure above "
+              "is measured and a\n  card it does not rank is a real 0%, not "
+              "a card the page stopped short of.")
+    else:
+        print("  A bound is not a figure. EDHREC ranks the top of each "
+              "cardlist and stops, and\n  each list stops at its own depth "
+              "-- so the same absence is worth far more on a\n  short list "
+              "than on a capped one.")
+    for header in rank["capped"]:
+        print(f"  NOTE: {header!r} came back at the {PAGE_CAP}-card display "
+              f"cutoff -- its floor is where\n  the cap fell, not where the "
+              f"population stopped playing these.")
     return a

@@ -2,9 +2,9 @@
 
 `test_golden.py` covers verify, mana, roster and skeleton, because those are
 the subcommands that run offline through the CLI. `variants`, the named swap,
-`own` and `ceiling` also run offline, and until now nothing pinned their bytes
--- so a refactor could reflow a column, drop a caveat line, or reorder a table
-and every test would still pass.
+`own`, `ceiling` and `floor` also run offline, and until now nothing pinned
+their bytes -- so a refactor could reflow a column, drop a caveat line, or
+reorder a table and every test would still pass.
 
 These call the printers DIRECTLY rather than through the CLI. That is
 deliberate: the thing at risk in a move is the printer, and going through
@@ -31,6 +31,7 @@ from conftest import EXPECTED, FIXTURES, load_fixture_collection, patch_everywhe
 
 SNAPS = os.path.join(EXPECTED, "printers")
 COMBOS = os.path.join(FIXTURES, "ceiling.combos.json")
+FLOOR_REC = os.path.join(FIXTURES, "floor.rec.json")
 
 
 def _combos():
@@ -126,6 +127,39 @@ def test_ceiling_cedh(mm, request, monkeypatch, tmp_path, offline):
     got = _capture(mm.report_ceiling, cmdr, entries, scry, scry_copy,
                    os.path.join(FIXTURES, "ceiling.top16.json"), True, 90.0)
     _check(request, "ceiling_cedh", got)
+
+
+def test_floor_edhrec(mm, request, offline):
+    """`floor` needs no Scryfall round trip -- every card it ranks is in the
+    decklist -- so unlike `ceiling` there is no cache to copy aside here.
+
+    Snapshotted against floor.rec.json rather than ceiling.rec.json: the
+    latter carries three cardlists, so almost every row would come back "no
+    cardlist could have held it" and the per-type depths that are the whole
+    point of this report would not appear in the bytes at all.
+    """
+    cmdr, entries, scry = _deck(mm, "partner")
+    got = _capture(mm.report_floor, cmdr, entries, scry, FLOOR_REC, False, 50.0)
+    _check(request, "floor", got)
+
+
+def test_floor_cedh(mm, request, offline):
+    """The other source's rule, pinned as output: an unranked card is a
+    measured 0% with the entry count beside it, and the unranked block is
+    empty and says why."""
+    cmdr, entries, scry = _deck(mm, "partner")
+    got = _capture(mm.report_floor, cmdr, entries, scry,
+                   os.path.join(FIXTURES, "ceiling.top16.json"), True, 50.0)
+    _check(request, "floor_cedh", got)
+
+
+def test_floor_sorted_by_synergy(mm, request, offline):
+    """--sort synergy reorders and selects nothing: the bar stays on
+    inclusion, so the same rows appear in a different order."""
+    cmdr, entries, scry = _deck(mm, "partner")
+    got = _capture(mm.report_floor, cmdr, entries, scry, FLOOR_REC, False,
+                   50.0, "synergy")
+    _check(request, "floor_synergy", got)
 
 
 def test_skeleton_matches_the_golden_run(mm, request, offline):

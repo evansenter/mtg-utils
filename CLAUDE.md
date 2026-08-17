@@ -36,10 +36,11 @@ written down beside it. Nothing in it is currently outstanding.
 Its job did not end when the list emptied. It exists because "a finding that
 lives only in scrollback is a finding that gets rediscovered", so when you
 decide NOT to do something, record it there rather than in a commit message
-nobody greps. #13 (conditional accelerants), #14 (no mulligan model) and #18
+nobody greps. #13 (conditional accelerants), #14 (no mulligan model), #18
 (where the Monte Carlo optimisation stops, and the faster ideas that were
-measured and rejected) are all that shape: deliberate limitations, priced and
-kept.
+measured and rejected) and #20 (what `floor` can and cannot say about a card
+the ranking page never ranked) are all that shape: deliberate limitations,
+priced and kept.
 
 Do not quietly "fix" a resolved entry while doing something else — several are
 resolved *because* changing them would move numbers. Changing one on purpose is
@@ -75,11 +76,12 @@ python3 mana_model.py mana tests/fixtures/multi.txt --cache tests/fixtures/multi
 python3 mana_model.py variants deck.txt --swap="Clifftop Retreat->Rugged Prairie"
 python3 mana_model.py skeleton deck.txt --cache scry.json
 python3 mana_model.py ceiling deck.txt --bar 65      # network; --cedh for edhtop16
+python3 mana_model.py floor deck.txt --bar 50        # network; ceiling's inverse
 python3 -m mtg_utils --help              # equivalent entry point
 ```
 
-`ceiling` and `calibrate` are the network subcommands. Everything else runs off
-the Scryfall cache.
+`ceiling`, `floor` and `calibrate` are the network subcommands. Everything else
+runs off the Scryfall cache.
 
 `argparse` reads a leading-minus value as a flag, so sweeps need `=`:
 `--lands=-2,0,2`, never `--lands -2,0,2`.
@@ -210,14 +212,19 @@ golden snapshots only exercise the hands four particular decks happen to deal.
 
 `cards.py` → `profiles.py` → `castability.py` → `analysis.py` → `report/` →
 `cli.py`, with `decklist.py`, `roster.py`, `primer.py` and `sources/`
-alongside.
+alongside. `sources/ranking.py` sits above `edhrec.py` and `edhtop16.py` and
+picks between them: `ceiling` and `floor` read the same two endpoints through
+the same slug and name rules, so the fetch and the "no response" guard live
+there rather than once per printer. It prints nothing — both printers emit
+their header between the fetch and their remaining guards, and `ceiling`'s
+bytes are snapshotted.
 
 `report/` is a package, split by the QUESTION each printer answers:
 
 | file | printers |
 |---|---|
 | `report/mana.py` | `mana`, `variants`, the named swap — everything Monte Carlo |
-| `report/deck.py` | `skeleton`, `roster`, `combos`, `primer` — what is in the 100 |
+| `report/deck.py` | `skeleton`, `roster`, `combos`, `primer`, `floor` — what is in the 100 |
 | `report/own.py` | `own`, `contention`, `ceiling` — ownership and acquisition |
 | `report/live.py` | `diff`, `calibrate` — the live Moxfield account |
 
@@ -252,9 +259,9 @@ banner with a different module's docstring, and `--help` is snapshot-tested.
 ## Fixtures
 
 `tests/fixtures/` holds four decks — mono-colour, multicolour, colourless and a
-partner pair — plus frozen Scryfall caches, a ManaBox export, and the `ceiling.*`
-captures for EDHREC and edhtop16. **They are frozen inputs. Never edit one; add
-a new one.**
+partner pair — plus frozen Scryfall caches, a ManaBox export, the `ceiling.*`
+captures for EDHREC and edhtop16, and `floor.rec.json`. **They are frozen
+inputs. Never edit one; add a new one.**
 
 The partner pair is not decoration either: it is the only shape with two
 commanders and a 98-card library, which is where "1 commander" and a hard-coded
@@ -274,6 +281,17 @@ no code change.
 `ceiling.rec.json` keeps its `Creatures` cardlist at exactly 50 entries on
 purpose — that length *is* the display-cap signal, so trimming the list retires
 `test_a_full_cardlist_is_marked_capped` without failing it.
+
+`floor.rec.json` is a second, fuller capture of the same commander page
+(2026-08-16), projected to the fields the floor path reads. It exists because
+`ceiling.rec.json` carries three cardlists and `floor` needs fourteen: EVERY
+cardlist length in it is a signal, because the length is what sets that list's
+display floor, and those floors are the entire content of a `floor` row for an
+unranked card. Trimming any list there moves a printed bound. It also carries
+the four cardlists that are selections rather than types — `New Cards`,
+`High Synergy Cards`, `Top Cards`, `Game Changers` — whose real depths of 8.2%,
+73.9%, 68.7% and 74.5% are what
+`test_a_selection_cardlist_never_bounds_anything` asserts against.
 `ceiling.scry.json` is a deliberate projection: each card keeps only the fields
 the ceiling path reads, because the full records ran to 1.2 MB to price a dozen
 rows. Values in both are verbatim.
@@ -344,6 +362,26 @@ that touches a fetching path.
   a silent all-clear for a deck nobody checked. The slug sorts, `edhrec_fetch`
   follows the redirect, and `report_ceiling` refuses to print an all-clear from
   a page that ranked nothing. Keep all three.
+- **Not every EDHREC cardlist is a card type, and only a type list bounds
+  anything.** `New Cards`, `High Synergy Cards` and `Game Changers` filter on
+  recency, synergy skew and the bracket list rather than on inclusion, so
+  absence from one says nothing at all — and they stop at 8.2%, 73.9% and 74.5%
+  on the captured page against roughly 5–6% for Instants, Sorceries and the
+  rest. Treating one as a display floor puts Sol Ring "below 74.5%" and ranks
+  it the safest cut in the deck. `Top Cards` is ranked on inclusion and so is a
+  real bound, excluded because at 68.7% it would win the weakest-bound rule
+  against every type list and swamp them. `FLOOR_HEADER_STEMS` in `analysis.py` is that filter,
+  and it is also why the Sorcery stem is `Sorcer`: the header is `Sorceries`,
+  which does not contain the word `Sorcery`, so an identity match bounds no
+  sorcery on any page and does it silently.
+- **Absence means opposite things on the two ranking sources.** EDHREC ranks
+  the top of each cardlist and stops, so an absent card is of unknown
+  inclusion, bounded by that list's floor and never rendered as a figure.
+  edhtop16 counts whole decklists, so an absent card was in zero of them — a
+  measured 0% that must be printed with its denominator. Applying either rule
+  to the other source is wrong: one understates the only source that can say
+  "nobody plays this", the other invents a number for every card a page merely
+  stopped short of.
 - **The two ranking sources disagree about card names, in opposite
   directions.** EDHREC returns front faces only (`Agadeem's Awakening`);
   edhtop16 returns full names (`Sink into Stupor // Soporific Springs`).
