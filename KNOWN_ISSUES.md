@@ -1054,6 +1054,15 @@ cycle slot best-first and `ceiling` annotates its land rows against that walk.
 Excluded and counted, never silently absent — a shorter table reads as less
 work to do.
 
+Under `--cedh` that argument does not hold, and the report says so rather than
+repeating it: edhtop16 counts tournament decklists, where a land's inclusion is
+as measured as anything else on the page. Lands are still excluded there, but
+as a **choice** — so a `--cedh` run cuts from the same set an EDHREC run does,
+and because `roster` ranks a manabase on quality rather than on how many people
+play it. Printing the EDHREC reason under `--cedh` justified dropping 38 of 98
+cards with a fact about the other source, which is the same shape as the two
+absence conventions above: each is wrong applied to the wrong source.
+
 **Rows above the bar are printed rather than counted away.** This is the
 incident the command was written after: four cuts proposed in one session with
 the inclusion figure pulled for none of them, two of which were at 75.5% and

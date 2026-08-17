@@ -483,22 +483,6 @@ FLOOR_HEADER_STEMS = {"Artifact": "Artifact", "Battle": "Battle",
                       "Planeswalker": "Planeswalker", "Sorcery": "Sorcer"}
 
 
-def is_bounding_header(header):
-    """Could this cardlist ever bound anything on a floor report?
-
-    True exactly when `display_floor_bound` could return it -- i.e. when the
-    header names a card type. Separate from that function because a caller
-    sometimes asks about a LIST with no card in hand: `floor`'s display-cap
-    caveat is about a cardlist, and `capped` arrives from
-    parse_commander_page carrying every capped list on the page, selections
-    included. `ceiling` wants all of them, because a card missing from any
-    capped list is reported as below cutoff there; `floor` wants only these,
-    or it prints a caveat about "its floor" for a floor nothing was ever
-    measured against and no printed row can be traced to.
-    """
-    return any(stem in (header or "") for stem in FLOOR_HEADER_STEMS.values())
-
-
 def display_floor_bound(type_line, floors):
     """The bound an EDHREC page supports for a card it did not rank, or None.
 

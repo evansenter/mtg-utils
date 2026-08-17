@@ -11,7 +11,7 @@ stay below them is MEASUREMENT, and floor_audit is where that lives.
 import time
 from collections import defaultdict
 from mtg_utils.analysis import (CURVE_TOP, deck_skeleton, floor_audit,
-                                is_bounding_header, primer_audit)
+                                primer_audit)
 from mtg_utils.decklist import as_cmdrs, flat
 from mtg_utils.primer import parse_primer_links
 from mtg_utils.roster import ANY_COLOUR, PAIR_CYCLES, TRIPLE_CYCLES, WUBRG, identity_pairs, roster_names, roster_status
@@ -428,9 +428,23 @@ def report_floor(cmdr, entries, scry, rec_cache=None, cedh=False,
         print(f"  {n} card{'' if n == 1 else 's'} in no group at all because "
               f"Scryfall does not know the name: "
               f"{', '.join(_floor_label(u) for u in a['unresolved'])}")
-    print("  LANDS ARE EXCLUDED. EDHREC land data reflects a budget "
-          "population, so inclusion is\n  the wrong instrument for them; "
-          "`roster` is the right one and already walks every slot.")
+    # Branched on the source, like the block below it. Printed
+    # unconditionally, a --cedh run justified dropping 38 of 98 cards with a
+    # fact about the OTHER source: edhtop16 counts tournament decklists, where
+    # a land's inclusion is exactly as measured as anything else on the page.
+    # That is the same shape as the two absence conventions this feature is
+    # careful to keep apart -- each is wrong applied to the other source.
+    if a["exhaustive"]:
+        print("  LANDS ARE EXCLUDED, and here that is a choice rather than a "
+              "limit of the data:\n  this source measures a land's inclusion "
+              "exactly as it measures anything else.\n  They are left out so "
+              "a --cedh run cuts from the same set an EDHREC run does, and\n"
+              "  because `roster` ranks a manabase on quality rather than on "
+              "how many play it.")
+    else:
+        print("  LANDS ARE EXCLUDED. EDHREC land data reflects a budget "
+              "population, so inclusion is\n  the wrong instrument for them; "
+              "`roster` is the right one and already walks every slot.")
     if a["exhaustive"]:
         print("  This source counts whole decklists, so every figure above "
               "is measured and a\n  card it does not rank is a real 0%, not "
@@ -440,15 +454,22 @@ def report_floor(cmdr, entries, scry, rec_cache=None, cedh=False,
               "cardlist and stops, and\n  each list stops at its own depth "
               "-- so the same absence is worth far more on a\n  short list "
               "than on a capped one.")
-    # Only the lists that could actually have bounded a row above. `capped`
-    # arrives carrying every capped cardlist on the page, selections included,
-    # because that is what `ceiling` needs -- there a card missing from ANY
-    # capped list is reported as below cutoff. Here a selection list bounds
-    # nothing, so its caveat would talk about "its floor" under a table in
-    # which no row was measured against it.
+    # Only the headers a printed row was ACTUALLY bounded by, which is the
+    # claim the note makes. `capped` arrives carrying every capped cardlist on
+    # the page because that is what `ceiling` needs -- there a card missing
+    # from ANY capped list is reported as below cutoff. Filtering it down to
+    # cardlists that COULD bound this card's type was the round-1 fix and is
+    # still too weak: a deck whose creatures all happen to be ranked would get
+    # a caveat about the Creatures floor under a table where no row rests on
+    # it. Gating on what was quoted also dedupes -- parse_commander_page
+    # appends to `capped` per cardlist while display_floors keys per header,
+    # so one header appearing twice on a page would print the note twice.
+    quoted = {u["bound"]["header"] for u in a["unranked"] if u["bound"]}
+    said = set()
     for header in rank["capped"]:
-        if not is_bounding_header(header):
+        if header not in quoted or header in said:
             continue
+        said.add(header)
         print(f"  NOTE: {header!r} came back at the {PAGE_CAP}-card display "
               f"cutoff -- its floor is where\n  the cap fell, not where the "
               f"population stopped playing these.")

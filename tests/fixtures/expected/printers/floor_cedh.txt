@@ -77,7 +77,9 @@
   Vampiric Tutor                               100.0%       -           6/6  edhtop16
 
   98 cards (commanders aside) = 38 lands + 43 below + 0 unranked + 17 at or above   [checked]
-  LANDS ARE EXCLUDED. EDHREC land data reflects a budget population, so inclusion is
-  the wrong instrument for them; `roster` is the right one and already walks every slot.
+  LANDS ARE EXCLUDED, and here that is a choice rather than a limit of the data:
+  this source measures a land's inclusion exactly as it measures anything else.
+  They are left out so a --cedh run cuts from the same set an EDHREC run does, and
+  because `roster` ranks a manabase on quality rather than on how many play it.
   This source counts whole decklists, so every figure above is measured and a
   card it does not rank is a real 0%, not a card the page stopped short of.

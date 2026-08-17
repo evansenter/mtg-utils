@@ -215,29 +215,6 @@ def test_a_modal_card_is_bounded_by_every_face(mm):
     assert b["floor"] > f["Sorceries"]["floor"]
 
 
-@pytest.mark.parametrize("header,bounds", [
-    ("Creatures", True), ("Sorceries", True), ("Utility Artifacts", True),
-    ("Utility Lands", True), ("Top Cards", False), ("New Cards", False),
-    ("High Synergy Cards", False), ("Game Changers", False),
-])
-def test_is_bounding_header_matches_what_display_floor_bound_can_return(
-        mm, header, bounds):
-    """The same filter, asked about a LIST rather than a card -- which is what
-    `floor`'s display-cap caveat needs, since it has a header and no card.
-
-    Kept honest by checking it against the function it has to agree with: a
-    header this says bounds nothing must be one `display_floor_bound` never
-    returns, for any type.
-    """
-    assert mm.is_bounding_header(header) is bounds
-    floors = {header: {"header": header, "entries": 50, "ranked": 50,
-                       "floor": 9.0, "capped": True}}
-    got = [mm.display_floor_bound(t, floors) for t in
-           ("Creature", "Instant", "Sorcery", "Artifact", "Enchantment",
-            "Land", "Planeswalker", "Battle")]
-    assert any(g is not None for g in got) is bounds
-
-
 def test_a_type_the_page_never_ranked_gets_no_bound_at_all(mm):
     """None, not a number and not a blank. "The page ranked no list this card
     could be on" is a different statement from "below the floor", and only one
@@ -566,21 +543,58 @@ def test_a_single_row_cardlist_is_not_pluralised(mm, no_network, tmp_path):
     assert "1 ranked rows" not in out
 
 
+def _fifty(mm):
+    return [{"name": f"Card {i}", "num_decks": 50 - i, "potential_decks": 100}
+            for i in range(mm.PAGE_CAP)]
+
+
 def test_a_capped_selection_list_gets_no_cap_note(mm, no_network, tmp_path):
     """`capped` carries every capped cardlist on the page because that is what
     `ceiling` needs. Here a selection list bounds nothing, so a caveat about
     "its floor" would sit under a table in which no row was measured against
     it -- and the captured page has Top Cards at 10 rows, so no snapshot shows
     this."""
-    fifty = [{"name": f"Card {i}", "num_decks": 50 - i, "potential_decks": 100}
-             for i in range(mm.PAGE_CAP)]
     out = _run_synthetic(
         mm, tmp_path,
-        [{"header": "Top Cards", "cardviews": fifty},
-         {"header": "Instants", "cardviews": fifty}],
+        [{"header": "Top Cards", "cardviews": _fifty(mm)},
+         {"header": "Instants", "cardviews": _fifty(mm)}],
         {"Negate": 1}, {"negate": {"type_line": "Instant"}})
     assert "'Instants' came back at the" in out
     assert "Top Cards" not in out
+
+
+def test_a_cap_note_only_fires_for_a_floor_a_printed_row_rests_on(
+        mm, no_network, tmp_path):
+    """The note says "its floor is where the cap fell", so it has to be about
+    a floor some row was actually bounded by. Filtering to cardlists that
+    COULD bound this card's type is too weak: a deck whose creatures all
+    happen to be ranked gets a caveat about the Creatures floor under a table
+    where no row rests on it.
+
+    Here Swan Song is IN the list and ranked, so nothing is bounded against
+    Instants, while the enchantment is.
+    """
+    out = _run_synthetic(
+        mm, tmp_path,
+        [{"header": "Instants", "cardviews": _fifty(mm)},
+         {"header": "Enchantments", "cardviews": _fifty(mm)}],
+        {"Card 0": 1, "Propaganda": 1},
+        {"card 0": {"type_line": "Instant"},
+         "propaganda": {"type_line": "Enchantment"}})
+    assert "'Enchantments' came back at the" in out
+    assert "'Instants' came back at the" not in out
+
+
+def test_one_header_capped_twice_prints_its_note_once(mm, no_network, tmp_path):
+    """parse_commander_page appends to `capped` per CARDLIST while
+    display_floors keys per HEADER, so a page carrying one header twice puts
+    the string in `capped` twice and printed the caveat twice."""
+    out = _run_synthetic(
+        mm, tmp_path,
+        [{"header": "Instants", "cardviews": _fifty(mm)},
+         {"header": "Instants", "cardviews": _fifty(mm)}],
+        {"Negate": 1}, {"negate": {"type_line": "Instant"}})
+    assert out.count("'Instants' came back at the") == 1
 
 
 def test_a_name_longer_than_the_column_is_not_truncated(mm, no_network,
@@ -674,6 +688,28 @@ def test_the_report_says_lands_are_excluded(mm, no_network):
     _a, out = _run(mm, rec_cache=REC)
     assert "LANDS ARE EXCLUDED" in out
     assert "roster" in out
+    assert "EDHREC land data reflects a budget population" in out
+
+
+def test_the_lands_caveat_does_not_cite_edhrec_under_cedh(mm, no_network):
+    """38 of 98 cards drop out of a --cedh run, and the reason printed for it
+    was a fact about the OTHER source: edhtop16 counts tournament decklists,
+    where a land's inclusion is as measured as anything else. Same shape as
+    the two absence conventions this feature keeps apart -- each is wrong
+    applied to the other source."""
+    _a, out = _run(mm, rec_cache=TOP16, cedh=True)
+    assert "LANDS ARE EXCLUDED" in out
+    assert "roster" in out
+    # The claim that was wrong here, specifically. Naming EDHREC as the other
+    # mode is fine and is what the replacement does -- citing its population
+    # as the REASON these 38 cards were dropped is not.
+    assert "budget population" not in out
+    assert "a choice rather than a limit of the data" in out
+    # ...and the EDHREC run still gives the EDHREC reason, so this is a branch
+    # rather than the argument being dropped from both.
+    _a2, out2 = _run(mm, rec_cache=REC)
+    assert "budget population" in out2
+    assert "a choice rather than a limit of the data" not in out2
 
 
 def test_an_empty_page_refuses_to_price_a_cut(mm, no_network, tmp_path):
