@@ -331,12 +331,18 @@ def test_two_decklist_lines_for_one_card_keep_both_quantities(mm):
     copies must be added to that row, not dropped with the duplicate name --
     losing them is the same failure as losing the duplicate basics, one layer
     down."""
-    entries = {"Negate": 2, "Negate // Negate": 3}
-    scry = {"negate": {"type_line": "Instant"}}
-    a = mm.floor_audit("Cmdr", entries, [], {}, scry)
+    short = "Agadeem\u2019s Awakening"
+    full = short + " // Agadeem, the Undercrypt"
+    scry = {short.lower(): {"type_line": "Sorcery // Land \u2014 Cave"}}
+    a = mm.floor_audit("Cmdr", {short: 2, full: 3}, [], {}, scry)
     assert len(a["unranked"]) == 1
     assert a["unranked"][0]["qty"] == 5
     assert a["counts"]["cards"] == 5
+    # And the row prints under the FULL spelling. Taking whichever the loop
+    # reached first took whichever sorted first, and the front face is a
+    # PREFIX of the full name, so the short form always won -- the exact
+    # spelling the row comment says a reader cannot search their list for.
+    assert a["unranked"][0]["name"] == full
 
 
 def test_the_bar_splits_ranked_rows_and_nothing_else(mm):
@@ -633,6 +639,24 @@ def test_a_repeated_card_prints_its_quantity(mm, no_network, tmp_path):
     assert "  Negate" in out and "1 Negate" not in out
     assert "NOT RANKED ON THIS PAGE (5)" in out
     assert "5 cards (commanders aside) = 0 lands + 0 below + 5 unranked" in out
+
+
+def test_an_unresolved_name_is_counted_in_cards_like_everything_else(
+        mm, no_network, tmp_path):
+    """The identity line counts cards; this line counted distinct names. With
+    `3 Bogus Card` in the list the two disagreed one line apart -- "+ 3
+    unresolved   [checked]" and then "1 card in no group". Same units mismatch
+    as the distinct-names bug, and nothing reached this branch before."""
+    out = _run_synthetic(
+        mm, tmp_path,
+        [{"header": "Instants", "cardviews": [
+            {"name": "Swan Song", "num_decks": 5, "potential_decks": 100}]}],
+        {"Bogus Card": 3, "Negate": 1}, {"negate": {"type_line": "Instant"}})
+    assert "+ 3 unresolved   [checked]" in out
+    assert "3 cards in no group at all" in out
+    assert "1 card in no group" not in out
+    # Rendered as the decklist line it came from, like every other row.
+    assert "3 Bogus Card" in out
 
 
 def test_a_fractional_bar_is_printed_unrounded(mm, no_network):

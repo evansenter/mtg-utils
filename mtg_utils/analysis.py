@@ -605,11 +605,21 @@ def floor_audit(cmdr, entries, rows, floors, scry, threshold=50.0,
     # `Agadeem's Awakening` and `Agadeem's Awakening // Agadeem, the
     # Undercrypt` are the same card, and dropping the second line's quantity
     # would lose cards the same way again.
-    qty = {}
-    for name in entries:
+    #
+    # `label` picks which spelling the row prints under when a list carries
+    # more than one. The LONGEST wins, which is the full MDFC name -- taking
+    # whichever the loop below reached first meant taking whichever sorted
+    # first, and the front-face spelling is a PREFIX of the full one, so it
+    # always won. That is the exact spelling the comment on the row says a
+    # reader cannot search for. Sorted so a length tie breaks the same way on
+    # every run rather than on decklist order.
+    qty, label = {}, {}
+    for name in sorted(entries):
         key = front_name(name).lower()
         if key not in have_cmdr:
             qty[key] = qty.get(key, 0) + entries[name]
+            if len(name) > len(label.get(key, "")):
+                label[key] = name
 
     below, above, unranked, lands, unresolved = [], [], [], [], []
     land_cards = unresolved_cards = 0
@@ -619,10 +629,12 @@ def floor_audit(cmdr, entries, rows, floors, scry, threshold=50.0,
         if key in have_cmdr or key in seen:
             continue
         seen.add(key)
-        q = qty[key]
+        q, name = qty[key], label[key]
         card = scry.get(key) or scry.get(name.lower())
         if not card:
-            unresolved.append(name)
+            # Carries its quantity like every other group, so the line that
+            # names these is in the same units as the line that counts them.
+            unresolved.append({"name": name, "qty": q})
             unresolved_cards += q
             continue
         if is_front_land(card):

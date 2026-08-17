@@ -337,6 +337,27 @@ def test_an_empty_page_refuses_to_report_an_all_clear(mm, monkeypatch, tmp_path)
     assert "ranked no cards" in str(e.value)
 
 
+def test_an_edhtop16_sample_carrying_no_decklists_is_refused(mm, monkeypatch,
+                                                            tmp_path):
+    """The empty-payload guard covered EDHREC only, as an `elif`.
+
+    Entries whose maindecks all come back empty pass MIN_ENTRIES and rank
+    nothing, so `want` is empty, no Scryfall call is made, and the audit finds
+    nothing missing. Verified before fixing: the output was a header,
+    "0 cards ranked", an empty table and a $0.00 buy total -- the all-clear
+    from a source that told us nothing that the EDHREC arm already refused.
+    """
+    cache = os.path.join(str(tmp_path), "hollow.json")
+    data = {"entries": {"edges": [{"node": {"maindeck": []}} for _ in range(6)]}}
+    with open(cache, "w", encoding="utf-8") as f:
+        json.dump({"edhtop16/100/Thrasios, Triton Hero / Tymna the Weaver":
+                   data}, f)
+    with pytest.raises(SystemExit) as e:
+        _run_ceiling(mm, monkeypatch, tmp_path, rec_cache=cache, cedh=True)
+    assert "ranked no cards" in str(e.value)
+    assert "6 entries" in str(e.value)
+
+
 def test_a_thin_edhtop16_sample_prints_the_count_and_quotes_nothing(
         mm, monkeypatch, tmp_path, capsys):
     """The acceptance criterion. Below five entries every card is 25%, 50%,

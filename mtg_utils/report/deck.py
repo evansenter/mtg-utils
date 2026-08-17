@@ -419,9 +419,15 @@ def report_floor(cmdr, entries, scry, rec_cache=None, cedh=False,
         # Not silently dropped: a name Scryfall could not resolve has no type
         # line, so it can be neither excluded as a land nor bounded, and a
         # card in no group is a card nobody thinks about.
-        print(f"  {len(a['unresolved'])} card(s) are in no group at all "
-              f"because Scryfall does not know the name: "
-              f"{', '.join(a['unresolved'])}")
+        #
+        # Counted in CARDS, like the identity line above it. In names, a list
+        # holding `3 Some Misspelled Card` read "+ 3 unresolved [checked]" and
+        # then "1 card is in no group" on the very next line -- the same
+        # units mismatch, one line apart.
+        n = c["unresolved"]
+        print(f"  {n} card{'' if n == 1 else 's'} in no group at all because "
+              f"Scryfall does not know the name: "
+              f"{', '.join(_floor_label(u) for u in a['unresolved'])}")
     print("  LANDS ARE EXCLUDED. EDHREC land data reflects a budget "
           "population, so inclusion is\n  the wrong instrument for them; "
           "`roster` is the right one and already walks every slot.")

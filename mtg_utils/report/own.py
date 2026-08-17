@@ -183,15 +183,27 @@ def report_ceiling(cmdr, entries, scry, cache=None, rec_cache=None, cedh=False,
             print("  Run again when the commander has more results, or drop "
                   "--cedh for EDHREC.")
             return None
-    elif not rows:
-        # Zero ranked cards is a fetch problem, never a finding. Left to
-        # fall through, the audit below reports nothing missing and the
-        # deck reads as needing no work at all -- the most reassuring
-        # possible output from a page that told us nothing.
+    # Zero ranked cards is a fetch problem, never a finding. Left to fall
+    # through, the audit below reports nothing missing and the deck reads as
+    # needing no work at all -- the most reassuring possible output from a
+    # source that told us nothing.
+    #
+    # BOTH sources. As an `elif` this covered EDHREC only, which is how it
+    # arrived and is not a regression -- but the edhtop16 shape is reachable
+    # and was verified: six entries whose maindecks all come back empty pass
+    # MIN_ENTRIES, rank nothing, and print "0 cards ranked" over an empty
+    # table and a $0.00 buy total. `floor` carries the same guard, for the
+    # same reason.
+    if not rows:
+        detail = ("That is a fetch or slug problem"
+                  if rank["source"] == "edhrec" else
+                  f"{n_entries} entries came back carrying no decklists, "
+                  f"which is a fetch problem")
         raise SystemExit(
-            f"EDHREC page for {slug!r} ranked no cards at all. That is a "
-            f"fetch or slug problem, not a deck with nothing to improve "
-            f"-- refusing to report an all-clear from an empty page.")
+            f"{SOURCE_LABEL[rank['source']]} ranked no cards at all for "
+            f"{slug!r}. {detail}, not a deck with nothing to improve -- "
+            f"refusing to report an all-clear from a source that told us "
+            f"nothing.")
 
     # The cards this command is about are the ones NOT in the deck, so their
     # Scryfall records were never fetched. Only the above-bar names are
