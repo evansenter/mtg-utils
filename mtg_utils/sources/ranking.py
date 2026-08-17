@@ -46,7 +46,9 @@ def fetch_ranking(cmdrs, rec_cache=None, cedh=False):
         label       the slug or commander name the report names in its header
         rows        parse_commander_page / parse_edhtop16 rows, front-face keyed
         capped      cardlist headers that came back at the display cap
-        floors      {header: {header, entries, floor, capped}}; {} for edhtop16
+        floors      {header: {header, entries, ranked, floor, capped}}; {}
+                    for edhtop16. `ranked` is the depth a bound rests on and
+                    the one a caller must quote -- see display_floors
         n_entries   tournament entries counted; None for EDHREC
         exhaustive  True when an unranked card is a measured zero, not a bound
     """

@@ -684,6 +684,49 @@ def test_a_fractional_bar_is_printed_unrounded(mm, no_network):
     assert below["An Offer You Can't Refuse"] < 47.5
 
 
+def test_the_empty_unranked_message_allows_for_unresolved_names(
+        mm, no_network, tmp_path):
+    """A name Scryfall does not know never reaches the unranked branch -- it is
+    filed in `unresolved` before its type line is read. So "every non-land card
+    in this list is ranked" could sit a few lines above "1 card in no group at
+    all", claiming something about cards it never classified."""
+    out = _run_synthetic(
+        mm, tmp_path,
+        [{"header": "Instants", "cardviews": [
+            {"name": "Negate", "num_decks": 90, "potential_decks": 100}]}],
+        {"Negate": 1, "Bogus Card": 1}, {"negate": {"type_line": "Instant"}})
+    assert "NOT RANKED ON THIS PAGE (0)" in out
+    assert "every non-land card this report could resolve is ranked" in out
+    assert "every non-land card in this list is ranked" not in out
+    assert "1 card in no group at all" in out
+
+
+def test_no_cap_note_when_the_bound_was_not_read_off_a_capped_list(
+        mm, no_network, tmp_path):
+    """The note and the inline ", at the 50-row cap" marker must rest on the
+    same fact, and they can disagree: display_floors keeps the entry with the
+    HIGHER floor when one header appears twice, and that entry may be the one
+    that was not capped -- while rank["capped"] still carries the header from
+    the other cardlist. The row then correctly prints no marker, and the note
+    must not fire either.
+    """
+    deep = [{"name": f"Deep {i}", "num_decks": 50 - i, "potential_decks": 1000}
+            for i in range(mm.PAGE_CAP)]
+    shallow = [{"name": f"Shallow {i}", "num_decks": 90 - i,
+                "potential_decks": 1000} for i in range(12)]
+    out = _run_synthetic(
+        mm, tmp_path,
+        [{"header": "Creatures", "cardviews": deep},
+         {"header": "Creatures", "cardviews": shallow}],
+        {"Birds of Paradise": 1},
+        {"birds of paradise": {"type_line": "Creature — Bird"}})
+    # Bounded against the SHALLOW entry, which is the weaker bound and was not
+    # capped -- so no marker on the row and no caveat under the table.
+    assert "<=7.9%" in out
+    assert "at the 50-row cap" not in out
+    assert "came back at the" not in out
+
+
 def test_the_report_says_lands_are_excluded(mm, no_network):
     _a, out = _run(mm, rec_cache=REC)
     assert "LANDS ARE EXCLUDED" in out
