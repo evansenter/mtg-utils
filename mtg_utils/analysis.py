@@ -483,6 +483,22 @@ FLOOR_HEADER_STEMS = {"Artifact": "Artifact", "Battle": "Battle",
                       "Planeswalker": "Planeswalker", "Sorcery": "Sorcer"}
 
 
+def is_bounding_header(header):
+    """Could this cardlist ever bound anything on a floor report?
+
+    True exactly when `display_floor_bound` could return it -- i.e. when the
+    header names a card type. Separate from that function because a caller
+    sometimes asks about a LIST with no card in hand: `floor`'s display-cap
+    caveat is about a cardlist, and `capped` arrives from
+    parse_commander_page carrying every capped list on the page, selections
+    included. `ceiling` wants all of them, because a card missing from any
+    capped list is reported as below cutoff there; `floor` wants only these,
+    or it prints a caveat about "its floor" for a floor nothing was ever
+    measured against and no printed row can be traced to.
+    """
+    return any(stem in (header or "") for stem in FLOOR_HEADER_STEMS.values())
+
+
 def display_floor_bound(type_line, floors):
     """The bound an EDHREC page supports for a card it did not rank, or None.
 
@@ -560,19 +576,42 @@ def floor_audit(cmdr, entries, rows, floors, scry, threshold=50.0,
     # the zero rows can quote the same sample the ranked ones do.
     pot = rows[0]["potential_decks"] if rows else None
 
+    # QUANTITY, not distinct names. `entries` is a Counter: `verify` sums it
+    # to reach 100 and deck_skeleton asserts its identity against that total,
+    # so a figure this report prints [checked] has to be in the same units or
+    # it reconciles with nothing. Counted by name it read "94 cards ... 34
+    # lands" against verify's "100 cards = 2 commanders + 60 non-land + 38
+    # lands" on the same file -- the four duplicate basics dropped out of both
+    # totals while the non-land half agreed exactly, which is the hardest
+    # possible way for the discrepancy to be noticed.
+    #
+    # Summed per front face, because two decklist lines can reduce to one:
+    # `Agadeem's Awakening` and `Agadeem's Awakening // Agadeem, the
+    # Undercrypt` are the same card, and dropping the second line's quantity
+    # would lose cards the same way again.
+    qty = {}
+    for name in entries:
+        key = front_name(name).lower()
+        if key not in have_cmdr:
+            qty[key] = qty.get(key, 0) + entries[name]
+
     below, above, unranked, lands, unresolved = [], [], [], [], []
+    land_cards = unresolved_cards = 0
     seen = set()
     for name in sorted(entries):
         key = front_name(name).lower()
         if key in have_cmdr or key in seen:
             continue
         seen.add(key)
+        q = qty[key]
         card = scry.get(key) or scry.get(name.lower())
         if not card:
             unresolved.append(name)
+            unresolved_cards += q
             continue
         if is_front_land(card):
             lands.append(name)
+            land_cards += q
             continue
         type_line = card.get("type_line", "")
         r = ranked.get(key)
@@ -580,7 +619,7 @@ def floor_audit(cmdr, entries, rows, floors, scry, threshold=50.0,
             r = {"name": name, "num_decks": 0, "potential_decks": pot,
                  "inclusion": 0.0, "synergy": None, "cardlist": "-"}
         if r is None:
-            unranked.append({"name": name, "type_line": type_line,
+            unranked.append({"name": name, "type_line": type_line, "qty": q,
                              "bound": display_floor_bound(type_line, floors)})
             continue
         # The DECKLIST's spelling, not the source's. This is the one report
@@ -589,17 +628,23 @@ def floor_audit(cmdr, entries, rows, floors, scry, threshold=50.0,
         # full and EDHREC's front-face-only name is not what they will find.
         # (`ceiling` keeps the source's name for the mirror-image reason:
         # its rows are by definition not in the list.)
-        row = dict(r, name=name, type_line=type_line)
+        row = dict(r, name=name, type_line=type_line, qty=q)
         (below if r["inclusion"] < threshold else above).append(row)
 
-    parts = len(below) + len(above) + len(unranked) + len(lands) + len(unresolved)
-    if parts != len(seen):
+    counts = {"below": sum(r["qty"] for r in below),
+              "above": sum(r["qty"] for r in above),
+              "unranked": sum(u["qty"] for u in unranked),
+              "lands": land_cards, "unresolved": unresolved_cards,
+              "cards": sum(qty.values())}
+    counts["nonland"] = counts["below"] + counts["above"] + counts["unranked"]
+    parts = counts["nonland"] + counts["lands"] + counts["unresolved"]
+    if parts != counts["cards"]:
         raise SystemExit(
-            f"floor: {len(seen)} distinct non-commander cards but "
-            f"{len(below)} below + {len(above)} above + {len(unranked)} "
-            f"unranked + {len(lands)} lands + {len(unresolved)} unresolved "
-            f"= {parts}. A card in no group is a card the report would not "
-            f"print and would not count.")
+            f"floor: {counts['cards']} non-commander cards but "
+            f"{counts['below']} below + {counts['above']} above + "
+            f"{counts['unranked']} unranked + {counts['lands']} lands + "
+            f"{counts['unresolved']} unresolved = {parts}. A card in no group "
+            f"is a card the report would not print and would not count.")
 
     # Ascending throughout: the most cuttable row first, which is the
     # ordering the command exists to produce. A card with no synergy figure
@@ -620,16 +665,15 @@ def floor_audit(cmdr, entries, rows, floors, scry, threshold=50.0,
     unranked.sort(key=lambda u: (u["bound"] is None,
                                  (u["bound"] or {}).get("floor", 0.0),
                                  u["name"]))
-    # `cards` counts everything examined and `nonland` only what got a row,
-    # because they are different numbers and the report prints both. Reading
-    # one as the other made the header claim 94 non-land cards in a list
-    # holding 60 of them, and the identity line under it then failed to add
-    # up in print while the assertion above still passed.
+    # Every figure the report prints comes out of `counts`, in CARDS, so the
+    # header, the block headings and the identity line cannot drift into
+    # different units from each other. `lands` and `unresolved` stay lists of
+    # NAMES beside it, because a caller wanting to name them should not have
+    # to re-derive them from a total.
     return {"below": below, "above": above, "unranked": unranked,
-            "lands": lands, "unresolved": unresolved,
+            "lands": lands, "unresolved": unresolved, "counts": counts,
             "threshold": threshold, "sort": sort, "exhaustive": exhaustive,
-            "considered": len(rows), "cards": len(seen),
-            "nonland": len(below) + len(above) + len(unranked)}
+            "considered": len(rows)}
 
 
 # Skeleton buckets are NOT report_own's buckets, and the two must not be

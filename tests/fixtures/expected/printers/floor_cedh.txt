@@ -1,7 +1,7 @@
 
 === FLOOR vs edhtop16: Thrasios, Triton Hero / Tymna the Weaver ===
   6 tournament entries counted
-  170 cards ranked; 60 non-land cards in this list, 34 lands skipped
+  170 cards ranked; 60 non-land cards in this list, 38 lands skipped
   bar is 50% inclusion, sorted by inclusion, ascending -- the most cuttable row first
 
   --- BELOW THE BAR (43) ---
@@ -76,7 +76,7 @@
   Sol Ring                                     100.0%       -           6/6  edhtop16
   Vampiric Tutor                               100.0%       -           6/6  edhtop16
 
-  94 cards (commanders aside) = 34 lands + 43 below + 0 unranked + 17 at or above   [checked]
+  98 cards (commanders aside) = 38 lands + 43 below + 0 unranked + 17 at or above   [checked]
   LANDS ARE EXCLUDED. EDHREC land data reflects a budget population, so inclusion is
   the wrong instrument for them; `roster` is the right one and already walks every slot.
   This source counts whole decklists, so every figure above is measured and a

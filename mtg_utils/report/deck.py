@@ -10,7 +10,8 @@ stay below them is MEASUREMENT, and floor_audit is where that lives.
 """
 import time
 from collections import defaultdict
-from mtg_utils.analysis import CURVE_TOP, deck_skeleton, floor_audit, primer_audit
+from mtg_utils.analysis import (CURVE_TOP, deck_skeleton, floor_audit,
+                                is_bounding_header, primer_audit)
 from mtg_utils.decklist import as_cmdrs, flat
 from mtg_utils.primer import parse_primer_links
 from mtg_utils.roster import ANY_COLOUR, PAIR_CYCLES, TRIPLE_CYCLES, WUBRG, identity_pairs, roster_names, roster_status
@@ -21,12 +22,20 @@ from mtg_utils.sources.ranking import SOURCE_LABEL, fetch_ranking
 from mtg_utils.sources.scryfall import scry_fetch
 from mtg_utils.sources.spellbook import spellbook
 
-# Column width for a card name on a floor row. Wider than `ceiling`'s 34
-# because every row here is a card the reader is holding and will look up in
-# their own list, where an MDFC is spelled out in full: "Agadeem's Awakening
-# // Agadeem, the Undercrypt" is 45 characters and truncating it to 34 leaves
-# a name that matches nothing they can search for.
-FLOOR_NAME_W = 44
+# Floor rows are NOT truncated, and the name column is sized to the run.
+#
+# Every row here is a card the reader is holding and will look up in their own
+# list, where an MDFC is spelled out in full -- which is also why floor_audit
+# keeps the decklist's spelling over the source's. Any fixed width cuts some
+# name down to something that matches nothing they can search for, and picking
+# one by eye gets it wrong: 44 was chosen to fit "Agadeem's Awakening //
+# Agadeem, the Undercrypt" and truncated it, because that name is 46
+# characters and not 45. This repo's own fixtures already hold a 54-character
+# one ("Shatterskull Smashing // Shatterskull, the Hammer Pass").
+#
+# So the width is measured off the rows actually being printed, with a floor
+# so a short-named list still lays out as a table rather than a ragged column.
+FLOOR_NAME_MIN = 44
 
 
 def report_skeleton(cmdr, entries, scry):
@@ -228,9 +237,31 @@ def report_primer(cmdr, entries, scry, primer_path, cache=None):
     return a
 
 
-def _floor_ranked_rows(rows):
+def _floor_label(row):
+    """A floor row's name cell, written as the decklist line it came from.
+
+    A quantity is shown only when there is more than one copy, so an ordinary
+    singleton list is unchanged. It has to be shown at all because the counts
+    beside every heading are CARDS: four Dragon's Approach is one row and four
+    cards, and a block headed (4) over a single row is otherwise unexplained.
+    """
+    return f"{row['qty']} {row['name']}" if row["qty"] > 1 else row["name"]
+
+
+def _floor_name_width(a):
+    """One width for every block, measured off the rows this run will print.
+
+    Measured once over all three blocks rather than per block, or the same
+    report would lay its tables out three different ways.
+    """
+    labels = [_floor_label(r)
+              for r in a["below"] + a["above"] + a["unranked"]]
+    return max([FLOOR_NAME_MIN] + [len(l) for l in labels])
+
+
+def _floor_ranked_rows(rows, width):
     """The ranked half of a floor table: measured figures, one row each."""
-    print(f"  {'card':{FLOOR_NAME_W}s} {'incl':>6} {'syn':>7} {'n/of':>13}"
+    print(f"  {'card':{width}s} {'incl':>6} {'syn':>7} {'n/of':>13}"
           f"  cardlist")
     for r in rows:
         n_of = f"{r['num_decks']}/{r['potential_decks']}"
@@ -238,31 +269,36 @@ def _floor_ranked_rows(rows):
         # is exactly what a card played at the same rate everywhere scores --
         # so the two must not share a rendering. Every --cedh row is unknown.
         syn = "-" if r.get("synergy") is None else f"{r['synergy']:+.3f}"
-        print(f"  {r['name'][:FLOOR_NAME_W]:{FLOOR_NAME_W}s} "
+        print(f"  {_floor_label(r):{width}s} "
               f"{r['inclusion']:5.1f}% {syn:>7} {n_of:>13}  {r['cardlist']}")
 
 
-def _floor_unranked_rows(rows):
+def _floor_unranked_rows(rows, width):
     """The unranked half: BOUNDS, and they are never rendered as figures.
 
     `<=` and not `<`: the display floor is the lowest figure the list
     actually printed, so an omitted card sits at or below it -- a tie on the
     boundary row is broken by something the payload does not expose.
+
+    The depth quoted is `ranked`, not `entries`: the floor was measured over
+    the rows that carried a ratio, and quoting the displayed count instead
+    would offer a reader a number the bound does not rest on as the one piece
+    of evidence they can check it against.
     """
-    print(f"  {'card':{FLOOR_NAME_W}s} {'bound':>7}  what the page shows")
+    print(f"  {'card':{width}s} {'bound':>7}  what the page shows")
     for u in rows:
         b = u["bound"]
         if b is None:
             # The page said nothing. Not a low number, not a blank cell --
             # the one rendering that cannot be misread as evidence.
-            print(f"  {u['name'][:FLOOR_NAME_W]:{FLOOR_NAME_W}s} {'?':>7}  "
+            print(f"  {_floor_label(u):{width}s} {'?':>7}  "
                   f"no ranked cardlist on this page could have held it")
             continue
         cap = f", at the {PAGE_CAP}-row cap" if b["capped"] else ""
-        print(f"  {u['name'][:FLOOR_NAME_W]:{FLOOR_NAME_W}s} "
+        print(f"  {_floor_label(u):{width}s} "
               f"{'<=' + format(b['floor'], '.1f') + '%':>7}  "
               f"below the {b['header']!r} display floor "
-              f"({b['entries']} rows shown{cap})")
+              f"({b['ranked']} ranked rows{cap})")
 
 
 def report_floor(cmdr, entries, scry, rec_cache=None, cedh=False,
@@ -311,20 +347,25 @@ def report_floor(cmdr, entries, scry, rec_cache=None, cedh=False,
 
     a = floor_audit(cmdr, entries, rank["rows"], rank["floors"], scry,
                     threshold, sort, rank["exhaustive"])
-    print(f"  {a['considered']} cards ranked; {a['nonland']} non-land cards in "
-          f"this list, {len(a['lands'])} lands skipped")
+    # Every count below is in CARDS, the units `verify` and `skeleton` report
+    # in, so the identity line reconciles against them rather than against a
+    # distinct-name total that silently drops duplicate basics.
+    c = a["counts"]
+    width = _floor_name_width(a)
+    print(f"  {a['considered']} cards ranked; {c['nonland']} non-land cards in "
+          f"this list, {c['lands']} lands skipped")
     print(f"  bar is {threshold:.0f}% inclusion, sorted by {sort}, ascending "
           f"-- the most cuttable row first")
 
-    print(f"\n  --- BELOW THE BAR ({len(a['below'])}) ---")
+    print(f"\n  --- BELOW THE BAR ({c['below']}) ---")
     if a["below"]:
-        _floor_ranked_rows(a["below"])
+        _floor_ranked_rows(a["below"], width)
     else:
         print("  (nothing in this list is ranked below the bar)")
 
-    print(f"\n  --- NOT RANKED ON THIS PAGE ({len(a['unranked'])}) ---")
+    print(f"\n  --- NOT RANKED ON THIS PAGE ({c['unranked']}) ---")
     if a["unranked"]:
-        _floor_unranked_rows(a["unranked"])
+        _floor_unranked_rows(a["unranked"], width)
     elif a["exhaustive"]:
         print("  (none, and there cannot be: this source counts whole "
               "decklists, so a card")
@@ -333,7 +374,7 @@ def report_floor(cmdr, entries, scry, rec_cache=None, cedh=False,
     else:
         print("  (none -- every non-land card in this list is ranked)")
 
-    print(f"\n  --- AT OR ABOVE THE BAR ({len(a['above'])}) ---")
+    print(f"\n  --- AT OR ABOVE THE BAR ({c['above']}) ---")
     if a["above"]:
         # Printed rather than counted, deliberately. See the docstring: the
         # incident this command was written after was four cuts proposed with
@@ -342,7 +383,7 @@ def report_floor(cmdr, entries, scry, rec_cache=None, cedh=False,
               "half-decided can be")
         print("  looked up and found, rather than being absent for a reason "
               "the table does not give.")
-        _floor_ranked_rows(a["above"])
+        _floor_ranked_rows(a["above"], width)
     else:
         print("  (nothing in this list is ranked at or above the bar)")
 
@@ -350,10 +391,10 @@ def report_floor(cmdr, entries, scry, rec_cache=None, cedh=False,
     # statement rather than as arithmetic for the reader to check -- the same
     # discipline the skeleton header uses. A card in no group would otherwise
     # be a card the report neither prints nor counts.
-    print(f"\n  {a['cards']} cards (commanders aside) = {len(a['lands'])} "
-          f"lands + {len(a['below'])} below + {len(a['unranked'])} unranked "
-          f"+ {len(a['above'])} at or above"
-          f"{' + ' + str(len(a['unresolved'])) + ' unresolved' if a['unresolved'] else ''}"
+    print(f"\n  {c['cards']} cards (commanders aside) = {c['lands']} "
+          f"lands + {c['below']} below + {c['unranked']} unranked "
+          f"+ {c['above']} at or above"
+          f"{' + ' + str(c['unresolved']) + ' unresolved' if a['unresolved'] else ''}"
           f"   [checked]")
     if a["unresolved"]:
         # Not silently dropped: a name Scryfall could not resolve has no type
@@ -374,7 +415,15 @@ def report_floor(cmdr, entries, scry, rec_cache=None, cedh=False,
               "cardlist and stops, and\n  each list stops at its own depth "
               "-- so the same absence is worth far more on a\n  short list "
               "than on a capped one.")
+    # Only the lists that could actually have bounded a row above. `capped`
+    # arrives carrying every capped cardlist on the page, selections included,
+    # because that is what `ceiling` needs -- there a card missing from ANY
+    # capped list is reported as below cutoff. Here a selection list bounds
+    # nothing, so its caveat would talk about "its floor" under a table in
+    # which no row was measured against it.
     for header in rank["capped"]:
+        if not is_bounding_header(header):
+            continue
         print(f"  NOTE: {header!r} came back at the {PAGE_CAP}-card display "
               f"cutoff -- its floor is where\n  the cap fell, not where the "
               f"population stopped playing these.")

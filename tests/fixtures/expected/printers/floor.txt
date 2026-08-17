@@ -1,6 +1,6 @@
 
 === FLOOR vs EDHREC: thrasios-triton-hero-tymna-the-weaver ===
-  236 cards ranked; 60 non-land cards in this list, 34 lands skipped
+  236 cards ranked; 60 non-land cards in this list, 38 lands skipped
   bar is 50% inclusion, sorted by inclusion, ascending -- the most cuttable row first
 
   --- BELOW THE BAR (14) ---
@@ -22,34 +22,34 @@
 
   --- NOT RANKED ON THIS PAGE (28) ---
   card                                           bound  what the page shows
-  Arcane Denial                                 <=5.1%  below the 'Instants' display floor (42 rows shown)
-  Beast Within                                  <=5.1%  below the 'Instants' display floor (42 rows shown)
-  Frantic Search                                <=5.1%  below the 'Instants' display floor (42 rows shown)
-  Generous Gift                                 <=5.1%  below the 'Instants' display floor (42 rows shown)
-  Heroic Intervention                           <=5.1%  below the 'Instants' display floor (42 rows shown)
-  Negate                                        <=5.1%  below the 'Instants' display floor (42 rows shown)
-  Teferi's Protection                           <=5.1%  below the 'Instants' display floor (42 rows shown)
-  Garruk's Uprising                             <=5.3%  below the 'Enchantments' display floor (11 rows shown)
-  Phyrexian Arena                               <=5.3%  below the 'Enchantments' display floor (11 rows shown)
-  Propaganda                                    <=5.3%  below the 'Enchantments' display floor (11 rows shown)
-  Cultivate                                     <=5.4%  below the 'Sorceries' display floor (15 rows shown)
-  Farseek                                       <=5.4%  below the 'Sorceries' display floor (15 rows shown)
-  Feed the Swarm                                <=5.4%  below the 'Sorceries' display floor (15 rows shown)
-  Kodama's Reach                                <=5.4%  below the 'Sorceries' display floor (15 rows shown)
-  Nature's Lore                                 <=5.4%  below the 'Sorceries' display floor (15 rows shown)
-  Rampant Growth                                <=5.4%  below the 'Sorceries' display floor (15 rows shown)
-  Three Visits                                  <=5.4%  below the 'Sorceries' display floor (15 rows shown)
-  Chromatic Lantern                             <=5.5%  below the 'Utility Artifacts' display floor (6 rows shown)
-  Commander's Sphere                            <=5.5%  below the 'Utility Artifacts' display floor (6 rows shown)
-  Lightning Greaves                             <=5.5%  below the 'Utility Artifacts' display floor (6 rows shown)
-  Mind Stone                                    <=5.5%  below the 'Utility Artifacts' display floor (6 rows shown)
-  Skullclamp                                    <=5.5%  below the 'Utility Artifacts' display floor (6 rows shown)
-  Swiftfoot Boots                               <=5.5%  below the 'Utility Artifacts' display floor (6 rows shown)
-  Thought Vessel                                <=5.5%  below the 'Utility Artifacts' display floor (6 rows shown)
-  Wayfarer's Bauble                             <=5.5%  below the 'Utility Artifacts' display floor (6 rows shown)
-  Sakura-Tribe Elder                            <=5.8%  below the 'Creatures' display floor (50 rows shown, at the 50-row cap)
-  Solemn Simulacrum                             <=5.8%  below the 'Creatures' display floor (50 rows shown, at the 50-row cap)
-  Agadeem's Awakening                           <=6.0%  below the 'Utility Lands' display floor (11 rows shown)
+  Arcane Denial                                 <=5.1%  below the 'Instants' display floor (42 ranked rows)
+  Beast Within                                  <=5.1%  below the 'Instants' display floor (42 ranked rows)
+  Frantic Search                                <=5.1%  below the 'Instants' display floor (42 ranked rows)
+  Generous Gift                                 <=5.1%  below the 'Instants' display floor (42 ranked rows)
+  Heroic Intervention                           <=5.1%  below the 'Instants' display floor (42 ranked rows)
+  Negate                                        <=5.1%  below the 'Instants' display floor (42 ranked rows)
+  Teferi's Protection                           <=5.1%  below the 'Instants' display floor (42 ranked rows)
+  Garruk's Uprising                             <=5.3%  below the 'Enchantments' display floor (11 ranked rows)
+  Phyrexian Arena                               <=5.3%  below the 'Enchantments' display floor (11 ranked rows)
+  Propaganda                                    <=5.3%  below the 'Enchantments' display floor (11 ranked rows)
+  Cultivate                                     <=5.4%  below the 'Sorceries' display floor (15 ranked rows)
+  Farseek                                       <=5.4%  below the 'Sorceries' display floor (15 ranked rows)
+  Feed the Swarm                                <=5.4%  below the 'Sorceries' display floor (15 ranked rows)
+  Kodama's Reach                                <=5.4%  below the 'Sorceries' display floor (15 ranked rows)
+  Nature's Lore                                 <=5.4%  below the 'Sorceries' display floor (15 ranked rows)
+  Rampant Growth                                <=5.4%  below the 'Sorceries' display floor (15 ranked rows)
+  Three Visits                                  <=5.4%  below the 'Sorceries' display floor (15 ranked rows)
+  Chromatic Lantern                             <=5.5%  below the 'Utility Artifacts' display floor (6 ranked rows)
+  Commander's Sphere                            <=5.5%  below the 'Utility Artifacts' display floor (6 ranked rows)
+  Lightning Greaves                             <=5.5%  below the 'Utility Artifacts' display floor (6 ranked rows)
+  Mind Stone                                    <=5.5%  below the 'Utility Artifacts' display floor (6 ranked rows)
+  Skullclamp                                    <=5.5%  below the 'Utility Artifacts' display floor (6 ranked rows)
+  Swiftfoot Boots                               <=5.5%  below the 'Utility Artifacts' display floor (6 ranked rows)
+  Thought Vessel                                <=5.5%  below the 'Utility Artifacts' display floor (6 ranked rows)
+  Wayfarer's Bauble                             <=5.5%  below the 'Utility Artifacts' display floor (6 ranked rows)
+  Sakura-Tribe Elder                            <=5.8%  below the 'Creatures' display floor (50 ranked rows, at the 50-row cap)
+  Solemn Simulacrum                             <=5.8%  below the 'Creatures' display floor (50 ranked rows, at the 50-row cap)
+  Agadeem's Awakening                           <=6.0%  below the 'Utility Lands' display floor (11 ranked rows)
 
   --- AT OR ABOVE THE BAR (18) ---
   These are NOT cut candidates. Listed so a cut already half-decided can be
@@ -74,7 +74,7 @@
   Birds of Paradise                             91.8%  +0.471   10436/11374  Top Cards
   Sol Ring                                      96.6%  +0.096   10986/11374  Mana Artifacts
 
-  94 cards (commanders aside) = 34 lands + 14 below + 28 unranked + 18 at or above   [checked]
+  98 cards (commanders aside) = 38 lands + 14 below + 28 unranked + 18 at or above   [checked]
   LANDS ARE EXCLUDED. EDHREC land data reflects a budget population, so inclusion is
   the wrong instrument for them; `roster` is the right one and already walks every slot.
   A bound is not a figure. EDHREC ranks the top of each cardlist and stops, and

@@ -138,19 +138,23 @@ inside a printer.
 
 **Fetching is not computing.** Printers are the I/O boundary and several of
 them call out: `report_roster`, `report_own`, `report_contention`, `report_combos`,
-`report_diff`, `report_ceiling` and `report_calibrate` all fetch. That is by
-design and is not the thing the split protects — what must stay below the
-printers is *measurement*, so a test can assert on a number without scraping
-stdout.
+`report_diff`, `report_ceiling`, `report_floor` and `report_calibrate` all fetch.
+That is by design and is not the thing the split protects — what must stay below
+the printers is *measurement*, so a test can assert on a number without scraping
+stdout. This list is meant to be exhaustive: it is what gets grepped to answer
+"which printers touch the network", so a new fetching printer belongs in it.
 
 `report_calibrate` is the one printer that also **measures** — its per-deck loop
 is analysis living in a printer. It is network-only, so no offline test could
 verify a split of it; left whole deliberately.
 
-`report_ceiling` is the near miss to watch. It fetches twice (the ranking page,
-then Scryfall for the above-bar cards, which are by definition not in the
-decklist) but hands every judgement to `ceiling_audit`. Keep it that way: the
-front-face matching is exactly the logic that needs an offline test.
+`report_ceiling` is the near miss to watch. It fetches twice — the ranking page
+through `fetch_ranking`, then Scryfall directly for the above-bar cards, which
+are by definition not in the decklist — but hands every judgement to
+`ceiling_audit`. Keep it that way: the front-face matching is exactly the logic
+that needs an offline test. `report_floor` fetches once, through the same
+`fetch_ranking`, and needs no Scryfall call at all, because every card it ranks
+is already in the decklist.
 
 ### castability.py is written for speed, and the reasons are load-bearing
 

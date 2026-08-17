@@ -470,8 +470,10 @@ So an absent creature is only known to be below the point where the 50-row cap
 fell, while an absent enchantment is below 5.3% and that is real evidence. The
 depths move with the population, so they are read off the page fetched in that
 run and never pinned in code. A row for an unranked card prints as a **bound**
-— `<=5.1%  below the 'Instants' display floor (42 rows shown)` — never as a
-number and never as blank.
+— `<=5.1%  below the 'Instants' display floor (42 ranked rows)` — never as a
+number and never as blank. The depth quoted is the number of rows that carried
+a ratio, which is what the floor was measured over, rather than the number the
+page displayed.
 
 `<=` rather than `<` because the floor is the lowest figure the list actually
 printed, and a tie on the boundary row is broken by something the payload does

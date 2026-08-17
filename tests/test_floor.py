@@ -97,6 +97,28 @@ def test_the_floor_of_a_capped_list_is_where_the_cap_fell(mm):
     assert all(f["Creatures"]["floor"] > f[t]["floor"] for t in types)
 
 
+def test_the_ranked_depth_counts_only_rows_that_carried_a_ratio(mm):
+    """`floor` is measured over the rows with a ratio; `entries` and `capped`
+    describe what the page displayed. They are different sets whenever a
+    cardview comes back without one, so both are carried and the report
+    quotes the one the bound actually rests on.
+
+    Collapsing them would print "50 rows" as the evidence for a floor read
+    off however many of those rows happened to be scoreable -- the one number
+    in an unranked row a reader can check the bound against.
+    """
+    page = {"container": {"json_dict": {"cardlists": [{
+        "header": "Instants",
+        "cardviews": [
+            {"name": "Swan Song", "num_decks": 5, "potential_decks": 10},
+            {"name": "Mana Crypt"},
+            {"name": "Chrome Mox", "num_decks": 5, "potential_decks": 0}]}]}}}
+    f = mm.display_floors(page)["Instants"]
+    assert f["entries"] == 3
+    assert f["ranked"] == 1
+    assert f["floor"] == pytest.approx(50.0)
+
+
 def test_a_cardlist_with_no_ratios_is_dropped_not_floored_at_zero(mm):
     """A floor of 0.0 reads as "everything is below 0%" -- the strongest
     possible claim from the weakest possible evidence, and the same mistake
@@ -193,6 +215,29 @@ def test_a_modal_card_is_bounded_by_every_face(mm):
     assert b["floor"] > f["Sorceries"]["floor"]
 
 
+@pytest.mark.parametrize("header,bounds", [
+    ("Creatures", True), ("Sorceries", True), ("Utility Artifacts", True),
+    ("Utility Lands", True), ("Top Cards", False), ("New Cards", False),
+    ("High Synergy Cards", False), ("Game Changers", False),
+])
+def test_is_bounding_header_matches_what_display_floor_bound_can_return(
+        mm, header, bounds):
+    """The same filter, asked about a LIST rather than a card -- which is what
+    `floor`'s display-cap caveat needs, since it has a header and no card.
+
+    Kept honest by checking it against the function it has to agree with: a
+    header this says bounds nothing must be one `display_floor_bound` never
+    returns, for any type.
+    """
+    assert mm.is_bounding_header(header) is bounds
+    floors = {header: {"header": header, "entries": 50, "ranked": 50,
+                       "floor": 9.0, "capped": True}}
+    got = [mm.display_floor_bound(t, floors) for t in
+           ("Creature", "Instant", "Sorcery", "Artifact", "Enchantment",
+            "Land", "Planeswalker", "Battle")]
+    assert any(g is not None for g in got) is bounds
+
+
 def test_a_type_the_page_never_ranked_gets_no_bound_at_all(mm):
     """None, not a number and not a blank. "The page ranked no list this card
     could be on" is a different statement from "below the floor", and only one
@@ -238,11 +283,50 @@ def test_every_card_lands_in_exactly_one_group(mm):
     """A card in no group is a card the report neither prints nor counts, and
     a shorter table reads as less work to do. floor_audit asserts this
     itself; the case pins the arithmetic the report prints from."""
-    a = _audit(mm)
-    assert a["cards"] == (len(a["lands"]) + len(a["below"]) + len(a["above"])
-                          + len(a["unranked"]) + len(a["unresolved"]))
-    assert a["nonland"] == len(a["below"]) + len(a["above"]) + len(a["unranked"])
-    assert a["nonland"] + len(a["lands"]) + len(a["unresolved"]) == a["cards"]
+    c = _audit(mm)["counts"]
+    assert c["cards"] == (c["lands"] + c["below"] + c["above"]
+                          + c["unranked"] + c["unresolved"])
+    assert c["nonland"] == c["below"] + c["above"] + c["unranked"]
+
+
+def test_the_counts_are_cards_and_reconcile_with_verify(mm):
+    """The figures are printed under a [checked] marker, which reads as "this
+    reconciles with the deck" -- so it has to.
+
+    `entries` is a Counter and every other command here counts the quantity:
+    `verify` sums it to reach 100 and `deck_skeleton` asserts against that
+    total. Counted by distinct NAME instead, the partner fixture's four
+    duplicate basics dropped out of both the total and the land count --
+    "94 cards ... 34 lands" against verify's "100 cards = 2 commanders + 60
+    non-land + 38 lands" on the same file. The non-land half agreed exactly,
+    which is what made it hard to see rather than easy.
+
+    Asserted against verify's own numbers rather than against literals, so
+    the two cannot drift apart without this failing.
+    """
+    cmdr, entries, scry = _partner(mm)
+    v = mm.verify(cmdr, entries, scry)
+    c = _audit(mm)["counts"]
+    assert c["cards"] + len(mm.as_cmdrs(cmdr)) == v["total"]
+    assert c["lands"] == v["lands"]
+    assert c["nonland"] == v["nonland"]
+    # And the thing that made the bug invisible: distinct names really is a
+    # different number here, so this is not asserting two spellings of one.
+    assert len(a_lands := _audit(mm)["lands"]) < c["lands"], a_lands
+
+
+def test_two_decklist_lines_for_one_card_keep_both_quantities(mm):
+    """`Agadeem's Awakening` and `Agadeem's Awakening // Agadeem, the
+    Undercrypt` reduce to one front face and so to one row. The second line's
+    copies must be added to that row, not dropped with the duplicate name --
+    losing them is the same failure as losing the duplicate basics, one layer
+    down."""
+    entries = {"Negate": 2, "Negate // Negate": 3}
+    scry = {"negate": {"type_line": "Instant"}}
+    a = mm.floor_audit("Cmdr", entries, [], {}, scry)
+    assert len(a["unranked"]) == 1
+    assert a["unranked"][0]["qty"] == 5
+    assert a["counts"]["cards"] == 5
 
 
 def test_the_bar_splits_ranked_rows_and_nothing_else(mm):
@@ -412,6 +496,115 @@ def test_the_report_prints_no_bound_as_a_question_mark(mm, no_network):
     _a, out = _run(mm, rec_cache=os.path.join(FIXTURES, "ceiling.rec.json"))
     assert "no ranked cardlist on this page could have held it" in out
     assert "      ?  no ranked cardlist" in out
+
+
+def _run_synthetic(mm, tmp_path, cardlists, entries, scry, **kw):
+    """Drive report_floor over a hand-built page and a hand-built list.
+
+    The committed fixture is a real page and a real deck, which is what makes
+    it worth snapshotting -- and it is exactly why it cannot exercise a page
+    shaped wrongly, or a name longer than any card in it.
+    """
+    import io
+    from contextlib import redirect_stdout
+    cache = os.path.join(str(tmp_path), "synthetic.json")
+    with open(cache, "w", encoding="utf-8") as f:
+        json.dump({"commanders/cmdr":
+                   {"container": {"json_dict": {"cardlists": cardlists}}}}, f)
+    buf = io.StringIO()
+    with redirect_stdout(buf):
+        mm.report_floor("Cmdr", entries, scry, cache, **kw)
+    return buf.getvalue()
+
+
+def test_the_report_quotes_the_ranked_depth_not_the_displayed_count(
+        mm, no_network, tmp_path):
+    """The bound rests on the rows that carried a ratio, so that is the number
+    printed beside it. Quoting the displayed count would hand the reader a
+    larger number as the one piece of evidence they can check."""
+    out = _run_synthetic(
+        mm, tmp_path,
+        [{"header": "Instants", "cardviews": [
+            {"name": "Swan Song", "num_decks": 5, "potential_decks": 10},
+            {"name": "Mana Crypt"}, {"name": "Mox Diamond"}]}],
+        {"Negate": 1}, {"negate": {"type_line": "Instant"}})
+    assert "(1 ranked rows" in out
+    assert "3 ranked" not in out
+
+
+def test_a_capped_selection_list_gets_no_cap_note(mm, no_network, tmp_path):
+    """`capped` carries every capped cardlist on the page because that is what
+    `ceiling` needs. Here a selection list bounds nothing, so a caveat about
+    "its floor" would sit under a table in which no row was measured against
+    it -- and the captured page has Top Cards at 10 rows, so no snapshot shows
+    this."""
+    fifty = [{"name": f"Card {i}", "num_decks": 50 - i, "potential_decks": 100}
+             for i in range(mm.PAGE_CAP)]
+    out = _run_synthetic(
+        mm, tmp_path,
+        [{"header": "Top Cards", "cardviews": fifty},
+         {"header": "Instants", "cardviews": fifty}],
+        {"Negate": 1}, {"negate": {"type_line": "Instant"}})
+    assert "'Instants' came back at the" in out
+    assert "Top Cards" not in out
+
+
+def test_a_name_longer_than_the_column_is_not_truncated(mm, no_network,
+                                                        tmp_path):
+    """Any fixed width cuts some name down to something that matches nothing
+    the reader can search for, and picking one by eye got it wrong: 44 was
+    chosen to fit the 46-character `Agadeem's Awakening // Agadeem, the
+    Undercrypt` and truncated it. The fixtures cannot catch that -- partner.txt
+    spells its MDFC with the front face only.
+
+    Both names here are verbatim, from this repo's own fixture caches.
+    """
+    long_name = "Shatterskull Smashing // Shatterskull, the Hammer Pass"
+    agadeem = "Agadeem’s Awakening // Agadeem, the Undercrypt"
+    out = _run_synthetic(
+        mm, tmp_path,
+        [{"header": "Instants", "cardviews": [
+            {"name": "Swan Song", "num_decks": 5, "potential_decks": 100}]}],
+        {long_name: 1, agadeem: 1, "Negate": 1},
+        {long_name.lower(): {"type_line": "Sorcery // Land"},
+         agadeem.lower(): {"type_line": "Sorcery // Land — Cave"},
+         "negate": {"type_line": "Instant"}})
+    assert long_name in out
+    assert agadeem in out
+    # And the column still lines up under its heading, which is the half a
+    # padding-only format spec does NOT give for free: `{name:44s}` pads a
+    # short name but never truncates a long one, so a name past the width
+    # silently shoves its own row's columns right and the table goes ragged
+    # while every name is still fully printed. Measured against the header,
+    # so this fails on a fixed width without depending on what it is.
+    lines = out.splitlines()
+    head = next(l for l in lines if l.strip().startswith("card "))
+    want = head.index("what the page shows")
+    rows = [l for l in lines
+            if "display floor" in l or "no ranked cardlist" in l]
+    assert len(rows) == 3, rows
+    for l in rows:
+        col = l.index("below the") if "display floor" in l \
+            else l.index("no ranked cardlist")
+        assert col == want, (col, want, l)
+
+
+def test_a_repeated_card_prints_its_quantity(mm, no_network, tmp_path):
+    """The counts beside every heading are CARDS, so a block headed (4) over a
+    single row would otherwise be unexplained. Written as a decklist line,
+    which is the form the reader is holding -- and absent entirely at one
+    copy, so an ordinary singleton list is unchanged."""
+    out = _run_synthetic(
+        mm, tmp_path,
+        [{"header": "Sorceries", "cardviews": [
+            {"name": "Swan Song", "num_decks": 5, "potential_decks": 100}]}],
+        {"Dragon's Approach": 4, "Negate": 1},
+        {"dragon's approach": {"type_line": "Sorcery"},
+         "negate": {"type_line": "Instant"}})
+    assert "4 Dragon's Approach" in out
+    assert "  Negate" in out and "1 Negate" not in out
+    assert "NOT RANKED ON THIS PAGE (5)" in out
+    assert "5 cards (commanders aside) = 0 lands + 0 below + 5 unranked" in out
 
 
 def test_the_report_says_lands_are_excluded(mm, no_network):

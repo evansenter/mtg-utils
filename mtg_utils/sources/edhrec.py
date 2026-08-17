@@ -201,6 +201,16 @@ def display_floors(data):
     possible claim drawn from the weakest possible evidence -- the same
     mistake `parse_commander_page` refuses to make on a cardview with no
     ratio.
+
+    `entries` and `ranked` are BOTH carried, and they are different numbers
+    whenever a cardview came back without a ratio. `entries` is how many rows
+    the page displayed, which is what `capped` is a statement about and what
+    keeps this agreeing with `parse_commander_page`. `ranked` is how many of
+    them carried a figure, which is the depth `floor` was actually measured
+    over -- so it is the one a caller must quote as the justification for a
+    bound. Collapsing the two would have a list print "50 rows" as the
+    evidence for a floor read off however many of them happened to be
+    scoreable.
     """
     lists = (((data or {}).get("container") or {}).get("json_dict") or {}).get("cardlists") or []
     out = {}
@@ -211,8 +221,8 @@ def display_floors(data):
                 if cv.get("num_decks") and cv.get("potential_decks")]
         if not pcts:
             continue
-        entry = {"header": header, "entries": len(views), "floor": min(pcts),
-                 "capped": len(views) >= PAGE_CAP}
+        entry = {"header": header, "entries": len(views), "ranked": len(pcts),
+                 "floor": min(pcts), "capped": len(views) >= PAGE_CAP}
         prev = out.get(header)
         # A repeated header keeps the HIGHER floor. Every use of this is a
         # bound of the form "below x", so the weaker of two candidates is the
