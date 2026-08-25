@@ -61,6 +61,15 @@ def verify(cmdr, entries, scry, fmt=None):
             # two have to agree; one predicate, both call sites. A tapped fetcher
             # carries no turn clause, so `tfrom` stays None and it lands in
             # the truly-tapped bucket below, not the turn-conditional one.
+            #
+            # They agree on FRONT-FACE lands only, and the limit is this `if`
+            # rather than the predicate: an MDFC land back never reaches here,
+            # so it lands in neither list while build_land_profiles scores it
+            # off the same face. 35 of the 50 commander-legal ones enter
+            # tapped outright. Closing that moves three golden snapshots --
+            # the conditional MDFCs in the fixtures would start printing a
+            # "conditional, not counted" line each -- so it is issue #30 and
+            # its own commit, not a quiet widening of this one.
             t = t or is_tapped_fetcher(lf, c)
             # The name is listed once; the COUNT is by quantity, so it is in
             # the same units as `lands` beside it in the header. They coincide

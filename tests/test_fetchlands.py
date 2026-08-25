@@ -129,13 +129,22 @@ def test_verify_counts_a_tapped_fetcher(mm, scry):
     assert v["truly_tapped_copies"] == 4      # the four tapped rows above
 
 
-def test_verify_and_the_profiles_agree_on_every_land(mm, scry, profs):
-    """fetch-tapped/one predicate, both call sites
+def test_verify_and_the_profiles_agree_on_every_front_face_land(mm, scry, profs):
+    """fetch-tapped/one predicate, both call sites, on a FRONT-FACE land
 
-    The invariant rather than the instance: whatever the models score tapped,
-    the header says is tapped. Two places deciding the same thing from
-    different reads is how the land and accelerant restriction rules drifted
-    apart (KNOWN_ISSUES.md #16).
+    Whatever the models score tapped, the header says is tapped. Two places
+    deciding the same thing from different reads is how the land and
+    accelerant restriction rules drifted apart (KNOWN_ISSUES.md #16).
+
+    Named for what it checks and not for the invariant it would like to be.
+    `verify` classifies tapped-ness inside `if is_front_land(c)`, so an MDFC
+    LAND BACK is classified by neither list while build_land_profiles scores
+    it -- 35 of the 50 commander-legal ones enter tapped outright, and the
+    header omits every one. This fixture holds no MDFC, so written as a
+    universal ("every land") the case would assert a guarantee it cannot
+    reach, which is precisely what `profiles/fetch never tapped` did and why
+    this commit renames it. The gap is issue #30 and KNOWN_ISSUES.md #23;
+    when it closes, widen this case rather than adding a second one.
     """
     v = mm.verify("Kenrith, the Returned King", {n: 1 for n in LANDS}, scry)
     header = {n.lower() for n in v["truly_tapped"]}

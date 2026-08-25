@@ -1301,16 +1301,17 @@ it was not merely uninformative — its *name* said the universal had been
 checked. Renamed to `profiles/untapped fetch is not tapped`, which is what it
 actually covers.
 
-Nor did the fixtures help. Between them the four decks hold Prismatic Vista,
-Verdant Catacombs, Wooded Foothills and six more, and **every one of them
-fetches untapped**. So no golden snapshot moves for this fix, and that is the
-finding rather than the reassurance: a snapshot suite is blind to a card shape
-it contains no card of.
+Nor did the fixtures help. Between them the five decks hold Prismatic Vista,
+Verdant Catacombs, Wooded Foothills and six more (the Brawl deck runs none),
+and **every one of them fetches untapped**. So no golden snapshot moves for
+this fix, and that is the finding rather than the reassurance: a snapshot
+suite is blind to a card shape it contains no card of.
 
 ### What moved
 
 - **No committed snapshot.** Verified by running, not by reasoning: the whole
-  suite is byte-identical, 644 passed before and after.
+  suite is byte-identical across all five decks: 857 passed on the base
+  this landed on, 870 with the thirteen new cases and nothing else moved.
 - **Any deck holding a tapped-fetch land.** Both models, downward, by roughly
   what one tapped land costs — which is the whole point of the change.
 - **The `truly tapped` count in the `mana` header, and the `tap` column in
@@ -1341,3 +1342,18 @@ it contains no card of.
   depends on which way it goes.
 - **A fetch still costs nothing to crack.** No life, no shuffle, no card. That
   has always been true and is not what this entry changed.
+- **The header agrees with the models on FRONT-FACE lands only.** Found in
+  review of this change, and it is the limit of the promise the entry above
+  makes. `verify` classifies tapped-ness inside `if is_front_land(c)`, so an
+  MDFC land back reaches neither list, while `build_land_profiles` scores it
+  off the same face -- and **35 of the 50 commander-legal MDFC land backs
+  enter tapped outright**, against the 15 that pay 3 life. The comment in
+  `cards.py` saying "the whole Zendikar MDFC land-back cycle pays 3" is true
+  of the cycle it was written about and was read, wrongly, as covering the
+  class. Every MDFC in the five fixtures is one of the 15 (Brawl runs none), which is why the
+  number agrees on everything committed. Not fixed here because it moves three
+  golden snapshots -- the conditional MDFCs would each start printing a
+  `conditional, not counted:` line -- and because it forces two decisions the
+  header's own sentence has to answer: whether `truly tapped` counts a class
+  the two numbers before it exclude, and whether a face you may simply not
+  play should be priced at all. Issue #30 has both, with the fixture it needs.

@@ -236,9 +236,16 @@ def is_tapped_fetcher(face, card=None):
     The no-mana half of the gate is what keeps the two families apart.
     Terminal Moraine taps for {C} the turn it lands and its fetch sits behind
     an activated `{2}, {T}, Sacrifice` cost, so it is an untapped land that
-    happens to carry the clause -- and it is the same gate build_land_profiles
-    uses to decide a land is a fetch at all, deliberately, so the two cannot
-    drift apart the way the land and accelerant restriction rules once did.
+    happens to carry the clause.
+
+    That gate MIRRORS the one build_land_profiles uses to decide a land is a
+    fetch at all -- deliberately, so a card cannot be a fetch there and not a
+    fetch here -- but it is written out again rather than shared, because the
+    profile builder has already computed `pm` and its own `fetch_targets` by
+    the time it needs this answer. Mirrored is not shared: the two agree on
+    every card printed today (checked over the whole commander-legal pool),
+    and keeping them agreeing is a manual obligation on whoever edits either.
+    A test pins the boundary card, Terminal Moraine, on both sides.
 
     `card` is consulted for produced_mana only when the face carries none,
     matching build_land_profiles: a land face on a DFC has its own entry, a
