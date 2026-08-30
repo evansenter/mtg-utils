@@ -2,6 +2,8 @@
 import re
 from collections import Counter
 
+from mtg_utils.cards import front_name
+
 # ============================================================ decklist IO
 def _entry(line):
     m = re.match(r"^(\d+)\s+(.*)$", line)
@@ -187,18 +189,62 @@ def apply_swaps(cmdr, entries, swaps):
     return out
 
 
+def by_front_face(names):
+    """(Counter keyed on the lowered front face, best spelling per key).
+
+    `names` is a Counter of name -> quantity, or any iterable of names.
+
+    The two sides of a diff do not agree on how to write a double-faced card.
+    A decklist written by hand carries the front face alone; Moxfield returns
+    the full `A // B`; `write` emits whichever the file already held. Compared
+    verbatim, one card sitting identically on both sides comes out as two
+    differences -- one missing, one added -- and it does that for every DFC,
+    adventure and split card in the list.
+
+    The LONGEST spelling wins as the label, which is the full `A // B` form:
+    the front face is a prefix of it, so taking whichever was seen first would
+    take whichever sorted first and always report the short one. Same rule
+    floor_audit uses for the same reason, and the reader looking a row up
+    wants the name their list actually holds.
+    """
+    out, label = Counter(), {}
+    # Sorted, so a length TIE breaks the same way on every run rather than on
+    # the order the decklist or the API happened to hand the names over.
+    for n, q in sorted(Counter(names).items()):
+        k = front_name(n).lower()
+        out[k] += q
+        if len(n) > len(label.get(k, "")):
+            label[k] = n
+    return out, label
+
+
 def diff_multiset(local_cmdrs, local_entries, live_cmdrs, live_main):
     """Card-multiset diff. Pure compute.
 
     lastUpdatedAtUtc moves on a description or folder edit, so the timestamp is
     not evidence the LIST changed -- diff the multiset, never the stamp.
     Returns (only_local, only_live, cmdr_change) as sorted (name, n) lists.
+
+    Both sides are reduced to FRONT FACES before comparison, commanders
+    included. Without it, a list that is byte-for-byte the live deck reports
+    one difference per double-faced card in it -- and `diff` is the step the
+    output contract names as the confirmation before anything is built on top
+    of a change, so a check that cries wolf on every DFC list is a check the
+    reader learns to skim. Measured on a live 100-card list whose only three
+    "differences" were three DFCs written two ways; front-faced, it reports
+    IDENTICAL.
+
+    The names REPORTED are each side's own spelling, so a row still reads as
+    the line the reader will find in the file or on Moxfield.
     """
-    a, b = Counter(local_entries), Counter(live_main)
-    only_local = sorted((n, c) for n, c in (a - b).items())
-    only_live = sorted((n, c) for n, c in (b - a).items())
+    a, alab = by_front_face(local_entries)
+    b, blab = by_front_face(live_main)
+    only_local = sorted((alab[n], c) for n, c in (a - b).items())
+    only_live = sorted((blab[n], c) for n, c in (b - a).items())
     ca, cb = sorted(as_cmdrs(local_cmdrs)), sorted(as_cmdrs(live_cmdrs))
-    return only_local, only_live, (None if ca == cb else (ca, cb))
+    same = ([front_name(x).lower() for x in ca]
+            == [front_name(x).lower() for x in cb])
+    return only_local, only_live, (None if same else (ca, cb))
 
 
 # A decision note, carried in the decklist file itself:
