@@ -141,7 +141,7 @@ def main():
         sys.exit(selftest())
     if a.cmd == "calibrate":
         report_calibrate([x for x in a.decks.split(",") if x],
-                         a.cache, a.sims, a.trials, user=a.target)
+                         a.cache, a.sims, a.trials, user=a.target, fmt=a.fmt)
         return
     if not a.target:
         ap.error(f"`{a.cmd}` needs a target")

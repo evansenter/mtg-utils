@@ -1153,3 +1153,69 @@ zero-colour source.
 `mana` therefore names Mox Opal beside Fíli and Kíli — both are cards whose
 mana this model will not promise, which is what the line has always meant.
 
+
+---
+
+## 22. What the format-awareness pass deliberately did NOT change — RESOLVED, documented
+
+Recorded because each of these was considered, has a cost, and would otherwise
+be rediscovered as an oversight.
+
+### `own --arena` prices the CACHED printing's rarity
+
+Arena grants wildcards by rarity, and rarity varies by printing: Abrade is
+uncommon in SOA, FDN and AKR and common in LCI and VOW. `scry_fetch` stores
+whichever printing Scryfall returned for the name, so a card reprinted at a
+different rarity is priced at the wrong wildcard.
+
+Resolving it exactly is a `unique=prints` search per card at ~0.5s, which is
+what `write --arena` already does and what an ownership summary should not.
+The report says which rarity it read and points at the command that resolves
+it. Direction: unknown per card, and it is a count rather than a probability,
+so nothing compounds.
+
+### A LIFE payment is still free mana
+
+Starting Town's `{T}, Pay 1 life: Add one mana of any color` counts, so a BRG
+deck's only white source is a land that costs a life every time. This is the
+same call the repo already makes for the shockland conditional tap, where "you
+may pay 2 life" is read as *not* a real cost. Life is a cost neither model
+prices; it is now not priced in both directions rather than in one. Changing it
+would move every conditional-tap figure in the four Commander fixtures, which
+is a different commit.
+
+### `--turns` is on `mana` only
+
+`variants` and `--swap` still run to `PLAYSIM_TURNS`. `variants` reads exactly
+two figures and both are at the commander's own turn, so a horizon shorter than
+that turn would empty the table rather than shorten it -- and it already
+refuses a commander past turn seven by name. `--swap` compares two runs of
+`analyse_mana` and would need the horizon threaded through `compare_swap` to
+both sides; that is a real change and there is no measurement asking for it
+yet.
+
+### `calibrate` takes ONE format for the whole run
+
+It names a Moxfield account or a list of ids and there is nowhere per-deck to
+put a format. Mixing formats in one table would put decks measured at different
+deck sizes and against different legality keys under one heading, which is
+exactly the comparison the table exists to make safe. Run it once per format.
+
+### EDHREC and edhtop16 are still the only ranking sources
+
+Neither has a Standard Brawl population and there is no third endpoint to add.
+`ceiling` and `floor` therefore WARN and, for `ceiling`, filter -- rather than
+refuse. Refusing was the other option the report proposed and it is worse: the
+cross-format ranking is a real archetype signal when it is read as one, and the
+warning is what makes that reading available. Direction: the rows that survive
+the legality filter are still Commander inclusion rates, and no number on that
+page is about the format the deck is in.
+
+### `roster`'s cycle tables are still Commander's cycle tables
+
+`--format` filters them; it does not add the cycles a Standard-legal manabase
+actually wants. The walk therefore reports what the Commander roster has to say
+about a Brawl deck, minus the illegal rows, and on the brawl fixture that is
+29 of 119 names. A Standard roster is a new data table, not a filter, and
+nothing has measured what belongs in it.
+

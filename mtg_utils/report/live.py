@@ -39,12 +39,19 @@ def report_diff(cmdr, entries, deck_id):
     return False
 
 
-def report_calibrate(deck_ids, cache_path, sims, trials, user=None):
+def report_calibrate(deck_ids, cache_path, sims, trials, user=None, fmt=None):
     """Regenerate the whole calibration table from LIVE decks in one pass.
 
     The table is a set of dated measurements, not a fact about a deck. It is
     wrong the moment a list changes, the moment the model changes, and it
     carries Monte Carlo noise besides. Regenerate it; never quote a stored row.
+
+    `fmt` applies to EVERY deck in the run, because it names one Moxfield
+    account or one list of ids and there is nowhere per-deck to put it. Mixing
+    formats in one table is therefore not supported: the two halves would be
+    measured at different deck sizes and against different legality keys under
+    one heading, which is exactly the comparison this table exists to make
+    safe. Run it once per format.
     """
     stamp = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
     if not deck_ids:
@@ -62,7 +69,11 @@ def report_calibrate(deck_ids, cache_path, sims, trials, user=None):
         scry, nf = scry_fetch(flat(cmdr, entries), cache_path)
         if nf:
             print(f"  [{name}] Scryfall not found: {nf}")
-        v = verify(cmdr, entries, scry)
+        # The format's own legality key, like everywhere else. A calibration
+        # table puts decks side by side, so a legality column read off the
+        # wrong format would be wrong for every row at once rather than for
+        # one -- which is the version nobody notices.
+        v = verify(cmdr, entries, scry, fmt)
         names = flat(cmdr, entries)[len(as_cmdrs(cmdr)):]
         lands = build_land_profiles(names, scry)
         accels = build_accel_profiles(names, scry)
