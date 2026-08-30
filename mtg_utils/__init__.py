@@ -70,7 +70,8 @@ from mtg_utils.decklist import (DECISION, apply_swaps, as_cmdrs, by_front_face,
                                 diff_multiset, flat,
                                 parse_swaps, read_decisions, read_decklist,
                                 split_names, write_deck)
-from mtg_utils.formats import (DEFAULT_FORMAT, FORMATS, deck_size, is_legal)
+from mtg_utils.formats import (DEFAULT_FORMAT, FORMATS, deck_size, is_legal,
+                               legality, says_illegal)
 from mtg_utils.formats import spec as format_spec
 from mtg_utils.primer import LINK_RE, parse_primer_links, unclosed_openers
 from mtg_utils.roster import (ANY_COLOUR, OFF_ROSTER_RANK, PAIR_CYCLES,
@@ -95,7 +96,8 @@ from mtg_utils.sources.edhrec import (PAGE_CAP, display_floors, edhrec_fetch,
                                       edhrec_slug, parse_commander_page)
 from mtg_utils.sources.edhtop16 import (MIN_ENTRIES, edhtop16_commander_name,
                                         edhtop16_fetch, parse_edhtop16)
-from mtg_utils.sources.ranking import SOURCE_LABEL, fetch_ranking
+from mtg_utils.sources.ranking import (POPULATION, SOURCE_LABEL, fetch_ranking,
+                                       population_mismatch)
 from mtg_utils.sources.scryfall import scry_fetch
 from mtg_utils.sources.spellbook import spellbook, spellbook_name
 from mtg_utils.report import (report_calibrate, report_combos, report_contention,

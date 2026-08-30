@@ -19,7 +19,9 @@ from mtg_utils.sources.collection import load_collection
 from mtg_utils.sources.edhrec import PAGE_CAP
 from mtg_utils.sources.edhtop16 import MIN_ENTRIES
 from mtg_utils.sources.moxfield import moxfield_deck
-from mtg_utils.sources.ranking import SOURCE_LABEL, fetch_ranking
+from mtg_utils.formats import spec as format_spec
+from mtg_utils.sources.ranking import (SOURCE_LABEL, fetch_ranking,
+                                        population_mismatch)
 from mtg_utils.sources.scryfall import scry_fetch
 from mtg_utils.sources.spellbook import spellbook
 
@@ -150,7 +152,7 @@ def report_contention(cmdr, entries, other_ids):
 
 def report_ceiling(cmdr, entries, scry, cache=None, rec_cache=None, cedh=False,
                    threshold=50.0, sort="inclusion", combos=True,
-                   decklist=None):
+                   decklist=None, fmt=None):
     """Collection-ceiling audit: what is above the bar and not in the list.
 
     NETWORK unless both caches already hold what it needs, following the
@@ -172,6 +174,11 @@ def report_ceiling(cmdr, entries, scry, cache=None, rec_cache=None, cedh=False,
     rows, capped = rank["rows"], rank["capped"]
     n_entries, slug = rank["n_entries"], rank["label"]
     print(f"\n=== CEILING vs {SOURCE_LABEL[rank['source']]}: {slug} ===")
+    # Immediately under the header, before a single figure is printed. A
+    # caveat below the table is a caveat read after the reader has already
+    # believed the percentages.
+    for line in population_mismatch(rank["source"], fmt):
+        print(line)
     if rank["source"] == "edhtop16":
         # The entry count sits beside every percentage, never behind it. At
         # four entries every card is 25/50/75/100% and the table would read
@@ -245,7 +252,14 @@ def report_ceiling(cmdr, entries, scry, cache=None, rec_cache=None, cedh=False,
         except SystemExit as e:
             combo_note = str(e)
     a = ceiling_audit(cmdr, entries, rows, capped, load_collection(), scry,
-                      threshold, sort, completions)
+                      threshold, sort, completions, fmt)
+    if a["illegal"]:
+        # Counted, not silently shortened: a filtered list and a short list
+        # look identical, and here the filter routinely removes most of it.
+        print(f"  {len(a['illegal'])} row{'' if len(a['illegal']) == 1 else 's'}"
+              f" above the bar {'is' if len(a['illegal']) == 1 else 'are'} not "
+              f"legal in {format_spec(fmt)['label']} and "
+              f"{'is' if len(a['illegal']) == 1 else 'are'} not listed.")
     # `g` rather than `.0f` for the same reason `floor` uses it: --bar is a
     # float and rounding it in print puts the bar the report NAMES on the far
     # side of a row from the bar it was measured against. No snapshot moves --

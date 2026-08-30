@@ -57,14 +57,44 @@ def deck_size(fmt=None):
     return spec(fmt)["size"]
 
 
+def legality(card, fmt=None):
+    """What this record SAYS about `fmt`: "legal", "not_legal", ... or None.
+
+    None means the record said nothing -- there is no record, or it carries no
+    `legalities` block at all. That is a third answer and not a synonym for
+    illegal, which is the distinction every FILTER here needs: a row dropped
+    because a cache is thin looks exactly like a row dropped because the card
+    is banned, and only one of those is a fact about the card.
+
+    Two live cases, not hypotheticals. `ceiling` fetches its rows and reports
+    the names Scryfall did not know SEPARATELY, as NOT FOUND -- filtering them
+    out as well would turn one loud failure into a row that is simply absent.
+    And `tests/fixtures/ceiling.scry.json` is a deliberate projection carrying
+    only the fields that path reads, so four of its records have no
+    `legalities` at all; read as illegal they vanish from a Commander report
+    about a Commander deck.
+    """
+    leg = (card or {}).get("legalities")
+    return leg.get(spec(fmt)["legality"]) if leg else None
+
+
 def is_legal(card, fmt=None):
     """Is this Scryfall record legal in `fmt`?
 
     A card the cache has never seen is NOT legal here, because nothing says it
-    is. Callers that want to distinguish "illegal" from "unknown" have to look
-    the record up themselves -- `verify` does, and reports NOT FOUND
-    separately, which is the distinction that matters when a name is simply
-    misspelled.
+    is. Callers that must not drop a card the record is silent about want
+    `legality(...) != "not_legal"` instead -- see there for the two live cases
+    where those differ.
     """
-    key = spec(fmt)["legality"]
-    return (card or {}).get("legalities", {}).get(key) == "legal"
+    return legality(card, fmt) == "legal"
+
+
+def says_illegal(card, fmt=None):
+    """Does the record positively say this card is NOT legal in `fmt`?
+
+    The filter rule everywhere a row is REMOVED from a report: silence is not
+    evidence, so a record that says nothing keeps its row. `is_legal` is the
+    rule for everywhere a card is ADMITTED.
+    """
+    got = legality(card, fmt)
+    return got is not None and got != "legal"

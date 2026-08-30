@@ -206,11 +206,12 @@ def main():
                                     a.cache)["ok"] else 2)
     if a.cmd == "ceiling":
         report_ceiling(cmdr, entries, scry, a.cache, a.rec_cache, a.cedh,
-                       a.bar, a.sort, not a.no_combos, a.target)
+                       a.bar, a.sort, not a.no_combos, a.target, a.fmt)
     if a.cmd == "floor":
         # No --cache here, unlike `ceiling`: every card floor ranks is in the
         # decklist, so the fetch above already has its type line.
-        report_floor(cmdr, entries, scry, a.rec_cache, a.cedh, a.bar, a.sort)
+        report_floor(cmdr, entries, scry, a.rec_cache, a.cedh, a.bar, a.sort,
+                     a.fmt)
     if a.cmd in ("roster", "audit"):
         report_roster(cmdr, entries, scry, a.cache, a.fmt, a.colours)
     if a.cmd == "variants":

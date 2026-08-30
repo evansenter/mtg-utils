@@ -9,6 +9,7 @@ from mtg_utils.cards import (enters_tapped, enters_tapped_turn, front,
 from mtg_utils.castability import (PLAYSIM_TURNS, at_least_in_draw, castable_faces,
                                    pips_from_cost, playsim_report, probability)
 from mtg_utils.decklist import apply_swaps, as_cmdrs, flat, read_decisions
+from mtg_utils.formats import says_illegal
 from mtg_utils.formats import spec as format_spec
 from mtg_utils.primer import parse_primer_links, unclosed_openers
 from mtg_utils.profiles import (build_accel_profiles, build_land_profiles,
@@ -420,7 +421,7 @@ def compare_swap(cmdr, entries, scry, swaps, sims, trials, seed=17, reps=3):
 
 
 def ceiling_audit(cmdr, entries, rows, capped, owned, scry, threshold=50.0,
-                  sort="inclusion", completions=None):
+                  sort="inclusion", completions=None, fmt=None):
     """Which cards above the inclusion bar for this commander are missing.
 
     Pure compute; report_ceiling only formats it.
@@ -442,9 +443,20 @@ def ceiling_audit(cmdr, entries, rows, capped, owned, scry, threshold=50.0,
     cap. It is carried through untouched: a card absent from a capped list is
     of UNKNOWN inclusion, not 0%, and nothing here may turn one into the
     other.
+
+    `fmt` drops rows that are not legal in it, and COUNTS what it dropped.
+    Both ranking sources are Commander populations -- neither says so
+    anywhere in its payload -- so on any other format a majority of the rows
+    above the bar are cards that cannot be registered. Dropped silently they
+    would just be a shorter list; counted, the reader can see the filter ran.
+    A row whose Scryfall record is missing, or carries no `legalities` block,
+    is KEPT: silence is not evidence. The report already names the names
+    Scryfall did not know separately, as NOT FOUND, and removing them here as
+    well would turn one loud failure into a row that is simply absent. See
+    formats.says_illegal.
     """
     have = {front_name(n).lower() for n in list(entries) + as_cmdrs(cmdr)}
-    missing = []
+    missing, illegal = [], []
     for r in rows:
         if r["inclusion"] < threshold:
             continue
@@ -452,6 +464,9 @@ def ceiling_audit(cmdr, entries, rows, capped, owned, scry, threshold=50.0,
         if key in have:
             continue
         card = scry.get(key) or scry.get(r["name"].lower())
+        if says_illegal(card, fmt):
+            illegal.append(r["name"])
+            continue
         price = (card or {}).get("prices", {}).get("usd")
         missing.append(dict(r, owned=owned.get(key, 0),
                             price=float(price) if price else None,
@@ -472,7 +487,7 @@ def ceiling_audit(cmdr, entries, rows, capped, owned, scry, threshold=50.0,
     else:
         missing.sort(key=lambda r: (-r["inclusion"], r["name"]))
     return {"missing": missing, "threshold": threshold, "capped": capped,
-            "sort": sort,
+            "sort": sort, "illegal": sorted(illegal), "format": fmt,
             "combo_rows": sum(1 for m in missing if m["combos"]),
             "considered": len(rows),
             "owned_count": sum(1 for m in missing if m["owned"] > 0),

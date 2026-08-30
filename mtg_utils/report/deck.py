@@ -14,14 +14,15 @@ from mtg_utils.analysis import (CURVE_TOP, deck_skeleton, floor_audit,
                                 primer_audit)
 from mtg_utils.cards import front_name
 from mtg_utils.decklist import as_cmdrs, flat
-from mtg_utils.formats import is_legal
+from mtg_utils.formats import says_illegal
 from mtg_utils.formats import spec as format_spec
 from mtg_utils.primer import parse_primer_links
 from mtg_utils.roster import ANY_COLOUR, PAIR_CYCLES, TRIPLE_CYCLES, WUBRG, identity_pairs, roster_names, roster_status
 from mtg_utils.sources.collection import load_collection
 from mtg_utils.sources.edhrec import PAGE_CAP
 from mtg_utils.sources.edhtop16 import MIN_ENTRIES
-from mtg_utils.sources.ranking import SOURCE_LABEL, fetch_ranking
+from mtg_utils.sources.ranking import (SOURCE_LABEL, fetch_ranking,
+                                        population_mismatch)
 from mtg_utils.sources.scryfall import scry_fetch
 from mtg_utils.sources.spellbook import spellbook
 
@@ -152,15 +153,15 @@ def report_roster(cmdr, entries, scry, cache_path=None, fmt=None, colours=None):
         print(f"  *** OFF-IDENTITY, ILLEGAL HERE: {bad} ***")
 
     def legal(n):
-        """Is this roster name legal in the format being walked?
+        """Should this roster name be walked in the format being walked?
 
-        A name the cache has never seen is walked rather than dropped: it has
-        already been reported as NOT ON SCRYFALL above, and silently removing
-        it as well would turn one loud failure into a row that simply is not
-        there.
+        A name the cache has never seen -- or whose record carries no
+        `legalities` block -- is WALKED rather than dropped: it has already
+        been reported as NOT ON SCRYFALL above, and silently removing it as
+        well would turn one loud failure into a row that simply is not there.
+        Silence is not evidence; see formats.says_illegal.
         """
-        c = scry2.get(n.lower())
-        return c is None or is_legal(c, fmt)
+        return not says_illegal(scry2.get(n.lower()), fmt)
 
     illegal = [n for n in names if not legal(n)]
     if illegal:
@@ -423,7 +424,7 @@ def _floor_unranked_rows(rows, width):
 
 
 def report_floor(cmdr, entries, scry, rec_cache=None, cedh=False,
-                 threshold=50.0, sort="inclusion"):
+                 threshold=50.0, sort="inclusion", fmt=None):
     """The inverse of `ceiling`: what is IN the list and the population is not.
 
     NETWORK unless `rec_cache` already holds the page, exactly as `ceiling`
@@ -445,6 +446,14 @@ def report_floor(cmdr, entries, scry, rec_cache=None, cedh=False,
     """
     rank = fetch_ranking(as_cmdrs(cmdr), rec_cache, cedh)
     print(f"\n=== FLOOR vs {SOURCE_LABEL[rank['source']]}: {rank['label']} ===")
+    # The caveat, and NOT a legality filter. Every card `floor` ranks is
+    # already in the list, so there is nothing here to drop -- `verify` is
+    # what says whether the list is legal. What the format changes here is
+    # what the figures MEAN: a card's inclusion among Commander decks is
+    # weak evidence about whether to cut it from a Standard Brawl one, and
+    # this command exists to price a cut.
+    for line in population_mismatch(rank["source"], fmt):
+        print(line)
     if rank["source"] == "edhtop16":
         # The entry count sits beside every percentage, never behind it, for
         # the same reason it does in `ceiling`: at four entries every card is
