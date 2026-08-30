@@ -3,6 +3,7 @@ import re
 from collections import Counter
 
 from mtg_utils.cards import front_name
+from mtg_utils.formats import spec as format_spec
 
 # ============================================================ decklist IO
 def _entry(line):
@@ -58,7 +59,19 @@ def flat(cmdr, entries):
     return out
 
 
-def write_deck(cmdr, entries, out_path, expect_adds=(), expect_cuts=()):
+def write_deck(cmdr, entries, out_path, expect_adds=(), expect_cuts=(),
+               size=None, fmt=None):
+    """Write the list, read it back, and assert what came back.
+
+    `size` is the total the file must hold, commanders included; it defaults
+    to the size of `fmt`, which defaults to Commander's 100. The ASSERTION is
+    right and stays -- it is the one thing `write` exists to provide, along
+    with --adds/--cuts. It was the constant that was wrong: a 60-card Standard
+    Brawl list could not be written at all, so the final list was assembled by
+    hand and neither check ran on it.
+    """
+    fspec = format_spec(fmt)
+    size = fspec["size"] if size is None else size
     cmdrs = as_cmdrs(cmdr)
     lines = list(cmdrs) + [""]
     for n in sorted(entries, key=str.lower):
@@ -76,7 +89,8 @@ def write_deck(cmdr, entries, out_path, expect_adds=(), expect_cuts=()):
         assert not any(l.split(" ", 1)[1] == c for l in body), f"CUT STILL PRESENT: {c}"
     print(f"\n=== WROTE {out_path} ===")
     print(f"  read back: {len(body)} entries, {total} cards, commander line OK")
-    assert total == 100, f"deck is {total} cards, Commander is 100"
+    assert total == size, (f"deck is {total} cards, {fspec['label']} is "
+                          f"{size}")
     return total
 
 

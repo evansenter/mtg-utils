@@ -8,6 +8,7 @@ from mtg_utils.cards import (enters_tapped, front, front_name, has_land_back,
 from mtg_utils.castability import (PLAYSIM_TURNS, at_least_in_draw, castable_faces,
                                    pips_from_cost, playsim_report, probability)
 from mtg_utils.decklist import apply_swaps, as_cmdrs, flat, read_decisions
+from mtg_utils.formats import spec as format_spec
 from mtg_utils.primer import parse_primer_links, unclosed_openers
 from mtg_utils.profiles import (build_accel_profiles, build_land_profiles,
                                 build_ritual_profiles)
@@ -15,7 +16,15 @@ from mtg_utils.roster import (OFF_ROSTER_RANK, PAIR_CYCLES, TRIPLE_CYCLES,
                               pair_from_type_line, roster_slot)
 
 # ============================================================ verify
-def verify(cmdr, entries, scry):
+def verify(cmdr, entries, scry, fmt=None):
+    """Counts, legality and colour identity. `fmt` defaults to Commander.
+
+    The legality column is read from the FORMAT's own Scryfall key. Read as
+    `legalities["commander"]` on a Standard Brawl list it says nothing useful
+    in either direction: Sol Ring is Commander-legal and not Standard Brawl
+    legal, and a card printed this year is legal in both.
+    """
+    legality = format_spec(fmt)["legality"]
     cmdrs = as_cmdrs(cmdr)
     names = flat(cmdr, entries)
     total = len(names)
@@ -32,8 +41,8 @@ def verify(cmdr, entries, scry):
         c = scry.get(n.lower())
         if not c:
             illegal.append((n, "NOT FOUND")); continue
-        if c["legalities"]["commander"] != "legal":
-            illegal.append((n, c["legalities"]["commander"]))
+        if c["legalities"].get(legality) != "legal":
+            illegal.append((n, c["legalities"].get(legality, "no such format")))
         if set(c["color_identity"]) - ident:
             ci_bad.append((n, "".join(c["color_identity"])))
         if c.get("game_changer"):

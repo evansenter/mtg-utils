@@ -8,6 +8,7 @@ from mtg_utils import __doc__ as _BANNER
 from mtg_utils.analysis import verify
 from mtg_utils.decklist import (as_cmdrs, flat, parse_swaps, read_decklist,
                                 split_names, write_deck)
+from mtg_utils.formats import DEFAULT_FORMAT, FORMATS, deck_size, spec
 from mtg_utils.report import (report_calibrate, report_combos, report_contention,
                               report_ceiling, report_diff, report_floor,
                               report_mana,
@@ -103,7 +104,21 @@ def main():
     ap.add_argument("--swap", default="",
                     help="variants: measure named swaps, 'Cut->Add,Cut2->Add2' "
                          "(use ';' between pairs if a name contains a comma)")
+    # The format is what the 100-card assumption used to be, said out loud:
+    # deck size, which Scryfall legality key to read, and how many players are
+    # at the table. Default `commander`, so every existing invocation means
+    # exactly what it meant.
+    ap.add_argument("--format", default=DEFAULT_FORMAT, dest="fmt",
+                    choices=sorted(FORMATS),
+                    help="deck format: sets the expected deck size, the "
+                         "legality key checked, and the table size the "
+                         "play/draw framing assumes")
+    ap.add_argument("--size", type=int, default=None,
+                    help="verify/write: expected total cards including "
+                         "commanders; defaults to the --format's size")
     a = ap.parse_args()
+    size = a.size if a.size is not None else deck_size(a.fmt)
+    label = spec(a.fmt)["label"]
 
     if a.cmd == "selftest":
         sys.exit(selftest())
@@ -151,7 +166,7 @@ def main():
         print("SCRYFALL NOT FOUND (front-face names only!):", nf)
 
     if a.cmd in ("verify", "audit"):
-        v = verify(cmdr, entries, scry)
+        v = verify(cmdr, entries, scry, a.fmt)
         # The commander count is len(cmdrs), not 1. A partner or background
         # pair is TWO, and verify() has always counted both in `total` -- only
         # this sentence claimed otherwise, so the printed arithmetic came out
@@ -167,8 +182,12 @@ def main():
               f"{v['game_changers']}")
         print(f"  illegal: {v['illegal'] or 'none'}")
         print(f"  colour identity violations: {v['ci_violations'] or 'none'}")
-        if v["total"] != 100:
-            print(f"  *** DECK IS {v['total']} CARDS, COMMANDER IS 100 ***")
+        # The format's size, not a constant. Everything else in this block
+        # was already right on a 60-card list -- only the warning was wrong,
+        # and a wrong warning makes a correct deck look broken.
+        if v["total"] != size:
+            print(f"  *** DECK IS {v['total']} CARDS, {label.upper()} IS "
+                  f"{size} ***")
     if a.cmd in ("mana", "audit"):
         report_mana(cmdr, entries, scry, a.sims, a.trials, a.seed, reps=a.reps)
     if a.cmd == "skeleton":
@@ -209,4 +228,5 @@ def main():
         report_contention(cmdr, entries, [x for x in a.decks.split(",") if x])
     if a.cmd == "write":
         write_deck(cmdr, entries, a.out or "final_deck.txt",
-                   split_names(a.adds), split_names(a.cuts))
+                   split_names(a.adds), split_names(a.cuts),
+                   size=size, fmt=a.fmt)
