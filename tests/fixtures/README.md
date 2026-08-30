@@ -12,7 +12,9 @@ the one thing the golden suite exists to make impossible.
 | `multi.txt` / `multi.scry.json` | Muldrotha, the Gravetide — Sultai (`UBG`) |
 | `colourless.txt` / `colourless.scry.json` | Zhulodok, Void Gorger — colourless (identity `C`, empty string internally) |
 | `collection.csv` | A ManaBox export with the real column set, UTF-8 with BOM |
+| `brawl.txt` / `brawl.scry.json` | Terra, Magical Adept -- a 60-card **Standard Brawl** list, identity WUBRG, built BRG |
 | `make_fixtures.py` | Provenance: how the above were built, run once on 2026-08-15 |
+| `make_brawl_fixture.py` | Provenance for `brawl.*`, run once on 2026-08-30 |
 | `ceiling.rec.json` | A real EDHREC commander page (Thrasios / Tymna), whole cardlists dropped to keep it small |
 | `ceiling.top16.json` | A real edhtop16 response for the same pair, trimmed to 6 tournament entries |
 | `ceiling.scry.json` | Scryfall records for the cards those two rank — a **projection**, see below |
@@ -44,6 +46,48 @@ network. That happened while these tests were being written: the case stayed
 green against 100 live entries instead of the 6 committed ones. `_no_network`
 in `test_ceiling.py` now makes any outbound call an assertion failure, which is
 the only reliable way to notice.
+
+## The `brawl` fixture
+
+The fifth shape, and the first that is not Commander. It was added because
+none of the four Commander decks can break a claim about format or deck size,
+and a green suite over fixtures that cannot break a claim is evidence about
+the fixtures.
+
+What it holds that nothing else here does:
+
+- **60 cards**, so a hard-coded 100 fails on it -- 1 commander + 59, against
+  100 = 1 + 99 everywhere else.
+- **A DFC commander**, spelled with the front face in the file. That is the
+  one shape where Moxfield (`A // B`) and Commander Spellbook (`A // B`)
+  disagree with EDHREC (`A`) in opposite directions, and `diff` and `combos`
+  each reported a wrong answer on it.
+- **A five-colour identity on a three-colour build.** Terra is WUBRG; the list
+  is BRG. `roster` walks the identity, so it prints the WU and W rows for a
+  deck that will never play them.
+- **A gated coloured half.** The Verge cycle -- `{T}: Add {R}. Activate only
+  if you control a Mountain or a Forest` -- and Training Compound's board
+  condition. No other fixture has a land whose colour is behind a condition.
+- **A taxed coloured half.** Hidden Grotto, Conduit Pylons and Crystal Grotto
+  all read `{1}, {T}: Add one mana of any color`, which was scored as a free
+  five-colour source with the `{1}` nowhere.
+- **A turn-conditional tap.** Starting Town enters tapped *unless it is your
+  first, second or third turn* -- untapped early and tapped late, which is the
+  mirror image of every conditional marker already modelled and was falling
+  through to TRULY TAPPED.
+- **A commander combo piece**, The Apprentice's Folly, which combos with Terra
+  and only with Terra.
+
+Every card in it is legal in Standard Brawl, and `test_golden.py` asserts
+that: a fixture that quietly drifts out of the format it was built for stops
+covering the thing it was added for. The manabase is chosen by hand for the
+paths above; the 33 filler spells came from one `legal:standardbrawl ci<=wubrg
+-t:land` search ordered by EDHREC rank.
+
+The golden harness passes `--format=standardbrawl` for this deck and for no
+other -- see `DECK_EXTRA` in `tests/conftest.py`. Run as Commander the same
+file is a 60-card deck reported as 40 cards short, with its legality column
+read off a key that says nothing about the format it is in.
 
 ## Why three shapes
 

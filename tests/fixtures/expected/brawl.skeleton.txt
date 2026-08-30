@@ -1,0 +1,26 @@
+
+=== SKELETON: Terra, Magical Adept ===
+  60 = 1 commander + 25 lands + 34 non-land   [checked]
+  manabase levers: 25 lands (+0 MDFC land backs)   4 accelerants at MV<=3
+  average non-land MV 2.79   Game Changers 0
+
+--- curve (34 non-land cards) ---
+    0   0
+    1   5  #####
+    2  14  ##############
+    3   7  #######
+    4   4  ####
+    5   1  #
+    6   2  ##
+   7+   1  #
+
+--- slots by type (59 non-commander cards) ---
+  Land            25
+  Instant         13
+  Creature         9
+  Enchantment      6
+  Artifact         4
+  Sorcery          2
+
+  Types, not functional roles: ramp/draw/interaction are not inferred.
+  The one measured functional count is the accelerants above.

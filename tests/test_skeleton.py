@@ -19,6 +19,10 @@ import pytest
 
 from conftest import DECKS, FIXTURES, deck_args, run_cli
 
+# Every fixture is a 100-card Commander deck except `brawl`, which is a
+# 60-card Standard Brawl list.
+DECK_SIZE = {d: (60 if d == "brawl" else 100) for d in DECKS}
+
 
 def _deck(mm, name):
     cmdr, entries = mm.read_decklist(os.path.join(FIXTURES, f"{name}.txt"))
@@ -29,12 +33,18 @@ def _deck(mm, name):
 # --- the identity -----------------------------------------------------
 @pytest.mark.parametrize("deck", DECKS)
 def test_the_identity_closes(mm, deck):
-    """100 = commanders + lands + non-land, on every shape including the
-    partner pair, where the commander count is two and the library is 98."""
+    """total = commanders + lands + non-land, on every shape: the partner
+    pair, where the commander count is two and the library is 98, and the
+    Standard Brawl list, where the total is 60 rather than 100.
+
+    The total is asserted against the deck's own FORMAT size, not against a
+    constant -- a 100 here would have failed on the one fixture that can
+    catch a hard-coded 100 anywhere else.
+    """
     cmdr, entries, scry = _deck(mm, deck)
     s = mm.deck_skeleton(cmdr, entries, scry)
     assert s["commanders"] + s["lands"] + s["nonland"] == s["total"]
-    assert s["total"] == 100
+    assert s["total"] == DECK_SIZE[deck]
     assert s["commanders"] == len(mm.as_cmdrs(cmdr))
 
 

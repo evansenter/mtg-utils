@@ -1,0 +1,7 @@
+
+=== VERIFY: ['Terra, Magical Adept'] ===
+  60 cards = 1 commander + 34 non-land + 25 lands  (0 MDFC land-backs)
+  average non-land MV 2.79
+  Game Changers (0, Scryfall game_changer): []
+  illegal: none
+  colour identity violations: none

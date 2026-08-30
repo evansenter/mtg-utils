@@ -194,3 +194,28 @@ def test_colourless_worst_lines_is_not_empty(candidate, tmp_path):
     assert rows, "colourless deck reported no coloured lines at all"
     assert all("{C}" in l for l in rows), rows
     assert "Zhulodok, Void Gorger on curve" in out
+
+
+def test_brawl_fixture_is_a_60_card_standard_brawl_list(candidate):
+    """The brawl fixture is the only thing here that can break a format claim.
+
+    Four 100-card Commander decks cannot fail a hard-coded 100 or a legality
+    key read off the wrong format, so a green suite over them alone is
+    evidence about the fixtures. This asserts the fifth deck is still the
+    shape it was added as -- a fixture that drifts out of its own format
+    stops covering the thing it exists for, and does it silently.
+    """
+    path = os.path.join(os.path.dirname(EXPECTED), "brawl.txt")
+    cache = os.path.join(os.path.dirname(EXPECTED), "brawl.scry.json")
+    cmdr, entries = candidate.read_decklist(path)
+    scry, nf = candidate.scry_fetch(candidate.flat(cmdr, entries), cache)
+    assert nf == [], f"brawl fixture cache is incomplete: {nf}"
+    v = candidate.verify(cmdr, entries, scry, "standardbrawl")
+    assert v["total"] == 60
+    assert len(cmdr) == 1
+    assert v["illegal"] == []
+    assert v["ci_violations"] == []
+    # The commander is a DFC written with its front face -- the join key three
+    # external sources spell three different ways.
+    assert cmdr[0] == "Terra, Magical Adept"
+    assert scry[cmdr[0].lower()]["name"] == "Terra, Magical Adept // Esper Terra"
