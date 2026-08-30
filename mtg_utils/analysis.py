@@ -87,6 +87,61 @@ def verify(cmdr, entries, scry, fmt=None):
             "turn_tapped_copies": turn_n}
 
 
+# Arena grants wildcards by rarity, and they do not convert between rarities,
+# so the cost of building a list there is FOUR numbers rather than one price.
+# Ordered most-expensive-first, which is the order the constraint binds in.
+ARENA_RARITIES = ("mythic", "rare", "uncommon", "common")
+
+
+def wildcard_cost(cmdr, entries, scry):
+    """Arena's answer to `own`: how many wildcards of each rarity a list costs.
+
+    Pure compute; report_own only formats it.
+
+    `own` and `contention` read a ManaBox export, which is PAPER. Arena has no
+    equivalent -- there is no per-card ownership file to diff a list against --
+    so the question that survives the translation is not "what do I still need
+    to buy" but "what does this cost in wildcards", and that is a count by
+    rarity over the list itself.
+
+    Basics are excluded and counted separately: Arena grants them without
+    limit, so a list is never short of them. That is the same exclusion the
+    paper buy list makes, arrived at from the opposite direction -- there,
+    because ManaBox does not track them.
+
+    THE RARITY IS THE CACHED PRINTING'S, which is not necessarily the Arena
+    printing's. A card reprinted at a different rarity costs a different
+    wildcard, and `scry_fetch` stores whichever printing Scryfall returned for
+    the name. Reported as a caveat rather than papered over: resolving the
+    Arena printing is a search per card, which is what `write --arena` does
+    and what this deliberately does not.
+    """
+    counts = {r: 0 for r in ARENA_RARITIES}
+    other, unresolved = {}, []
+    basics = 0
+    for n, q in [(c, 1) for c in as_cmdrs(cmdr)] + sorted(entries.items()):
+        c = scry.get(n.lower())
+        if not c:
+            # Named, never dropped: a card in no bucket is a card the total
+            # does not cover and nobody thinks about.
+            unresolved.append((n, q))
+            continue
+        if "Basic Land" in c.get("type_line", ""):
+            basics += q
+            continue
+        r = (c.get("rarity") or "").lower()
+        if r in counts:
+            counts[r] += q
+        else:
+            # "special" and "bonus" exist on Scryfall and buy no wildcard.
+            # Bucketed by their own name rather than folded into one of the
+            # four, so a total that does not add up says why.
+            other[r or "(no rarity)"] = other.get(r or "(no rarity)", 0) + q
+    return {"counts": counts, "other": other, "basics": basics,
+            "unresolved": unresolved,
+            "total": sum(counts.values()) + sum(other.values())}
+
+
 # ============================================================ reporting
 def worst_lines(names, scry, lands, accels, sims, rng, top=5, deck_size=None,
                 turns=PLAYSIM_TURNS):

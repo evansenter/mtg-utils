@@ -10,7 +10,8 @@ from mtg_utils.castability import PLAYSIM_TURNS
 from mtg_utils.decklist import (as_cmdrs, flat, parse_swaps, read_decklist,
                                 split_names, write_deck)
 from mtg_utils.formats import DEFAULT_FORMAT, FORMATS, deck_size, spec
-from mtg_utils.report import (report_calibrate, report_combos, report_contention,
+from mtg_utils.report import (report_arena_wildcards, report_calibrate,
+                              report_combos, report_contention,
                               report_ceiling, report_diff, report_floor,
                               report_mana,
                               report_own, report_primer, report_roster,
@@ -114,6 +115,9 @@ def main():
                     help="deck format: sets the expected deck size, the "
                          "legality key checked, and the table size the "
                          "play/draw framing assumes")
+    ap.add_argument("--arena", action="store_true",
+                    help="own: report wildcard cost by rarity instead of a "
+                         "paper buy list; write: emit an Arena import block")
     ap.add_argument("--turns", type=int, default=PLAYSIM_TURNS,
                     help=f"mana: how far the play simulation runs "
                          f"(default {PLAYSIM_TURNS}); a line landing later is "
@@ -236,9 +240,16 @@ def main():
         # `A // B` form it matches on -- see spellbook_name.
         report_combos(cmdr, entries, scry, a.fmt)
     if a.cmd in ("own", "audit"):
-        report_own(cmdr, entries, scry)
+        # Two printers, one subcommand: `own` prices what is missing against a
+        # paper collection, `own --arena` counts what the list costs in
+        # wildcards. Neither answers the other's question.
+        if a.arena:
+            report_arena_wildcards(cmdr, entries, scry)
+        else:
+            report_own(cmdr, entries, scry)
     if a.cmd == "contention":
-        report_contention(cmdr, entries, [x for x in a.decks.split(",") if x])
+        report_contention(cmdr, entries, [x for x in a.decks.split(",") if x],
+                          a.arena)
     if a.cmd == "write":
         write_deck(cmdr, entries, a.out or "final_deck.txt",
                    split_names(a.adds), split_names(a.cuts),

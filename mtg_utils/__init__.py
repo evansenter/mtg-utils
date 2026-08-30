@@ -78,7 +78,8 @@ from mtg_utils.roster import (ANY_COLOUR, OFF_ROSTER_RANK, PAIR_CYCLES,
                               TRIPLE_CYCLES, WUBRG, identity_pairs,
                               pair_from_type_line, pair_key, roster_names,
                               roster_slot, roster_status)
-from mtg_utils.analysis import (CURVE_TOP, FLOOR_HEADER_STEMS, SKELETON_TYPES,
+from mtg_utils.analysis import (ARENA_RARITIES, CURVE_TOP, FLOOR_HEADER_STEMS,
+                                SKELETON_TYPES,
                                 analyse_mana,
                                 ceiling_audit, collapse_temps,
                                 combo_completions, commander_lines,
@@ -87,7 +88,8 @@ from mtg_utils.analysis import (CURVE_TOP, FLOOR_HEADER_STEMS, SKELETON_TYPES,
                                 land_roster_note, mean_spread,
                                 opening_hand_floor, primer_audit,
                                 replicate_playsim, split_budget, t95,
-                                type_bucket, verify, worst_lines)
+                                type_bucket, verify, wildcard_cost,
+                                worst_lines)
 from mtg_utils.sources import UA_BROWSER, UA_TOOL
 from mtg_utils.sources.collection import COLLECTION, load_collection
 from mtg_utils.sources.moxfield import (moxfield_deck, moxfield_user_decks,
@@ -101,7 +103,8 @@ from mtg_utils.sources.ranking import (POPULATION, SOURCE_LABEL, fetch_ranking,
 from mtg_utils.sources.scryfall import scry_fetch
 from mtg_utils.sources.spellbook import (spellbook, spellbook_name,
                                          variant_says_illegal)
-from mtg_utils.report import (report_calibrate, report_combos, report_contention,
+from mtg_utils.report import (report_arena_wildcards, report_calibrate,
+                              report_combos, report_contention,
                               report_ceiling, report_diff, report_floor,
                               report_mana, report_own, report_primer,
                               report_roster, report_skeleton, report_swap,
