@@ -14,6 +14,8 @@ from mtg_utils.analysis import (CURVE_TOP, deck_skeleton, floor_audit,
                                 primer_audit)
 from mtg_utils.cards import front_name
 from mtg_utils.decklist import as_cmdrs, flat
+from mtg_utils.formats import is_legal
+from mtg_utils.formats import spec as format_spec
 from mtg_utils.primer import parse_primer_links
 from mtg_utils.roster import ANY_COLOUR, PAIR_CYCLES, TRIPLE_CYCLES, WUBRG, identity_pairs, roster_names, roster_status
 from mtg_utils.sources.collection import load_collection
@@ -80,26 +82,92 @@ def report_skeleton(cmdr, entries, scry):
     return s
 
 
-def report_roster(cmdr, entries, scry, cache_path=None):
+def _say_empty(fmt):
+    """A roster section the format filter emptied, said out loud.
+
+    A heading with nothing under it reads as a section with every slot
+    already filled, which is the opposite of what it means here. Printed only
+    where the FORMAT emptied the section -- several of these headings can be
+    legitimately empty (a two-colour identity has no off-pair fetch to reach)
+    and that case is in the committed snapshots.
+    """
+    print(f"  (nothing here is legal in {format_spec(fmt)['label']})")
+
+
+def report_roster(cmdr, entries, scry, cache_path=None, fmt=None, colours=None):
+    """Walk every roster slot for the colours this deck actually plays.
+
+    Two things were wrong on a non-Commander list, and they compound.
+
+    The walk went over the COMMANDER'S COLOUR IDENTITY, which on a five-colour
+    commander is the whole roster -- forty rows of duals, fetchlands and
+    pathways for a deck built in three colours. Those are not empty slots, they
+    are noise, and `--colours` says which colours the build actually uses. It
+    is a Commander problem too, on any partner or five-colour commander whose
+    build is narrower than its identity.
+
+    And nothing filtered on FORMAT. Essentially none of this roster is legal in
+    Standard Brawl, so the whole table was a shopping list of cards that cannot
+    be registered. The walk already asserts every name against Scryfall at
+    report time, so it is holding the card object and the legality with it.
+
+    Both default to what they did before: the commander's identity, and no
+    format filter beyond Commander's own, under which nothing here is dropped.
+    """
     ci = set()
     for cn in as_cmdrs(cmdr):
         if scry.get(cn.lower()):
             ci |= set(scry[cn.lower()]["color_identity"])
     ident = "".join(c for c in WUBRG if c in ci)
+    walk = ident
+    if colours:
+        want = {c.upper() for c in colours if c.upper() in WUBRG}
+        # Refused rather than silently widened. A roster row outside the
+        # commander's identity is ILLEGAL in the deck, and printing it under a
+        # flag the caller typed would read as a slot they could fill.
+        extra = "".join(c for c in WUBRG if c in want - set(ident))
+        if extra:
+            raise SystemExit(
+                f"--colours {colours}: {extra} is outside the commander's "
+                f"identity ({ident or 'C'}), so every row it adds would be "
+                f"illegal in this deck. The flag narrows the walk; it cannot "
+                f"widen it.")
+        walk = "".join(c for c in WUBRG if c in want)
     deck_names = {n.lower() for n in entries} | {c.lower() for c in as_cmdrs(cmdr)}
     owned = load_collection()
-    names = roster_names(ident)
+    names = roster_names(walk)
     scry2, nf = scry_fetch(names, cache_path)
     scry2.update(scry)
 
-    print(f"\n=== ROSTER WALK: {' + '.join(as_cmdrs(cmdr))} ({ident}) ===")
+    print(f"\n=== ROSTER WALK: {' + '.join(as_cmdrs(cmdr))} ({walk}) ===")
+    if walk != ident:
+        print(f"  walking {walk}, not the commander's identity "
+              f"{ident or 'C'} -- --colours narrowed it.")
     if nf:
         print(f"  *** ROSTER NAME NOT ON SCRYFALL: {nf} ***")
     bad = [n for n in names
            if scry2.get(n.lower())
-           and set(scry2[n.lower()]["color_identity"]) - set(ident)]
+           and set(scry2[n.lower()]["color_identity"]) - set(walk)]
     if bad:
         print(f"  *** OFF-IDENTITY, ILLEGAL HERE: {bad} ***")
+
+    def legal(n):
+        """Is this roster name legal in the format being walked?
+
+        A name the cache has never seen is walked rather than dropped: it has
+        already been reported as NOT ON SCRYFALL above, and silently removing
+        it as well would turn one loud failure into a row that simply is not
+        there.
+        """
+        c = scry2.get(n.lower())
+        return c is None or is_legal(c, fmt)
+
+    illegal = [n for n in names if not legal(n)]
+    if illegal:
+        # Said ONCE, with a count, rather than as forty rows the reader has to
+        # recognise as unbuyable one at a time.
+        print(f"  {len(illegal)} of {len(names)} roster names are not legal in "
+              f"{format_spec(fmt)['label']} and are not walked.")
 
     def price(n):
         c = scry2.get(n.lower()) or {}
@@ -107,23 +175,28 @@ def report_roster(cmdr, entries, scry, cache_path=None):
         return f"${p}" if p else "-"
 
     empty = []
-    if not identity_pairs(ident):
+    if not identity_pairs(walk):
         # Section 6: in a mono-colour identity the two-colour cycles are
         # ILLEGAL, not merely unnecessary (Sunbaked Canyon is RW, every filter
         # land is two-colour). Say so; do not silently omit the rows.
         print(f"  {len(PAIR_CYCLES)} two-colour cycles "
               f"({', '.join(s for s, _ in PAIR_CYCLES)}) are off-identity "
-              f"and ILLEGAL in {ident} -- no pair rows to walk.")
+              f"and ILLEGAL in {walk} -- no pair rows to walk.")
         print("  Fetchlands and any-colour painlands are legal here and "
               "strictly worse than a basic without shuffle payoffs: "
               "walked and skipped.")
-    for pk in identity_pairs(ident):
+    for pk in identity_pairs(walk):
         print(f"\n  --- {pk} ---")
+        rows = 0
         for slot, table in PAIR_CYCLES:
             name = table.get(pk)
             if not name:
                 print(f"  {slot:18s} {'(no such card)':30s}")
+                rows += 1
                 continue
+            if not legal(name):
+                continue
+            rows += 1
             st = roster_status(name, deck_names, owned)
             extra = "" if st == "IN" else f"   {price(name)}"
             print(f"  {slot:18s} {name:30s} {st}{extra}")
@@ -131,26 +204,49 @@ def report_roster(cmdr, entries, scry, cache_path=None):
                                        "Filter land", "Painland",
                                        "Battlebond land", "Horizon land"):
                 empty.append((pk, slot, name, st))
+        if not rows:
+            _say_empty(fmt)
 
     print("\n  --- off-pair fetchlands (reach one colour of the identity) ---")
+    off_pair = 0
     for pk, name in PAIR_CYCLES[2][1].items():
-        if set(pk) & set(ident) and not set(pk) <= set(ident):
+        if (set(pk) & set(walk) and not set(pk) <= set(walk)
+                and legal(name)):
+            off_pair += 1
             st = roster_status(name, deck_names, owned)
             print(f"  {pk:18s} {name:30s} {st}"
                   + ("" if st == "IN" else f"   {price(name)}"))
+    # Only when the FORMAT emptied it. This heading can be legitimately empty
+    # -- a two-colour identity has no off-pair fetch to reach -- and that
+    # case is in the committed snapshots, so a note printed unconditionally
+    # would move four decks' bytes to say nothing new about them.
+    if illegal and not off_pair:
+        _say_empty(fmt)
 
-    if ident in TRIPLE_CYCLES:
+    if walk in TRIPLE_CYCLES:
         print("\n  --- three-colour (tapped; only if the rider is real) ---")
-        for name in TRIPLE_CYCLES[ident]:
+        triples = 0
+        for name in TRIPLE_CYCLES[walk]:
+            if not legal(name):
+                continue
+            triples += 1
             st = roster_status(name, deck_names, owned)
             print(f"  {'Triome/tri-land':18s} {name:30s} {st}"
                   + ("" if st == "IN" else f"   {price(name)}"))
+        if not triples:
+            _say_empty(fmt)
 
     print("\n  --- identity-independent ---")
+    any_colour = 0
     for slot, name in ANY_COLOUR:
+        if not legal(name):
+            continue
+        any_colour += 1
         st = roster_status(name, deck_names, owned)
         print(f"  {slot:18s} {name:30s} {st}"
               + ("" if st == "IN" else f"   {price(name)}"))
+    if illegal and not any_colour:
+        _say_empty(fmt)
 
     print(f"\n  PREMIUM SLOTS NOT IN THE LIST: {len(empty)}")
     for pk, slot, name, st in empty:

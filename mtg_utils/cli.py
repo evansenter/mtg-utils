@@ -113,6 +113,10 @@ def main():
                     help="deck format: sets the expected deck size, the "
                          "legality key checked, and the table size the "
                          "play/draw framing assumes")
+    ap.add_argument("--colours", "--colors", default="", dest="colours",
+                    help="roster: walk these colours instead of the "
+                         "commander's whole identity, e.g. --colours BRG; "
+                         "narrows only, never widens")
     ap.add_argument("--size", type=int, default=None,
                     help="verify/write: expected total cards including "
                          "commanders; defaults to the --format's size")
@@ -208,7 +212,7 @@ def main():
         # decklist, so the fetch above already has its type line.
         report_floor(cmdr, entries, scry, a.rec_cache, a.cedh, a.bar, a.sort)
     if a.cmd in ("roster", "audit"):
-        report_roster(cmdr, entries, scry, a.cache)
+        report_roster(cmdr, entries, scry, a.cache, a.fmt, a.colours)
     if a.cmd == "variants":
         if swaps:
             report_swap(cmdr, entries, scry, swaps, a.sims, a.trials,

@@ -1,218 +1,74 @@
 
 === ROSTER WALK: Terra, Magical Adept (WUBRG) ===
+  90 of 119 roster names are not legal in Standard Brawl and are not walked.
 
   --- WU ---
-  ABUR dual          Tundra                         BENCH x1   -
   Shockland          Hallowed Fountain              BUY   -
-  Fetchland          Flooded Strand                 BUY   $14.66
   Horizon land       (no such card)                
-  Painland           Adarkar Wastes                 BUY   $0.37
-  Filter land        Mystic Gate                    BUY   $4.63
-  Battlebond land    Sea of Clouds                  BUY   $19.46
-  Checkland          Glacial Fortress               BUY   $0.61
-  Pathway            Hengegate Pathway              BUY   $4.39
   Surveil land       Meticulous Archive             BUY   $12.26
-  Fastland           Seachrome Coast                BUY   $0.52
 
   --- WB ---
-  ABUR dual          Scrubland                      BUY   -
   Shockland          Godless Shrine                 BUY   -
-  Fetchland          Marsh Flats                    BUY   $31.79
-  Horizon land       Silent Clearing                BUY   $5.42
-  Painland           Caves of Koilos                BUY   $0.76
-  Filter land        Fetid Heath                    BUY   $0.40
-  Battlebond land    Vault of Champions             BUY   $16.81
-  Checkland          Isolated Chapel                BUY   $0.38
-  Pathway            Brightclimb Pathway            BUY   $4.60
   Surveil land       Shadowy Backstreet             BUY   $11.29
   Fastland           Concealed Courtyard            BUY   $0.96
 
   --- WR ---
-  ABUR dual          Plateau                        BUY   -
   Shockland          Sacred Foundry                 BUY   -
-  Fetchland          Arid Mesa                      BUY   $32.84
-  Horizon land       Sunbaked Canyon                BUY   $4.63
-  Painland           Battlefield Forge              BUY   $0.35
-  Filter land        Rugged Prairie                 BUY   $0.30
-  Battlebond land    Spectator Seating              BUY   $6.04
-  Checkland          Clifftop Retreat               BUY   $0.32
-  Pathway            Needleverge Pathway            BUY   $4.20
   Surveil land       Elegant Parlor                 BUY   $10.11
   Fastland           Inspiring Vantage              BUY   $1.98
 
   --- WG ---
-  ABUR dual          Savannah                       BUY   -
   Shockland          Temple Garden                  BUY   -
-  Fetchland          Windswept Heath                BUY   $12.40
-  Horizon land       Horizon Canopy                 BUY   $4.43
-  Painland           Brushland                      BUY   $1.70
-  Filter land        Wooded Bastion                 BUY   $16.40
-  Battlebond land    Bountiful Promenade            BUY   $6.32
-  Checkland          Sunpetal Grove                 BUY   $0.32
-  Pathway            Branchloft Pathway             BUY   $3.58
   Surveil land       Lush Portico                   BUY   $5.81
-  Fastland           Razorverge Thicket             BUY   $0.32
 
   --- UB ---
-  ABUR dual          Underground Sea                BENCH x2   -
   Shockland          Watery Grave                   BUY   -
-  Fetchland          Polluted Delta                 BUY   $20.01
   Horizon land       (no such card)                
-  Painland           Underground River              BUY   $2.28
-  Filter land        Sunken Ruins                   BENCH x1   $7.43
-  Battlebond land    Morphic Pool                   BUY   $27.36
-  Checkland          Drowned Catacomb               BENCH x2   $1.13
-  Pathway            Clearwater Pathway             BUY   $4.48
   Surveil land       Undercity Sewers               BUY   $13.99
-  Fastland           Darkslick Shores               BUY   $3.10
 
   --- UR ---
-  ABUR dual          Volcanic Island                BUY   -
   Shockland          Steam Vents                    BUY   -
-  Fetchland          Scalding Tarn                  BUY   $38.61
-  Horizon land       Fiery Islet                    BUY   $5.56
-  Painland           Shivan Reef                    BUY   $0.32
-  Filter land        Cascade Bluffs                 BUY   $0.42
-  Battlebond land    Training Center                BUY   $17.49
-  Checkland          Sulfur Falls                   BUY   $0.32
-  Pathway            Riverglide Pathway             BUY   $5.45
   Surveil land       Thundering Falls               BUY   $15.05
   Fastland           Spirebluff Canal               BUY   $5.29
 
   --- UG ---
-  ABUR dual          Tropical Island                BUY   -
   Shockland          Breeding Pool                  BUY   -
-  Fetchland          Misty Rainforest               BUY   $35.94
-  Horizon land       Waterlogged Grove              BUY   $1.48
-  Painland           Yavimaya Coast                 BUY   $0.34
-  Filter land        Flooded Grove                  BUY   $0.28
-  Battlebond land    Rejuvenating Springs           BUY   $4.76
-  Checkland          Hinterland Harbor              BENCH x1   $0.31
-  Pathway            Barkchannel Pathway            BUY   $3.91
   Surveil land       Hedge Maze                     BUY   $10.08
   Fastland           Botanical Sanctum              BUY   $1.87
 
   --- BR ---
-  ABUR dual          Badlands                       BUY   -
   Shockland          Blood Crypt                    BUY   -
-  Fetchland          Bloodstained Mire              BUY   $18.21
   Horizon land       (no such card)                
-  Painland           Sulfurous Springs              BUY   $1.16
-  Filter land        Graven Cairns                  BUY   $4.67
-  Battlebond land    Luxury Suite                   BUY   $9.24
-  Checkland          Dragonskull Summit             BUY   $0.43
-  Pathway            Blightstep Pathway             BUY   $5.56
   Surveil land       Raucous Theater                BUY   $11.05
-  Fastland           Blackcleave Cliffs             BUY   $2.68
 
   --- BG ---
-  ABUR dual          Bayou                          BENCH x1   -
   Shockland          Overgrown Tomb                 BUY   -
-  Fetchland          Verdant Catacombs              BENCH x1   $27.92
-  Horizon land       Nurturing Peatland             BUY   $6.63
-  Painland           Llanowar Wastes                BUY   $0.70
-  Filter land        Twilight Mire                  BENCH x1   $0.35
-  Battlebond land    Undergrowth Stadium            BUY   $6.47
-  Checkland          Woodland Cemetery              BUY   $0.67
-  Pathway            Darkbore Pathway               BUY   $6.28
   Surveil land       Underground Mortuary           BUY   $14.30
   Fastland           Blooming Marsh                 BENCH x1   $2.79
 
   --- RG ---
-  ABUR dual          Taiga                          BUY   -
   Shockland          Stomping Ground                BUY   -
-  Fetchland          Wooded Foothills               BUY   $18.69
   Horizon land       (no such card)                
-  Painland           Karplusan Forest               BUY   $0.58
-  Filter land        Fire-Lit Thicket               BUY   $9.26
-  Battlebond land    Spire Garden                   BUY   $6.73
-  Checkland          Rootbound Crag                 BUY   $0.32
-  Pathway            Cragcrown Pathway              BUY   $3.10
   Surveil land       Commercial District            BUY   $7.55
-  Fastland           Copperline Gorge               BUY   $0.61
 
   --- off-pair fetchlands (reach one colour of the identity) ---
+  (nothing here is legal in Standard Brawl)
 
   --- identity-independent ---
   Any-colour         Command Tower                  BENCH x3   $0.33
-  Any-colour         City of Brass                  BUY   $12.36
-  Any-colour         Mana Confluence                BUY   $35.31
-  Any-colour         Exotic Orchard                 BUY   -
-  Any-colour         Reflecting Pool                BUY   $14.96
-  Fetch (basic)      Prismatic Vista                BUY   $31.21
   Typal              Cavern of Souls                BUY   $50.02
   Typal              Secluded Courtyard             BUY   $0.32
   Typal              Three Tree City                BENCH x2   $28.09
-  Typal              Unclaimed Territory            BUY   $0.33
-  Typal (tapped)     Path of Ancestry               BUY   -
-  Legendary          Plaza of Heroes                BUY   $4.68
-  Legendary          Great Hall of the Citadel      BENCH x1   $0.36
 
-  PREMIUM SLOTS NOT IN THE LIST: 66
-    WU ABUR dual          Tundra                         BENCH x1
+  PREMIUM SLOTS NOT IN THE LIST: 10
     WU Shockland          Hallowed Fountain              BUY
-    WU Fetchland          Flooded Strand                 BUY
-    WU Painland           Adarkar Wastes                 BUY
-    WU Filter land        Mystic Gate                    BUY
-    WU Battlebond land    Sea of Clouds                  BUY
-    WB ABUR dual          Scrubland                      BUY
     WB Shockland          Godless Shrine                 BUY
-    WB Fetchland          Marsh Flats                    BUY
-    WB Horizon land       Silent Clearing                BUY
-    WB Painland           Caves of Koilos                BUY
-    WB Filter land        Fetid Heath                    BUY
-    WB Battlebond land    Vault of Champions             BUY
-    WR ABUR dual          Plateau                        BUY
     WR Shockland          Sacred Foundry                 BUY
-    WR Fetchland          Arid Mesa                      BUY
-    WR Horizon land       Sunbaked Canyon                BUY
-    WR Painland           Battlefield Forge              BUY
-    WR Filter land        Rugged Prairie                 BUY
-    WR Battlebond land    Spectator Seating              BUY
-    WG ABUR dual          Savannah                       BUY
     WG Shockland          Temple Garden                  BUY
-    WG Fetchland          Windswept Heath                BUY
-    WG Horizon land       Horizon Canopy                 BUY
-    WG Painland           Brushland                      BUY
-    WG Filter land        Wooded Bastion                 BUY
-    WG Battlebond land    Bountiful Promenade            BUY
-    UB ABUR dual          Underground Sea                BENCH x2
     UB Shockland          Watery Grave                   BUY
-    UB Fetchland          Polluted Delta                 BUY
-    UB Painland           Underground River              BUY
-    UB Filter land        Sunken Ruins                   BENCH x1
-    UB Battlebond land    Morphic Pool                   BUY
-    UR ABUR dual          Volcanic Island                BUY
     UR Shockland          Steam Vents                    BUY
-    UR Fetchland          Scalding Tarn                  BUY
-    UR Horizon land       Fiery Islet                    BUY
-    UR Painland           Shivan Reef                    BUY
-    UR Filter land        Cascade Bluffs                 BUY
-    UR Battlebond land    Training Center                BUY
-    UG ABUR dual          Tropical Island                BUY
     UG Shockland          Breeding Pool                  BUY
-    UG Fetchland          Misty Rainforest               BUY
-    UG Horizon land       Waterlogged Grove              BUY
-    UG Painland           Yavimaya Coast                 BUY
-    UG Filter land        Flooded Grove                  BUY
-    UG Battlebond land    Rejuvenating Springs           BUY
-    BR ABUR dual          Badlands                       BUY
     BR Shockland          Blood Crypt                    BUY
-    BR Fetchland          Bloodstained Mire              BUY
-    BR Painland           Sulfurous Springs              BUY
-    BR Filter land        Graven Cairns                  BUY
-    BR Battlebond land    Luxury Suite                   BUY
-    BG ABUR dual          Bayou                          BENCH x1
     BG Shockland          Overgrown Tomb                 BUY
-    BG Fetchland          Verdant Catacombs              BENCH x1
-    BG Horizon land       Nurturing Peatland             BUY
-    BG Painland           Llanowar Wastes                BUY
-    BG Filter land        Twilight Mire                  BENCH x1
-    BG Battlebond land    Undergrowth Stadium            BUY
-    RG ABUR dual          Taiga                          BUY
     RG Shockland          Stomping Ground                BUY
-    RG Fetchland          Wooded Foothills               BUY
-    RG Painland           Karplusan Forest               BUY
-    RG Filter land        Fire-Lit Thicket               BUY
-    RG Battlebond land    Spire Garden                   BUY
   Ownership routes the purchase; it never decides the slot.
