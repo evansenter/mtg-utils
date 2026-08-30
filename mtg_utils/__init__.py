@@ -69,7 +69,8 @@ from mtg_utils.castability import (PLAYSIM_TURNS, _match, at_least_in_draw,
 from mtg_utils.decklist import (DECISION, apply_swaps, as_cmdrs, by_front_face,
                                 diff_multiset, flat,
                                 parse_swaps, read_decisions, read_decklist,
-                                split_names, write_deck)
+                                split_names, write_arena_deck,
+                                write_deck)
 from mtg_utils.formats import (DEFAULT_FORMAT, FORMATS, deck_size, is_legal,
                                legality, says_illegal)
 from mtg_utils.formats import spec as format_spec
@@ -100,6 +101,8 @@ from mtg_utils.sources.edhtop16 import (MIN_ENTRIES, edhtop16_commander_name,
                                         edhtop16_fetch, parse_edhtop16)
 from mtg_utils.sources.ranking import (POPULATION, SOURCE_LABEL, fetch_ranking,
                                        population_mismatch)
+from mtg_utils.sources.arena import (PRINTING_FIELDS, arena_fetch,
+                                     arena_printings, pick_arena_printing)
 from mtg_utils.sources.scryfall import scry_fetch
 from mtg_utils.sources.spellbook import (spellbook, spellbook_name,
                                          variant_says_illegal)

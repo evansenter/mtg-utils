@@ -1,8 +1,9 @@
 usage: mana_model.py [-h] [--cache CACHE] [--sims SIMS] [--trials TRIALS]
                      [--reps REPS] [--seed SEED] [--out OUT] [--decks DECKS]
                      [--lands LANDS] [--accel ACCEL] [--adds ADDS]
-                     [--cuts CUTS] [--rec-cache REC_CACHE] [--cedh]
-                     [--bar BAR] [--no-combos] [--sort {inclusion,synergy}]
+                     [--cuts CUTS] [--arena-cache ARENA_CACHE]
+                     [--rec-cache REC_CACHE] [--cedh] [--bar BAR]
+                     [--no-combos] [--sort {inclusion,synergy}]
                      [--primer PRIMER] [--swap SWAP]
                      [--format {brawl,commander,standardbrawl}] [--arena]
                      [--turns TURNS] [--colours COLOURS] [--size SIZE]
@@ -75,6 +76,9 @@ options:
   --cuts CUTS           write: card names the output must NOT contain; same
                         separator rule as --adds, and note that a mis-split
                         cut PASSES vacuously, so use ';' when in doubt
+  --arena-cache ARENA_CACHE
+                        write --arena: on-disk cache of Arena printings, one
+                        Scryfall search per card on a miss
   --rec-cache REC_CACHE
                         ceiling/floor: on-disk cache for EDHREC / edhtop16
                         pages

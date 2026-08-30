@@ -94,6 +94,81 @@ def write_deck(cmdr, entries, out_path, expect_adds=(), expect_cuts=(),
     return total
 
 
+def write_arena_deck(cmdr, entries, out_path, printings, expect_adds=(),
+                     expect_cuts=(), size=None, fmt=None):
+    """Write an Arena import block, read it back, and assert what came back.
+
+    Arena's format is not this repo's. It is
+
+        Commander
+        1 Terra, Magical Adept (FIN) 289
+        <blank>
+        Deck
+        1 Abrade (SOA) 37
+
+    -- a `Commander` header, the commander lines, a blank, a `Deck` header,
+    then the 59 or 99. Card names are FRONT FACES: Arena names a double-faced
+    card by its front, which is a third convention beside EDHREC's front faces
+    and Moxfield's and Spellbook's full `A // B`.
+
+    `printings` maps a lowered front-face name to the record
+    `pick_arena_printing` chose. A name missing from it is refused BY NAME
+    rather than written without its `(SET) NUMBER`: Arena rejects such a line
+    and reports it against the line number, so a file that is right for 58
+    cards and silently wrong for one is the expensive failure here.
+
+    Same read-back-and-assert contract `write_deck` has, over the same
+    --adds/--cuts, because that contract is the whole reason `write` exists:
+    the run that prompted all of this hand-assembled a list precisely because
+    `write` refused it, and lost both checks.
+    """
+    fspec = format_spec(fmt)
+    size = fspec["size"] if size is None else size
+    cmdrs = as_cmdrs(cmdr)
+
+    def line(name, qty):
+        key = front_name(name).lower()
+        if key not in printings:
+            raise SystemExit(
+                f"write --arena: no importable Arena printing for "
+                f"{front_name(name)!r}. Arena rejects a line with no "
+                f"'(SET) NUMBER' and names the line it stopped on, so this "
+                f"refuses to write the file rather than write one that fails "
+                f"partway through. The card may not be on Arena at all, or "
+                f"every Arena printing of it may be illegal in "
+                f"{fspec['label']}.")
+        p = printings[key]
+        return (f"{qty} {front_name(name)} ({str(p['set']).upper()}) "
+                f"{p['collector_number']}")
+
+    lines = ["Commander"] + [line(c, 1) for c in cmdrs] + ["", "Deck"]
+    lines += [line(n, entries[n]) for n in sorted(entries, key=str.lower)]
+    with open(out_path, "w", encoding="utf-8") as f:
+        f.write("\n".join(lines) + "\n")
+
+    got = [l.rstrip("\n") for l in open(out_path, encoding="utf-8")]
+    assert got[0] == "Commander", f"first line is {got[0]!r}, not 'Commander'"
+    assert got[len(cmdrs) + 2] == "Deck", \
+        f"'Deck' header is missing: {got[:len(cmdrs) + 3]}"
+    body = [l for l in got[len(cmdrs) + 3:] if l.strip()]
+    total = len(cmdrs) + sum(int(l.split(" ", 1)[0]) for l in body)
+    # Matched on the NAME between the quantity and the ' (SET' suffix, because
+    # every line here carries a printing the caller never typed. Splitting on
+    # the space alone -- what write_deck can do -- would compare 'Abrade (SOA)
+    # 37' against 'Abrade' and pass no --adds check ever.
+    names = [l.split(" ", 1)[1].rsplit(" (", 1)[0] for l in body]
+    for a in expect_adds:
+        assert front_name(a) in names, f"MISSING ADD: {a}"
+    for c in expect_cuts:
+        assert front_name(c) not in names, f"CUT STILL PRESENT: {c}"
+    print(f"\n=== WROTE {out_path} (Arena import format) ===")
+    print(f"  read back: {len(body)} entries, {total} cards, "
+          f"Commander/Deck headers OK")
+    assert total == size, (f"deck is {total} cards, {fspec['label']} is "
+                           f"{size}")
+    return total
+
+
 # ============================================================ card-name lists
 def _sep(spec):
     """The separator a name list is using: ';' when present, else ','.

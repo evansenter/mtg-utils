@@ -14,7 +14,9 @@ the one thing the golden suite exists to make impossible.
 | `collection.csv` | A ManaBox export with the real column set, UTF-8 with BOM |
 | `brawl.txt` / `brawl.scry.json` | Terra, Magical Adept -- a 60-card **Standard Brawl** list, identity WUBRG, built BRG |
 | `make_fixtures.py` | Provenance: how the above were built, run once on 2026-08-15 |
-| `make_brawl_fixture.py` | Provenance for `brawl.*`, run once on 2026-08-30 |
+| `brawl.arena.json` | Every Arena printing of every card in `brawl.txt`, projected -- see below |
+| `make_brawl_fixture.py` | Provenance for `brawl.txt`/`brawl.scry.json`, run once on 2026-08-30 |
+| `make_arena_fixture.py` | Provenance for `brawl.arena.json`, run once on 2026-08-30 |
 | `ceiling.rec.json` | A real EDHREC commander page (Thrasios / Tymna), whole cardlists dropped to keep it small |
 | `ceiling.top16.json` | A real edhtop16 response for the same pair, trimmed to 6 tournament entries |
 | `ceiling.scry.json` | Scryfall records for the cards those two rank — a **projection**, see below |
@@ -88,6 +90,27 @@ The golden harness passes `--format=standardbrawl` for this deck and for no
 other -- see `DECK_EXTRA` in `tests/conftest.py`. Run as Commander the same
 file is a 60-card deck reported as 40 cards short, with its legality column
 read off a key that says nothing about the format it is in.
+
+## `brawl.arena.json`
+
+One Scryfall search per distinct card in `brawl.txt`, `unique=prints`,
+projected to the five fields `pick_arena_printing` reads (`set`,
+`collector_number`, `rarity`, `released_at`, `games`, `legalities`). A
+projection for the same reason `ceiling.scry.json` is one, and every value in
+it is verbatim.
+
+**Captured with no format filter applied**, deliberately: a file already
+narrowed to one format could not test the selection at all, because every row
+in it would be a valid answer. Abrade came back with five printings spanning
+six years, which is what makes the "newest wins" rule testable.
+
+Two of the three selection filters reject NOTHING in it, and that is a fact
+about the data rather than a gap. The search applies `game:arena` itself, and
+Scryfall's `legalities` is an oracle-level field repeated identically on every
+printing of a card — so neither can pick one printing over another. Both are
+tested against hand-built candidates instead, and the cases say so, because a
+case that passes for a reason other than the one it names is the failure this
+repo has already been bitten by.
 
 ## Why three shapes
 

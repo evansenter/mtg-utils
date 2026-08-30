@@ -8,7 +8,7 @@ from mtg_utils import __doc__ as _BANNER
 from mtg_utils.analysis import verify
 from mtg_utils.castability import PLAYSIM_TURNS
 from mtg_utils.decklist import (as_cmdrs, flat, parse_swaps, read_decklist,
-                                split_names, write_deck)
+                                split_names, write_arena_deck, write_deck)
 from mtg_utils.formats import DEFAULT_FORMAT, FORMATS, deck_size, spec
 from mtg_utils.report import (report_arena_wildcards, report_calibrate,
                               report_combos, report_contention,
@@ -17,6 +17,7 @@ from mtg_utils.report import (report_arena_wildcards, report_calibrate,
                               report_own, report_primer, report_roster,
                               report_skeleton,
                               report_swap, report_variants)
+from mtg_utils.sources.arena import arena_printings
 from mtg_utils.sources.moxfield import moxfield_deck
 from mtg_utils.sources.scryfall import scry_fetch
 
@@ -86,6 +87,9 @@ def main():
                     help="write: card names the output must NOT contain; same "
                          "separator rule as --adds, and note that a mis-split "
                          "cut PASSES vacuously, so use ';' when in doubt")
+    ap.add_argument("--arena-cache", default="arena.json",
+                    help="write --arena: on-disk cache of Arena printings, "
+                         "one Scryfall search per card on a miss")
     ap.add_argument("--rec-cache", default="edhrec.json",
                     help="ceiling/floor: on-disk cache for EDHREC / edhtop16 pages")
     ap.add_argument("--cedh", action="store_true",
@@ -251,6 +255,20 @@ def main():
         report_contention(cmdr, entries, [x for x in a.decks.split(",") if x],
                           a.arena)
     if a.cmd == "write":
-        write_deck(cmdr, entries, a.out or "final_deck.txt",
-                   split_names(a.adds), split_names(a.cuts),
-                   size=size, fmt=a.fmt)
+        if a.arena:
+            # NETWORK on a cache miss: one search per distinct card. The
+            # misses are reported BEFORE the write is attempted, so a list
+            # with an unavailable card says which card rather than failing on
+            # the first line that has no printing.
+            prints, missing = arena_printings(flat(cmdr, entries), a.fmt,
+                                              a.arena_cache)
+            if missing:
+                print(f"  NO IMPORTABLE ARENA PRINTING ({len(missing)}): "
+                      f"{', '.join(missing)}")
+            write_arena_deck(cmdr, entries, a.out or "final_deck_arena.txt",
+                             prints, split_names(a.adds), split_names(a.cuts),
+                             size=size, fmt=a.fmt)
+        else:
+            write_deck(cmdr, entries, a.out or "final_deck.txt",
+                       split_names(a.adds), split_names(a.cuts),
+                       size=size, fmt=a.fmt)
