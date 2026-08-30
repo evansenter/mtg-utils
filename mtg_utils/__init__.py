@@ -49,10 +49,12 @@ line as "N Card Name" or bare "Card Name".
 # working for anything that used the single file as a library.
 
 from mtg_utils.cards import (BASIC_TYPE_COLOUR, COLOURS, CONDITIONAL_TAP_MARKERS,
-                             CONDITIONAL_TAP_PATTERNS, MANA_SYMBOLS, WORDNUM,
-                             enters_tapped, faces, fetch_targets, front,
+                             CONDITIONAL_TAP_PATTERNS, MANA_SYMBOLS, ORDINALS,
+                             TURN_TAP, WORDNUM,
+                             enters_tapped, enters_tapped_turn, faces,
+                             fetch_targets, front,
                              front_name, has_land_back, is_front_land, land_face,
-                             mana_amount)
+                             mana_amount, tapped_from_turn)
 from mtg_utils.profiles import (ADDITIONAL_COST, FILTER_LANDS, OMNI_TYPE,
                                 RITUAL_ADD, TRIGGERED_EVENT, TRIGGERED_PHASE,
                                 build_accel_profiles, build_land_profiles,
@@ -61,7 +63,7 @@ from mtg_utils.profiles import (ADDITIONAL_COST, FILTER_LANDS, OMNI_TYPE,
 from mtg_utils.castability import (PLAYSIM_TURNS, _match, at_least_in_draw,
                                    castable, castable_faces, pips_from_cost,
                                    playable_set, playsim, playsim_report,
-                                   probability, ritual_burst)
+                                   probability, ritual_burst, tapped_at)
 from mtg_utils.decklist import (DECISION, apply_swaps, as_cmdrs, by_front_face,
                                 diff_multiset, flat,
                                 parse_swaps, read_decisions, read_decklist,

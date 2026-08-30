@@ -42,6 +42,18 @@ def report_mana(cmdr, entries, scry, sims, trials, seed=17, lines=None, reps=3):
           f"{v['truly_tapped_copies']} truly tapped) ===")
     for n, m in v["conditional_tapped"]:
         print(f"  conditional, not counted: {n}   [{m}]")
+    # The third class, printed between the other two because that is where it
+    # sits: untapped on the early turns, tapped from a turn the model knows.
+    # It is NOT in the truly-tapped count in the header -- counting it there
+    # is what the classifier used to do, and it understated the deck on
+    # exactly the turns a tapped land costs the most.
+    #
+    # Printed only when the deck runs one, like the ritual line: a deck with
+    # none then produces output byte-identical to before this class existed,
+    # which keeps the four Commander fixtures a live control on the gate.
+    for n, turn in v.get("turn_tapped", []):
+        print(f"  tapped from turn {turn}: {n}   "
+              f"[untapped on turns 1-{turn - 1}]")
     for n in v["truly_tapped"]:
         print(f"  TRULY TAPPED: {n}")
     restricted = [a["name"] for a in accels if a.get("restricted")]

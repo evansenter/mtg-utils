@@ -3,7 +3,8 @@ import math
 import random
 import re
 
-from mtg_utils.cards import (enters_tapped, front, front_name, has_land_back,
+from mtg_utils.cards import (enters_tapped, enters_tapped_turn, front,
+                             front_name, has_land_back,
                              is_front_land, land_face)
 from mtg_utils.castability import (PLAYSIM_TURNS, at_least_in_draw, castable_faces,
                                    pips_from_cost, playsim_report, probability)
@@ -35,8 +36,8 @@ def verify(cmdr, entries, scry, fmt=None):
             ident |= set(scry[cn.lower()]["color_identity"])
     lands = nonland = 0
     mv_sum = 0.0
-    truly, cond = [], []
-    truly_n = cond_n = 0
+    truly, cond, turn_tap = [], [], []
+    truly_n = cond_n = turn_n = 0
     for n, q in list(entries.items()) + [(cn, 1) for cn in cmdrs]:
         c = scry.get(n.lower())
         if not c:
@@ -50,13 +51,21 @@ def verify(cmdr, entries, scry, fmt=None):
         if is_front_land(c):
             lands += q
             lf = land_face(c)
-            t, cm = enters_tapped(lf, c)
+            t, cm, tfrom = enters_tapped_turn(lf, c)
             # The name is listed once; the COUNT is by quantity, so it is in
             # the same units as `lands` beside it in the header. They coincide
             # in singleton Commander -- basics are the only entries above one
             # and are never tapped -- so this changes no current output. The
             # two numbers were simply in different units.
-            if t:
+            # Three buckets, not two. A land that is untapped early and
+            # tapped late belongs in neither of the others: TRULY TAPPED
+            # understates it on exactly the turns a tapped land costs the
+            # most, and the conditional bucket would report it as untapped on
+            # turn seven.
+            if t and tfrom:
+                turn_tap.append((n, tfrom))
+                turn_n += q
+            elif t:
                 truly.append(n)
                 truly_n += q
             elif cm:
@@ -72,7 +81,9 @@ def verify(cmdr, entries, scry, fmt=None):
             "game_changers": sorted(gc), "illegal": illegal,
             "ci_violations": ci_bad, "truly_tapped": truly,
             "conditional_tapped": cond,
-            "truly_tapped_copies": truly_n, "conditional_tapped_copies": cond_n}
+            "turn_tapped": turn_tap,
+            "truly_tapped_copies": truly_n, "conditional_tapped_copies": cond_n,
+            "turn_tapped_copies": turn_n}
 
 
 # ============================================================ reporting

@@ -6,6 +6,7 @@ a ritual, which produces mana on exactly one turn and never again.
 import re
 
 from mtg_utils.cards import (COLOURS, MANA_SYMBOLS, BASIC_TYPE_COLOUR, enters_tapped,
+                             enters_tapped_turn,
                              fetch_targets, front, has_land_back, is_front_land,
                              land_face, mana_amount)
 
@@ -147,7 +148,7 @@ def build_land_profiles(deck_names, scry):
                     tl = lf2.get("type_line", "").lower()
                     if any(t in tl for t, col in BASIC_TYPE_COLOUR.items() if col in ft):
                         pm.update(x for x in (lf2.get("produced_mana") or []) if x in COLOURS)
-        tapped, cond = enters_tapped(lf, c)
+        tapped, cond, tapped_from = enters_tapped_turn(lf, c)
         amount = 1 if kind in ("filter", "fetch") else mana_amount(txt)
         restricted = False
         # "Spend this mana only to cast..." is not mana for a generic total,
@@ -163,6 +164,10 @@ def build_land_profiles(deck_names, scry):
             "filter": FILTER_LANDS.get(name),
             "tapped": False if kind == "fetch" else tapped,
             "cond_tap": cond,
+            # None on every land that is not turn-conditional, which is every
+            # land in four of the five fixtures -- both models read it through
+            # `tapped_at`, which answers `tapped` unchanged when it is None.
+            "tapped_from": None if kind == "fetch" else tapped_from,
             "amount": amount,
             "omni": OMNI_TYPE.get(name),
             "restricted": restricted,
