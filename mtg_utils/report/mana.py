@@ -120,6 +120,15 @@ def report_variants(cmdr, entries, scry, land_deltas, accel_deltas, trials,
     # one. Folding them into that count would make the config column disagree
     # with what the sweep actually varied.
     rituals = build_ritual_profiles(names, scry)
+    # The LIBRARY, derived exactly as analyse_mana derives it: the deck minus
+    # its commanders. This was a hard-coded 99, so every deck whose library is
+    # not 99 cards was swept against a diluted one -- a 60-card Brawl list was
+    # simulated as though 39 blank cards had been shuffled in, and its figures
+    # came out roughly halved. Invisible on a 99-card list and visible on a
+    # partner pair, whose library is 98; nothing in the sweep's own output
+    # looks wrong either way, and it surfaced only because `mana` and this
+    # table disagreed about the same line on the same deck.
+    deck_size = len(names)
     basic = next((p for p in base_lands if not p["tapped"] and p["colours"]), None)
     if basic is None and any(d > 0 for d in land_deltas):
         # dict(None) raises TypeError several frames later, which reads as a
@@ -191,7 +200,7 @@ def report_variants(cmdr, entries, scry, land_deltas, accel_deltas, trials,
             # Comparing configs is the entire purpose of this table, so a
             # figure without its wobble beside it cannot do the job: the
             # question is always whether one row differs from another.
-            r = replicate_playsim(lands, acc, 99,
+            r = replicate_playsim(lands, acc, deck_size,
                                   [("cmdr", cmv, "".join(f"{{{x}}}" for x in creq))],
                                   trials, seed, reps, turns=_cturn,
                                   rituals=rituals)
