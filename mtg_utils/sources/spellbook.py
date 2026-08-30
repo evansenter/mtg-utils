@@ -5,6 +5,7 @@ import time
 
 from mtg_utils.cards import front_name
 from mtg_utils.decklist import as_cmdrs, flat
+from mtg_utils.formats import spec as format_spec
 from mtg_utils.sources import UA_TOOL
 
 
@@ -40,6 +41,27 @@ def spellbook_name(name, scry=None):
     """
     c = (scry or {}).get(name.lower()) or (scry or {}).get(front_name(name).lower())
     return c["name"] if c else name
+
+
+def variant_says_illegal(variant, fmt=None):
+    """Does this combo's own payload say it is NOT legal in `fmt`?
+
+    Spellbook reports legality per VARIANT, which is a better answer than
+    checking each piece: a combo is legal only if every card in it is, and the
+    payload has already done that join. It spells its keys differently from
+    Scryfall -- `standardBrawl` against `standardbrawl` -- so formats.py
+    carries both rather than deriving one from the other.
+
+    Silence is not evidence, the same rule the ranking filters use: a payload
+    with no `legalities` block keeps its row. `find-my-combos` is a CANDIDATE
+    GENERATOR whose every row needs hand-verification anyway, so dropping a row
+    on a missing field would be the worst trade available -- a suggestion
+    removed for a reason that is not about the cards.
+    """
+    leg = (variant or {}).get("legalities")
+    if not leg:
+        return False
+    return leg.get(format_spec(fmt)["spellbook"]) is False
 
 
 # ============================================================ external APIs

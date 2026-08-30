@@ -24,7 +24,7 @@ from mtg_utils.sources.edhtop16 import MIN_ENTRIES
 from mtg_utils.sources.ranking import (SOURCE_LABEL, fetch_ranking,
                                         population_mismatch)
 from mtg_utils.sources.scryfall import scry_fetch
-from mtg_utils.sources.spellbook import spellbook
+from mtg_utils.sources.spellbook import spellbook, variant_says_illegal
 
 # Floor rows are NOT truncated, and the name column is sized to the run.
 #
@@ -256,7 +256,7 @@ def report_roster(cmdr, entries, scry, cache_path=None, fmt=None, colours=None):
     return empty
 
 
-def report_combos(cmdr, entries, scry=None):
+def report_combos(cmdr, entries, scry=None, fmt=None):
     """The full-deck combo audit. NETWORK.
 
     `scry` is the decklist's Scryfall cache, and it is what lets the names
@@ -264,16 +264,29 @@ def report_combos(cmdr, entries, scry=None):
     name and silently drops a front face. See spellbook_name -- the failure
     mode is an in-deck combo reported as one card away from the commander.
     Optional, so a caller without a cache still gets what it got before.
+
+    `fmt` drops the suggestions that cannot be registered in it. The payload
+    carries no format, so `almostIncluded` comes back Commander-legal whatever
+    deck was sent -- low harm, because this is a candidate generator whose
+    every row needs hand-verification, but a wasted read all the same. The
+    count dropped is printed rather than the list quietly shortened.
     """
     res = spellbook(cmdr, entries, scry)
-    inc = res.get("included", [])
-    almost = res.get("almostIncluded", [])
+    inc = [v for v in res.get("included", [])
+           if not variant_says_illegal(v, fmt)]
+    almost = [v for v in res.get("almostIncluded", [])
+              if not variant_says_illegal(v, fmt)]
+    dropped = ((len(res.get("included", [])) - len(inc))
+               + (len(res.get("almostIncluded", [])) - len(almost)))
     # Front faces on BOTH sides, like every other cross-source comparison
     # here. Spellbook answers in full names, a decklist may hold either, and
     # compared verbatim a DFC already in the list files under `miss` -- which
     # renders as "one card away" from a card the reader is holding.
     deck = set(front_name(n).lower() for n in flat(cmdr, entries))
     print(f"\n=== COMMANDER SPELLBOOK ({time.strftime('%Y-%m-%d')}) ===")
+    if dropped:
+        print(f"  {dropped} combo{'' if dropped == 1 else 's'} not legal in "
+              f"{format_spec(fmt)['label']}, dropped.")
     print(f"  in-deck combos: {len(inc)}")
     for v in inc:
         print("   *", " + ".join(u["card"]["name"] for u in v.get("uses", [])),

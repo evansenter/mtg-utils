@@ -15,6 +15,13 @@ all, and a key that does not exist reads as "not legal" for every card in the
 list rather than as a typo. Adding a fourth means checking its key the same
 way.
 
+`spellbook` is a SECOND key for the same format, because Commander Spellbook
+spells its legality flags differently from Scryfall -- `standardBrawl` against
+`standardbrawl`, camel against flat. Both are carried rather than one being
+derived from the other, because a derivation would be a rule invented from two
+examples, and a key that does not exist reads as "not legal" for every row
+rather than as a mistake.
+
 `players` is the table size, and it is not decoration: every play-simulation
 report prints an on-the-play and an on-the-draw column, and which one a
 summary should lean on is exactly this number. At a four-player table you are
@@ -23,12 +30,15 @@ on the draw three turns in four; in 1v1 it is one in two.
 
 FORMATS = {
     "commander": {"size": 100, "legality": "commander",
-                  "label": "Commander", "players": 4},
+                  "label": "Commander", "players": 4,
+                  "spellbook": "commander"},
     # Arena's historic Brawl: 100 cards, one commander, and 1v1.
     "brawl": {"size": 100, "legality": "brawl",
-              "label": "Brawl", "players": 2},
+              "label": "Brawl", "players": 2,
+              "spellbook": "brawl"},
     "standardbrawl": {"size": 60, "legality": "standardbrawl",
-                      "label": "Standard Brawl", "players": 2},
+                      "label": "Standard Brawl", "players": 2,
+                      "spellbook": "standardBrawl"},
 }
 
 DEFAULT_FORMAT = "commander"

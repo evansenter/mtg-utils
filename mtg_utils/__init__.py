@@ -99,7 +99,8 @@ from mtg_utils.sources.edhtop16 import (MIN_ENTRIES, edhtop16_commander_name,
 from mtg_utils.sources.ranking import (POPULATION, SOURCE_LABEL, fetch_ranking,
                                        population_mismatch)
 from mtg_utils.sources.scryfall import scry_fetch
-from mtg_utils.sources.spellbook import spellbook, spellbook_name
+from mtg_utils.sources.spellbook import (spellbook, spellbook_name,
+                                         variant_says_illegal)
 from mtg_utils.report import (report_calibrate, report_combos, report_contention,
                               report_ceiling, report_diff, report_floor,
                               report_mana, report_own, report_primer,

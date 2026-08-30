@@ -164,3 +164,72 @@ def test_the_grouping_reads_full_names_against_the_decklist(
     report.report_combos("Cmdr", Counter({written: 1}))
     out = capsys.readouterr().out
     assert f"    {ORIGINS}: 1   two-card: Missing One" in out
+
+
+# --- the format filter --------------------------------------------------
+# Spellbook reports legality per VARIANT, which is a better answer than
+# checking each piece: a combo is legal only if every card in it is, and the
+# payload has already done that join. Its keys are spelled differently from
+# Scryfall's -- `standardBrawl` against `standardbrawl` -- so formats.py
+# carries both.
+LEGAL_ANYWHERE = {"commander": True, "brawl": True, "standardBrawl": True}
+COMMANDER_ONLY = {"commander": True, "brawl": False, "standardBrawl": False}
+
+
+def _variant(name, legalities=None):
+    v = {"uses": [{"card": {"name": "Cmdr"}}, {"card": {"name": name}}],
+         "produces": [{"feature": {"name": "Infinite mana"}}], "requires": []}
+    if legalities is not None:
+        v["legalities"] = legalities
+    return v
+
+
+@pytest.mark.parametrize("legalities,fmt,wanted", [
+    (COMMANDER_ONLY, "standardbrawl", True),
+    (COMMANDER_ONLY, "commander", False),
+    (LEGAL_ANYWHERE, "standardbrawl", False),
+    (None, "standardbrawl", False),
+], ids=["combos/a Commander-only combo is illegal in Brawl",
+        "combos/the same combo is legal in Commander",
+        "combos/a legal combo is kept",
+        "combos/a payload with no legalities keeps its row"])
+def test_variant_says_illegal(mm, legalities, fmt, wanted):
+    assert mm.variant_says_illegal(_variant("X", legalities), fmt) is wanted
+
+
+def test_illegal_suggestions_are_dropped_and_counted(mm, monkeypatch, capsys):
+    """combos/an unregisterable suggestion is not offered
+
+    The payload carries no format, so `almostIncluded` comes back
+    Commander-legal whatever deck was sent. Low harm -- every row here needs
+    hand-verification anyway -- but a wasted read, and a silently shortened
+    list is indistinguishable from a short one.
+    """
+    import mtg_utils.report as report
+
+    def fake_spellbook(cmdr, entries, scry=None):
+        return {"included": [],
+                "almostIncluded": [_variant("Legal Piece", LEGAL_ANYWHERE),
+                                   _variant("Banned Piece", COMMANDER_ONLY)]}
+
+    patch_everywhere(monkeypatch, "spellbook", fake_spellbook)
+    report.report_combos("Cmdr", Counter({"Cmdr": 1}), None, "standardbrawl")
+    out = capsys.readouterr().out
+    assert "1 combo not legal in Standard Brawl, dropped." in out
+    assert "one card away: 1" in out
+    assert "Banned Piece" not in out
+
+
+def test_commander_drops_nothing(mm, monkeypatch, capsys):
+    """combos/the default format filters nothing out"""
+    import mtg_utils.report as report
+
+    def fake_spellbook(cmdr, entries, scry=None):
+        return {"included": [],
+                "almostIncluded": [_variant("Banned Piece", COMMANDER_ONLY)]}
+
+    patch_everywhere(monkeypatch, "spellbook", fake_spellbook)
+    report.report_combos("Cmdr", Counter({"Cmdr": 1}))
+    out = capsys.readouterr().out
+    assert "dropped." not in out
+    assert "one card away: 1" in out
