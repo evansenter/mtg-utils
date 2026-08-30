@@ -88,7 +88,8 @@ def verify(cmdr, entries, scry, fmt=None):
 
 
 # ============================================================ reporting
-def worst_lines(names, scry, lands, accels, sims, rng, top=5, deck_size=None):
+def worst_lines(names, scry, lands, accels, sims, rng, top=5, deck_size=None,
+                turns=PLAYSIM_TURNS):
     """Sources-model rows, worst first. Pure compute -- no printing, so a test
     can assert on the numbers instead of scraping stdout.
 
@@ -96,6 +97,11 @@ def worst_lines(names, scry, lands, accels, sims, rng, top=5, deck_size=None):
     commander and 98 for a partner or background pair. Defaults to len(names),
     which is exactly that, because `names` is already the non-commander
     multiset.
+
+    `turns` is the horizon, and it has to be the SAME one the play simulation
+    is given -- see the comment below. It is a parameter rather than the
+    constant because seven turns is where a Commander game is decided, and a
+    60-card 1v1 game is not a Commander game.
     """
     if deck_size is None:
         deck_size = len(names)
@@ -115,7 +121,7 @@ def worst_lines(names, scry, lands, accels, sims, rng, top=5, deck_size=None):
             # past `PLAYSIM_TURNS`. A row allowed through here that the
             # simulation would not measure becomes a line silently missing
             # from the table beside it.
-            if turn > PLAYSIM_TURNS:
+            if turn > turns:
                 continue
             cand.setdefault((turn, mv, tuple(sorted(req))), []).append(label)
     rows = []
@@ -244,11 +250,17 @@ def opening_hand_floor(lands, deck_size, hand=7):
             "p_one_or_fewer": 1.0 - at_least_in_draw(2, lands, hand, deck_size)}
 
 
-def analyse_mana(cmdr, entries, scry, sims, trials, seed=17, lines=None, reps=3):
+def analyse_mana(cmdr, entries, scry, sims, trials, seed=17, lines=None,
+                 reps=3, turns=PLAYSIM_TURNS):
     """The whole section 6 measurement, as data. report_mana only prints it.
 
     `sims` and `trials` are totals across `reps` replicates -- see
     split_budget. Rows carry their spread as a sixth element.
+
+    `turns` is the horizon for BOTH models, passed to each from here so they
+    cannot hold different ones: a candidate row this allowed through that the
+    simulation would not measure becomes a line silently missing from the
+    table beside it.
     """
     ncmdr = len(as_cmdrs(cmdr))
     names = flat(cmdr, entries)[ncmdr:]
@@ -278,7 +290,7 @@ def analyse_mana(cmdr, entries, scry, sims, trials, seed=17, lines=None, reps=3)
     for i, s in enumerate(split_budget(sims, reps)):
         for p, turn, mv, req, cards in worst_lines(
                 names, scry, lands, accels, s, random.Random(seed + i),
-                top=None, deck_size=deck_size):
+                top=None, deck_size=deck_size, turns=turns):
             acc.setdefault((turn, mv, req), (cards, []))[1].append(p)
     rows = []
     for (turn, mv, req), (cards, ps) in acc.items():
@@ -300,12 +312,13 @@ def analyse_mana(cmdr, entries, scry, sims, trials, seed=17, lines=None, reps=3)
                           "".join("{%s}" % x for x in req)))
         lines += commander_lines(cmdr, scry)
     res = replicate_playsim(lands, accels, deck_size, lines, trials, seed, reps,
-                            rituals=rituals)
+                            turns=turns, rituals=rituals)
     # An MDFC back is a land you can play, so it counts toward keepability.
     floor = opening_hand_floor(v["lands"] + v["mdfc_land_backs"], deck_size)
     return {"verify": v, "lands": lands, "accels": accels, "rituals": rituals,
             "rows": rows, "lines": lines, "sim": res, "floor": floor,
-            "sims": sims, "trials": trials, "seed": seed, "reps": reps}
+            "sims": sims, "trials": trials, "seed": seed, "reps": reps,
+            "turns": turns}
 
 
 # Two-sided 95% Student-t multipliers by degrees of freedom. With three

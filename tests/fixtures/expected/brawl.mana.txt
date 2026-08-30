@@ -22,6 +22,8 @@
   Diagnosis: a line CLOSE to its baseline is a QUANTITY problem (no land swap will help).
   A line FAR BELOW its baseline is a COLOUR problem (a filter land for that pip is the answer).
   A gap smaller than the two ± beside it is noise, not a finding.
+  Standard Brawl is 2-player: you are on the draw about half the time,
+  not three turns in four. Weight the two columns for THIS table, not a pod.
 
   No mulligan is modelled: every opening seven is kept, so the figures above are FLOORS.
   11.4% of opening sevens hold at most one land (1.6% hold none), off 25 lands in 59.

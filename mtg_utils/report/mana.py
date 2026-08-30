@@ -6,6 +6,7 @@ a figure with its noise beside it. analysis.py does the measuring.
 from mtg_utils.analysis import analyse_mana, commander_lines, compare_swap, replicate_playsim
 from mtg_utils.castability import PLAYSIM_TURNS, pips_from_cost
 from mtg_utils.decklist import as_cmdrs, flat
+from mtg_utils.formats import spec as format_spec
 from mtg_utils.profiles import (build_accel_profiles, build_land_profiles,
                                 build_ritual_profiles)
 
@@ -28,8 +29,16 @@ def _reps(n):
     return f"{n} rep" + ("" if n == 1 else "s")
 
 
-def report_mana(cmdr, entries, scry, sims, trials, seed=17, lines=None, reps=3):
-    a = analyse_mana(cmdr, entries, scry, sims, trials, seed, lines, reps)
+def report_mana(cmdr, entries, scry, sims, trials, seed=17, lines=None, reps=3,
+                turns=PLAYSIM_TURNS, fmt=None):
+    """The two models, side by side. analyse_mana measures; this formats.
+
+    `turns` is the horizon both models are held to. `fmt` decides nothing that
+    is measured -- it only names the table size the two columns should be read
+    against, which is a fact about the format and not about the deck.
+    """
+    a = analyse_mana(cmdr, entries, scry, sims, trials, seed, lines, reps,
+                     turns)
     # Everything is unpacked HERE, before the play-simulation loop below
     # rebinds `a` to a percentage. Reading a["floor"] after that loop gets a
     # float and a TypeError several lines from the cause.
@@ -88,6 +97,13 @@ def report_mana(cmdr, entries, scry, sims, trials, seed=17, lines=None, reps=3):
 
     print(f"\n--- play simulation, {trials} trials over {_reps(reps)},"
           f" seed {seed} ---")
+    # Only when it is NOT the default, so a Commander run is byte-identical to
+    # what it was. Said at all because the horizon is a hard edge rather than
+    # a budget: a line landing past it is dropped, not measured coarsely, and
+    # a dropped line is a row that is simply not in the table.
+    if turns != PLAYSIM_TURNS:
+        print(f"  horizon: turns 1-{turns} (default {PLAYSIM_TURNS}) -- a "
+              f"line landing later is not measured and is not listed.")
     print(f"  {'line':44s} {'on play':>11} {'on draw':>11}"
           f" {'baseline(any N on TN)':>28}")
     for label, mv, pipstr in lines:
@@ -103,6 +119,17 @@ def report_mana(cmdr, entries, scry, sims, trials, seed=17, lines=None, reps=3):
           "(no land swap will help).\n  A line FAR BELOW its baseline is a "
           "COLOUR problem (a filter land for that pip is the answer).")
     print("  A gap smaller than the two ± beside it is noise, not a finding.")
+    # Which of the two columns to lean on is a fact about the TABLE, not about
+    # the deck, and the default framing everywhere in this repo is the
+    # four-player one. Printed only when the format disagrees with it, so a
+    # Commander run is unchanged -- and printed at all because a summary that
+    # weights on-the-draw three-to-one is wrong by half in 1v1, while both
+    # columns above stay correct.
+    players = format_spec(fmt)["players"]
+    if players != 4:
+        print(f"  {format_spec(fmt)['label']} is {players}-player: you are on "
+              f"the draw about half the time,\n  not three turns in four. "
+              f"Weight the two columns for THIS table, not a pod.")
 
     # No mulligan is modelled, so every figure above is a floor. Said with a
     # measured size rather than as a caveat: the share is large, and it is

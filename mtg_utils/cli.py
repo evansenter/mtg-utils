@@ -6,6 +6,7 @@ import time
 
 from mtg_utils import __doc__ as _BANNER
 from mtg_utils.analysis import verify
+from mtg_utils.castability import PLAYSIM_TURNS
 from mtg_utils.decklist import (as_cmdrs, flat, parse_swaps, read_decklist,
                                 split_names, write_deck)
 from mtg_utils.formats import DEFAULT_FORMAT, FORMATS, deck_size, spec
@@ -113,6 +114,10 @@ def main():
                     help="deck format: sets the expected deck size, the "
                          "legality key checked, and the table size the "
                          "play/draw framing assumes")
+    ap.add_argument("--turns", type=int, default=PLAYSIM_TURNS,
+                    help=f"mana: how far the play simulation runs "
+                         f"(default {PLAYSIM_TURNS}); a line landing later is "
+                         f"not measured")
     ap.add_argument("--colours", "--colors", default="", dest="colours",
                     help="roster: walk these colours instead of the "
                          "commander's whole identity, e.g. --colours BRG; "
@@ -193,7 +198,10 @@ def main():
             print(f"  *** DECK IS {v['total']} CARDS, {label.upper()} IS "
                   f"{size} ***")
     if a.cmd in ("mana", "audit"):
-        report_mana(cmdr, entries, scry, a.sims, a.trials, a.seed, reps=a.reps)
+        if a.turns < 1:
+            ap.error(f"--turns must be at least 1, got {a.turns}")
+        report_mana(cmdr, entries, scry, a.sims, a.trials, a.seed,
+                    reps=a.reps, turns=a.turns, fmt=a.fmt)
     if a.cmd == "skeleton":
         report_skeleton(cmdr, entries, scry)
     if a.cmd == "primer":

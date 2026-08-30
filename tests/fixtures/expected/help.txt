@@ -5,7 +5,7 @@ usage: mana_model.py [-h] [--cache CACHE] [--sims SIMS] [--trials TRIALS]
                      [--bar BAR] [--no-combos] [--sort {inclusion,synergy}]
                      [--primer PRIMER] [--swap SWAP]
                      [--format {brawl,commander,standardbrawl}]
-                     [--colours COLOURS] [--size SIZE]
+                     [--turns TURNS] [--colours COLOURS] [--size SIZE]
                      {fetch,verify,mana,variants,combos,own,contention,moxfield,write,audit,roster,diff,selftest,calibrate,ceiling,floor,skeleton,primer}
                      [target]
 
@@ -95,6 +95,8 @@ options:
                         deck format: sets the expected deck size, the legality
                         key checked, and the table size the play/draw framing
                         assumes
+  --turns TURNS         mana: how far the play simulation runs (default 7); a
+                        line landing later is not measured
   --colours COLOURS, --colors COLOURS
                         roster: walk these colours instead of the commander's
                         whole identity, e.g. --colours BRG; narrows only,
