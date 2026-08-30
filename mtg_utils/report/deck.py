@@ -12,6 +12,7 @@ import time
 from collections import defaultdict
 from mtg_utils.analysis import (CURVE_TOP, deck_skeleton, floor_audit,
                                 primer_audit)
+from mtg_utils.cards import front_name
 from mtg_utils.decklist import as_cmdrs, flat
 from mtg_utils.primer import parse_primer_links
 from mtg_utils.roster import ANY_COLOUR, PAIR_CYCLES, TRIPLE_CYCLES, WUBRG, identity_pairs, roster_names, roster_status
@@ -158,11 +159,23 @@ def report_roster(cmdr, entries, scry, cache_path=None):
     return empty
 
 
-def report_combos(cmdr, entries):
-    res = spellbook(cmdr, entries)
+def report_combos(cmdr, entries, scry=None):
+    """The full-deck combo audit. NETWORK.
+
+    `scry` is the decklist's Scryfall cache, and it is what lets the names
+    sent match: Spellbook resolves a double-faced card by its FULL `A // B`
+    name and silently drops a front face. See spellbook_name -- the failure
+    mode is an in-deck combo reported as one card away from the commander.
+    Optional, so a caller without a cache still gets what it got before.
+    """
+    res = spellbook(cmdr, entries, scry)
     inc = res.get("included", [])
     almost = res.get("almostIncluded", [])
-    deck = set(n.lower() for n in flat(cmdr, entries))
+    # Front faces on BOTH sides, like every other cross-source comparison
+    # here. Spellbook answers in full names, a decklist may hold either, and
+    # compared verbatim a DFC already in the list files under `miss` -- which
+    # renders as "one card away" from a card the reader is holding.
+    deck = set(front_name(n).lower() for n in flat(cmdr, entries))
     print(f"\n=== COMMANDER SPELLBOOK ({time.strftime('%Y-%m-%d')}) ===")
     print(f"  in-deck combos: {len(inc)}")
     for v in inc:
@@ -173,8 +186,8 @@ def report_combos(cmdr, entries):
     for v in almost:
         us = [u["card"]["name"] for u in v.get("uses", [])]
         tmpl = [t["template"]["name"] for t in v.get("requires", [])]
-        have = [u for u in us if u.lower() in deck]
-        miss = [u for u in us if u.lower() not in deck]
+        have = [u for u in us if front_name(u).lower() in deck]
+        miss = [u for u in us if front_name(u).lower() not in deck]
         for h in have:
             grp[h].append((miss, len(us) + len(tmpl)))
     print("  grouped by the piece already in the deck:")

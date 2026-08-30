@@ -200,7 +200,9 @@ def main():
                             [int(x) for x in a.accel.split(",")], a.trials,
                             a.seed, a.reps)
     if a.cmd in ("combos", "audit"):
-        report_combos(cmdr, entries)
+        # The cache is passed so the names sent to Spellbook are the full
+        # `A // B` form it matches on -- see spellbook_name.
+        report_combos(cmdr, entries, scry)
     if a.cmd in ("own", "audit"):
         report_own(cmdr, entries, scry)
     if a.cmd == "contention":

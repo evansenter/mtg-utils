@@ -238,8 +238,10 @@ def report_ceiling(cmdr, entries, scry, cache=None, rec_cache=None, cedh=False,
     completions, combo_note = {}, None
     if combos:
         try:
-            completions = combo_completions(spellbook(cmdr, entries), cmdr,
-                                            entries)
+            # `scry` so a double-faced card is sent under the full `A // B`
+            # name Spellbook matches on -- see spellbook_name.
+            completions = combo_completions(spellbook(cmdr, entries, scry),
+                                            cmdr, entries)
         except SystemExit as e:
             combo_note = str(e)
     a = ceiling_audit(cmdr, entries, rows, capped, load_collection(), scry,

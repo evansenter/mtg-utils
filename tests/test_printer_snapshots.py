@@ -103,7 +103,7 @@ def test_own_buy_list(mm, request, monkeypatch, offline):
 
 def test_ceiling_edhrec(mm, request, monkeypatch, tmp_path, offline):
     patch_everywhere(monkeypatch, "load_collection", load_fixture_collection)
-    patch_everywhere(monkeypatch, "spellbook", lambda c, e: _combos())
+    patch_everywhere(monkeypatch, "spellbook", lambda c, e, s=None: _combos())
     # scry_fetch rewrites its cache on every run, so the committed fixture is
     # copied first -- the trap the golden harness already handles.
     scry_copy = os.path.join(str(tmp_path), "ceiling.scry.json")
@@ -118,7 +118,7 @@ def test_ceiling_edhrec(mm, request, monkeypatch, tmp_path, offline):
 
 def test_ceiling_cedh(mm, request, monkeypatch, tmp_path, offline):
     patch_everywhere(monkeypatch, "load_collection", load_fixture_collection)
-    patch_everywhere(monkeypatch, "spellbook", lambda c, e: _combos())
+    patch_everywhere(monkeypatch, "spellbook", lambda c, e, s=None: _combos())
     scry_copy = os.path.join(str(tmp_path), "ceiling.scry.json")
     shutil.copyfile(os.path.join(FIXTURES, "ceiling.scry.json"), scry_copy)
     with open(scry_copy, encoding="utf-8") as f:

@@ -156,7 +156,7 @@ def _run(mm, monkeypatch, tmp_path, deck=DECK, **kw):
 
     patch_everywhere(monkeypatch, "load_collection", load_fixture_collection)
     patch_everywhere(monkeypatch, "spellbook",
-                     lambda c, e: {"almostIncluded": []})
+                     lambda c, e, s=None: {"almostIncluded": []})
 
     def boom(*a, **kw):
         raise AssertionError("the offline suite tried to reach the network")

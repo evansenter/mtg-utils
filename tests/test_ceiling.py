@@ -286,7 +286,7 @@ def _run_ceiling(mm, monkeypatch, tmp_path, spellbook=None,
     # no-network guard it would surface as an AssertionError from inside
     # curl, several frames from the cause, in tests about something else.
     patch_everywhere(monkeypatch, "spellbook",
-                     spellbook or (lambda c, e: _combos()))
+                     spellbook or (lambda c, e, s=None: _combos()))
     _no_network(monkeypatch)
     # scry_fetch rewrites its cache on every run, so the committed fixture is
     # copied first -- the same trap the golden harness already handles.
@@ -691,7 +691,7 @@ def test_a_row_with_many_combos_says_how_many_it_dropped(mm, monkeypatch,
         {"uses": [{"card": {"name": "Deathrite Shaman"}},
                   {"card": {"name": f"Piece {i}"}},
                   {"card": {"name": "Sol Ring"}}]} for i in range(5)]}
-    _run_ceiling(mm, monkeypatch, tmp_path, spellbook=lambda c, e: res,
+    _run_ceiling(mm, monkeypatch, tmp_path, spellbook=lambda c, e, s=None: res,
                  rec_cache=REC, threshold=75.0)
     out = capsys.readouterr().out
     assert "...and 3 more combos" in out
@@ -702,7 +702,7 @@ def test_a_spellbook_outage_is_announced_not_silently_clean(mm, monkeypatch,
     """An unrun check and a clean result are the same empty column. This is
     the same rule the capped-cardlist note follows: absence of data is never
     reported as a finding of none."""
-    def boom(cmdr, entries):
+    def boom(cmdr, entries, scry=None):
         raise SystemExit("Commander Spellbook find-my-combos failed after retries")
     a = _run_ceiling(mm, monkeypatch, tmp_path, spellbook=boom,
                      rec_cache=REC, threshold=75.0)
@@ -733,7 +733,7 @@ def test_a_clean_cross_check_says_it_ran(mm, monkeypatch, tmp_path, capsys):
     """The mirror of the outage case: "0 rows interact" is a result, and it
     has to be distinguishable from the check not running."""
     _run_ceiling(mm, monkeypatch, tmp_path,
-                 spellbook=lambda c, e: {"almostIncluded": []},
+                 spellbook=lambda c, e, s=None: {"almostIncluded": []},
                  rec_cache=REC, threshold=75.0)
     out = capsys.readouterr().out
     assert "0 rows interact with cards already in the list" in out
@@ -865,7 +865,7 @@ def test_the_report_annotates_land_rows_inline(mm, monkeypatch, tmp_path,
     fetchlands for its four pairs, so a checkland or a battle land for any of
     them is a slot it has already filled three deep."""
     a = _run_ceiling(mm, monkeypatch, tmp_path, rec_cache=LANDS_REC,
-                     spellbook=lambda c, e: {"almostIncluded": []},
+                     spellbook=lambda c, e, s=None: {"almostIncluded": []},
                      scry_fixture=LANDS_SCRY, threshold=50.0)
     out = capsys.readouterr().out.split("\n")
     i = next(n for n, l in enumerate(out) if "Glacial Fortress" in l)
@@ -885,7 +885,7 @@ def test_the_report_leaves_unrankable_lands_alone(mm, monkeypatch, tmp_path,
     them may collect a verdict. A check that fires on every land row is a
     check that gets switched off."""
     _run_ceiling(mm, monkeypatch, tmp_path, rec_cache=LANDS_REC,
-                 spellbook=lambda c, e: {"almostIncluded": []},
+                 spellbook=lambda c, e, s=None: {"almostIncluded": []},
                  scry_fixture=LANDS_SCRY, threshold=50.0)
     out = capsys.readouterr().out.split("\n")
     for name in ("Gaea's Cradle", "Unclaimed Territory", "Cinder Glade"):
@@ -899,7 +899,7 @@ def test_a_land_row_is_annotated_never_suppressed(mm, monkeypatch, tmp_path,
     and a shorter table reads as less work to do -- the same reason a capped
     cardlist is reported rather than dropped."""
     a = _run_ceiling(mm, monkeypatch, tmp_path, rec_cache=LANDS_REC,
-                     spellbook=lambda c, e: {"almostIncluded": []},
+                     spellbook=lambda c, e, s=None: {"almostIncluded": []},
                      scry_fixture=LANDS_SCRY, threshold=50.0)
     names = [m["name"] for m in a["missing"]]
     assert "Glacial Fortress" in names
