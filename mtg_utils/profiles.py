@@ -24,6 +24,66 @@ OMNI_TYPE = {"urborg, tomb of yawgmoth": "B", "yavimaya, cradle of growth": "G"}
 # ============================================================ profiles
 RESTRICTED_MANA = "spend this mana only"
 
+# A board condition on the ability itself. The Verge cycle is the live
+# example, and the whole cycle is a Standard staple:
+#
+#   {T}: Add {B}.
+#   {T}: Add {R}. Activate only if you control a Swamp or a Mountain.
+#
+# Read as two free abilities, Blazemire Verge is an unconditional {B}{R} dual.
+# Training Compound ("Activate only if this land entered this turn or if you
+# control a basic land") is the same shape with a different condition.
+#
+# "only if" and not "only": a TIMING restriction -- "Activate only as a
+# sorcery", "Activate only during your turn" -- gates when the mana can be
+# made, not whether, and both models ask what mana is available on your own
+# turn. Dropping those would understate a land that is not conditional at all.
+ACTIVATION_GATE = re.compile(r"\bactivate\b[^.]*?\bonly if\b")
+
+# An activation cost that includes MANA, which is the other half of the same
+# problem:
+#
+#   {T}: Add {C}.
+#   {1}, {T}: Add one mana of any color.
+#
+# Hidden Grotto, Conduit Pylons and Crystal Grotto all read that way and were
+# scored as free five-colour sources with the {1} nowhere -- a land that turns
+# one generic into one coloured, counted as a land that makes a colour.
+#
+# {T} and {Q} are not mana and do not gate a line; a LIFE payment does not
+# either. Starting Town's "{T}, Pay 1 life: Add one mana of any color" stays
+# free, which is the same call this repo already makes for the shockland
+# conditional tap -- life is a cost the models do not price, consistently, in
+# both directions. KNOWN_ISSUES.md #21 has that decision.
+COSTED_ABILITY = re.compile(r"^[^:\n]*\{(?!t\}|q\})[^}]*\}[^:\n]*:")
+
+
+def free_mana_text(txt):
+    """`txt` with every line whose mana is NOT free taken out.
+
+    Scryfall puts one ability per line and every string attached to a mana
+    ability rides on the line of the ability it attaches to, so the filter is
+    per line and the three conditions are one rule with three spellings:
+
+        spend this mana only ...   the mana buys only certain spells
+        Activate only if ...       the ability needs a board state
+        {1}, {T}: Add ...          the ability costs mana to use
+
+    What remains is exactly the mana that pays for anything, at no cost but
+    the tap. Returns the text UNCHANGED when nothing is dropped, which is how
+    callers tell there was nothing to drop.
+    """
+    keep = []
+    for line in (txt or "").split("\n"):
+        if RESTRICTED_MANA in line:
+            continue
+        if ACTIVATION_GATE.search(line):
+            continue
+        if COSTED_ABILITY.match(line):
+            continue
+        keep.append(line)
+    return "\n".join(keep)
+
 
 def unrestricted_mana(txt):
     """(colours, amount) a land offers with NO strings attached.
@@ -40,10 +100,15 @@ def unrestricted_mana(txt):
     creature type, and counting it as free colour made a mono-red deck look
     like it had five.
 
+    A board condition and a mana cost on the ability are dropped the same way
+    and for the same reason -- see free_mana_text. Blazemire Verge is a {B}
+    source, not a {B}{R} one, and Hidden Grotto is a {C} source, not a
+    five-colour one.
+
     Returns (set(), 0) when every ability is restricted, which flags the card
     for exclusion the same way build_accel_profiles flags a restricted rock.
     """
-    free = "\n".join(l for l in txt.split("\n") if RESTRICTED_MANA not in l)
+    free = free_mana_text(txt)
     cols, amount = set(), 0
     for match in re.finditer(r"add ([^.;\n]*)", free):
         clause = match.group(1)
@@ -91,7 +156,11 @@ def drop_restricted(txt, pm, amount):
     break.
     """
     pm = {x for x in pm if x in MANA_SYMBOLS}
-    if RESTRICTED_MANA not in txt:
+    # Nothing to drop: not merely "no `spend this mana only`" but no gated and
+    # no costed line either. Written as a comparison against the filter rather
+    # than as three substring tests, so a fourth condition added to
+    # free_mana_text cannot be honoured by one caller and missed by this one.
+    if free_mana_text(txt) == txt:
         return pm, amount, False
     free_cols, free_amount = unrestricted_mana(txt)
     if not free_amount:

@@ -55,10 +55,12 @@ from mtg_utils.cards import (BASIC_TYPE_COLOUR, COLOURS, CONDITIONAL_TAP_MARKERS
                              fetch_targets, front,
                              front_name, has_land_back, is_front_land, land_face,
                              mana_amount, tapped_from_turn)
-from mtg_utils.profiles import (ADDITIONAL_COST, FILTER_LANDS, OMNI_TYPE,
+from mtg_utils.profiles import (ACTIVATION_GATE, ADDITIONAL_COST,
+                                COSTED_ABILITY, FILTER_LANDS, OMNI_TYPE,
                                 RITUAL_ADD, TRIGGERED_EVENT, TRIGGERED_PHASE,
                                 build_accel_profiles, build_land_profiles,
                                 build_ritual_profiles, drop_restricted,
+                                free_mana_text,
                                 ritual_add, triggered_mana, unrestricted_mana)
 from mtg_utils.castability import (PLAYSIM_TURNS, _match, at_least_in_draw,
                                    castable, castable_faces, pips_from_cost,

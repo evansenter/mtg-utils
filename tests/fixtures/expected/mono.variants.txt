@@ -2,9 +2,9 @@
 === VARIANTS SWEEP (2000 trials over 3 reps, seed 17) — commander line and generic baseline ===
   every row includes the ritual burst, held constant and not in the accel count: seething song +2
   config                            cmdr on curve        any N on turn N
-  34 lands, 19 accel          91.3±0.3 /  94.6±0.4     92.3±0.2 /  95.2±0.3
-  34 lands, 21 accel          91.2±0.3 /  94.6±0.4     92.3±0.2 /  95.2±0.3
-  36 lands, 19 accel          92.4±0.4 /  95.8±0.2     93.9±0.3 /  96.5±0.4
-  36 lands, 21 accel          92.4±0.4 /  95.8±0.2     93.9±0.3 /  96.5±0.4
-  38 lands, 19 accel          93.3±0.4 /  95.8±0.4     95.4±0.2 /  97.4±0.3
-  38 lands, 21 accel          93.3±0.3 /  95.8±0.3     95.4±0.2 /  97.4±0.3
+  34 lands, 18 accel          90.6±0.6 /  94.2±0.2     91.9±0.5 /  94.7±0.3
+  34 lands, 20 accel          90.7±0.6 /  94.2±0.2     91.9±0.5 /  94.7±0.3
+  36 lands, 18 accel          91.8±0.6 /  94.8±0.1     93.2±0.5 /  95.9±0.5
+  36 lands, 20 accel          91.7±0.6 /  94.7±0.1     93.2±0.5 /  95.9±0.5
+  38 lands, 18 accel          92.6±0.2 /  95.4±0.3     95.0±0.1 /  97.3±0.3
+  38 lands, 20 accel          92.7±0.3 /  95.4±0.3     95.0±0.1 /  97.3±0.3
