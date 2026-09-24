@@ -1041,6 +1041,15 @@ def playsim(lands, accels, deck_size, turns, on_draw, trials, rng,
 # that caller cannot hold a different number.
 PLAYSIM_TURNS = 7
 
+# The furthest a caller may ask the play simulation to run. Not a policy
+# choice: `_playsim_core` asserts `5 * turns + 1 <= _SIG_LIMIT`, because a turn
+# can bring one land, four accelerants and one ritual burst online, and a
+# signature's count must fit its six-bit field in the packed hand. Derived from
+# that same constant so the CLI's bound and the simulator's cannot drift --
+# `--turns 13` used to run the whole sources model and then die on a bare
+# AssertionError.
+PLAYSIM_MAX_TURNS = (_SIG_LIMIT - 1) // 5
+
 
 def playsim_report(lands, accels, deck_size, lines, trials, rng,
                    turns=PLAYSIM_TURNS, rituals=None):

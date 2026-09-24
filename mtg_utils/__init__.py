@@ -74,7 +74,8 @@ from mtg_utils.profiles import (ACTIVATION_GATE, ADDITIONAL_COST,
                                 build_ritual_profiles, drop_restricted,
                                 free_mana_text,
                                 ritual_add, triggered_mana, unrestricted_mana)
-from mtg_utils.castability import (PLAYSIM_TURNS, _match, at_least_in_draw,
+from mtg_utils.castability import (PLAYSIM_MAX_TURNS, PLAYSIM_TURNS, _match,
+                                   at_least_in_draw,
                                    castable, castable_faces, pips_from_cost,
                                    playable_set, playsim, playsim_report,
                                    probability, ritual_burst, tapped_at)

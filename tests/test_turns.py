@@ -94,14 +94,43 @@ def test_the_default_run_says_nothing_about_the_horizon(mm, tmp_path):
     assert "horizon: turns" not in out
 
 
-def test_turns_must_be_at_least_one(mm, tmp_path):
-    """turns/zero is refused by name
-
-    A zero horizon measures nothing and would print an empty table under a
-    full set of headings.
+@pytest.mark.parametrize("turns", ["0", "13"],
+                         ids=["turns/zero is refused by name",
+                              "turns/past the packing limit is refused by name"])
+def test_turns_out_of_range_is_refused(mm, tmp_path, turns):
+    """A zero horizon measures nothing. Past twelve the play simulation cannot
+    pack a hand into its six-bit fields: `--turns 13` used to run the whole
+    sources model and then die on a bare `AssertionError: (13, 63)`.
     """
-    out = run_cli(mm, ["mana"] + BRAWL + FAST + ["--turns=0"], str(tmp_path))
-    assert "--turns must be at least 1, got 0" in out
+    out = run_cli(mm, ["mana"] + BRAWL + FAST + [f"--turns={turns}"],
+                  str(tmp_path))
+    assert f"--turns must be between 1 and 12, got {turns}" in out
+    assert "sources model" not in out
+
+
+def test_the_limit_is_the_simulators_own(mm):
+    """turns/the CLI bound is derived from the packing assert, not typed
+
+    Two copies of one number drift; this pins that the largest accepted
+    horizon is exactly the largest the simulator runs.
+    """
+    import random
+    top = mm.PLAYSIM_MAX_TURNS
+    assert top == 12
+    mm.playsim([], [], 59, top, False, 1, random.Random(1))
+    with pytest.raises(AssertionError):
+        mm.playsim([], [], 59, top + 1, False, 1, random.Random(1))
+
+
+def test_audit_refuses_before_printing_anything(mm, tmp_path):
+    """turns/a bad horizon fails before the verify block
+
+    `audit` runs verify first; checked late, the error arrived under output
+    that read like a normal run.
+    """
+    out = run_cli(mm, ["audit"] + BRAWL + FAST + ["--turns=0"], str(tmp_path))
+    assert "=== VERIFY" not in out
+    assert "--turns must be between 1 and 12" in out
 
 
 # --- the play/draw framing ---------------------------------------------

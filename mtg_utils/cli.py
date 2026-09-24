@@ -6,7 +6,7 @@ import time
 
 from mtg_utils import __doc__ as _BANNER
 from mtg_utils.analysis import verify
-from mtg_utils.castability import PLAYSIM_TURNS
+from mtg_utils.castability import PLAYSIM_MAX_TURNS, PLAYSIM_TURNS
 from mtg_utils.decklist import (as_cmdrs, flat, parse_swaps, read_decklist,
                                 split_names, write_arena_deck, write_deck)
 from mtg_utils.formats import DEFAULT_FORMAT, FORMATS, deck_size, spec
@@ -124,8 +124,9 @@ def main():
                          "paper buy list; write: emit an Arena import block")
     ap.add_argument("--turns", type=int, default=PLAYSIM_TURNS,
                     help=f"mana: how far the play simulation runs "
-                         f"(default {PLAYSIM_TURNS}); a line landing later is "
-                         f"not measured")
+                         f"(default {PLAYSIM_TURNS}, at most "
+                         f"{PLAYSIM_MAX_TURNS}); a line landing later is not "
+                         f"measured")
     # One spelling, no alias. argparse renders an aliased option differently
     # on 3.13 ("--colours, --colors COLOURS") than on 3.11 and 3.12
     # ("--colours COLOURS, --colors COLOURS"), and `--help` is one snapshot
@@ -139,6 +140,13 @@ def main():
                     help="verify/write: expected total cards including "
                          "commanders; defaults to the --format's size")
     a = ap.parse_args()
+    # Checked here, before anything prints: under `audit` the verify block
+    # runs first, and a horizon the simulation cannot hold would otherwise
+    # fail after output that reads like a normal run.
+    if not 1 <= a.turns <= PLAYSIM_MAX_TURNS:
+        ap.error(f"--turns must be between 1 and {PLAYSIM_MAX_TURNS}, got "
+                 f"{a.turns} -- the play simulation packs each hand into "
+                 f"six-bit fields and cannot run further")
     size = a.size if a.size is not None else deck_size(a.fmt)
     label = spec(a.fmt)["label"]
 
@@ -211,8 +219,6 @@ def main():
             print(f"  *** DECK IS {v['total']} CARDS, {label.upper()} IS "
                   f"{size} ***")
     if a.cmd in ("mana", "audit"):
-        if a.turns < 1:
-            ap.error(f"--turns must be at least 1, got {a.turns}")
         report_mana(cmdr, entries, scry, a.sims, a.trials, a.seed,
                     reps=a.reps, turns=a.turns, fmt=a.fmt)
     if a.cmd == "skeleton":
