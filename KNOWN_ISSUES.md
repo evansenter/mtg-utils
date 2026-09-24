@@ -1103,7 +1103,26 @@ spellings — and only the first was read:
 | `Activate only if ...` | Blazemire Verge, Mox Opal | an unconditional `{B}{R}` dual; a free any-colour rock |
 | `{1}, {T}: Add ...` | Hidden Grotto, Conduit Pylons, Crystal Grotto | a free five-colour source, with the `{1}` nowhere |
 
-All three now go through one filter, `free_mana_text`.
+All three now go through one filter, `free_mana_text`, and a COSTED line is
+then priced back in at its **net** by `costed_net`: what it adds less what it
+costs, and only when that is positive. Hidden Grotto's `{1}, {T}: Add one mana
+of any color` nets zero and stays out -- it converts a mana, it does not make
+one. A Signet's `{1}, {T}: Add {W}{U}` nets one, of its two colours.
+
+**The first version dropped every costed line, and no fixture could show what
+that did.** The Signet cycle's ONLY mana ability is costed, so every
+colour-pair Signet came back with no free line, was flagged restricted and fell
+out of the accelerant count entirely -- the most common rock in Commander,
+silently uncounted. Arcane Signet, the only Signet in any fixture, costs
+nothing to activate, so the suite stayed green. Caught on review before it
+merged; `test_a_signet_is_still_an_accelerant` is the guard.
+
+**Residual, kept:** a Signet's colours are credited as if the mana spent to
+activate it came from nowhere in particular. With a Mountain and an Azorius
+Signet the real options are {R} or {W}{U}; the model also allows {R}{W}. That is
+the filter-land shape, which this repo models properly only for the ten
+Shadowmoor names in `FILTER_LANDS`. Direction: overstates colour slightly, on
+fewer mana than `main` credited the same card (one, not two).
 
 **What moved.** The brawl fixture hardest, because the Verge cycle and the
 taxed any-colour lands are Standard staples and it runs six of them: the
@@ -1218,4 +1237,14 @@ actually wants. The walk therefore reports what the Commander roster has to say
 about a Brawl deck, minus the illegal rows, and on the brawl fixture that is
 29 of 119 names. A Standard roster is a new data table, not a filter, and
 nothing has measured what belongs in it.
+
+### `write --arena` names every card by its front face, and only a transform card has been checked
+
+The brawl fixture's one double-faced card is its commander, a `transform`
+layout. Whether Arena's importer wants the front face or the full `A // B` for
+a SPLIT or AFTERMATH card (`Fire // Ice`, `Commit // Memory`), an adventure or
+an MDFC has not been checked against Arena itself, and the two plausible rules
+disagree. No fixture holds one. If an import rejects such a line, the fix is a
+layout-keyed rule in `write_arena_deck` -- and it wants a fixture holding one
+of each layout before it is written, not a guess from memory.
 

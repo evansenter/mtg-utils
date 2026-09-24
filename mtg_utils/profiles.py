@@ -85,6 +85,57 @@ def free_mana_text(txt):
     return "\n".join(keep)
 
 
+def costed_net(line):
+    """(colours, net mana) for a mana ability that COSTS mana, or None.
+
+    Dropping every costed line outright was the first version of this, and it
+    was wrong in a way no fixture could show: the Signet cycle's ONLY mana
+    ability is `{1}, {T}: Add {W}{U}`, so every colour-pair Signet came back
+    with no free line at all, was flagged restricted and fell out of the
+    accelerant count entirely. Odyssey's filter lands (Skycloud Expanse) read
+    the same way. None of the five fixtures runs one -- Arcane Signet costs
+    nothing to activate -- so the suite stayed green while the most common
+    rock in Commander stopped being counted.
+
+    So a costed line is priced at its NET: what it adds, less the mana it
+    costs. Hidden Grotto's `{1}, {T}: Add one mana of any color` nets zero and
+    is still dropped -- it converts a mana, it does not make one, which is the
+    FR-1 finding. A Signet nets one, of its two colours: still less than the
+    two it was credited on `main`, and exactly the extra mana it really adds.
+
+    What this does NOT model, and says so: the Signet's colours are credited
+    as if the mana spent to activate it came from nowhere in particular. With
+    a Mountain and an Azorius Signet you can make {R} or {W}{U}, never {R}{W};
+    the model allows the latter. That is the same shape as a filter land, which
+    this repo models properly only for the ten names in FILTER_LANDS, and it is
+    recorded in KNOWN_ISSUES #21 rather than papered over.
+
+    {X} in the cost, or a produced amount that cannot be read, returns None --
+    the line is dropped, which is the conservative reading.
+    """
+    if ":" not in line:
+        return None
+    cost, effect = line.split(":", 1)
+    cost_syms = [s for s in re.findall(r"\{([^}]*)\}", cost) if s not in ("t", "q")]
+    if not cost_syms or "add" not in effect:
+        return None
+    paid = 0
+    for sym in cost_syms:
+        if sym == "x":
+            return None
+        paid += int(sym) if sym.isdigit() else 1
+    m = re.search(r"\badd ([^.;\n]*)", effect)
+    if not m:
+        return None
+    clause = m.group(1)
+    made = mana_amount("add " + clause)
+    cols = {c.upper() for c in re.findall(r"\{([wubrgc])\}", clause)}
+    if "any color" in clause:
+        cols |= set(COLOURS)
+    net = made - paid
+    return (cols, net) if net >= 1 and cols else None
+
+
 def unrestricted_mana(txt):
     """(colours, amount) a land offers with NO strings attached.
 
@@ -116,7 +167,20 @@ def unrestricted_mana(txt):
         if "any color" in clause:
             cols |= set(COLOURS)
         amount = max(amount, 1)
-    return cols, (mana_amount(free) if amount else 0)
+    amount = mana_amount(free) if amount else 0
+    # A costed line comes back at its NET, and only when that is positive --
+    # see costed_net. A gated or spend-restricted costed line is still
+    # dropped: those two conditions are checked first, on the whole line.
+    for line in (txt or "").split("\n"):
+        if RESTRICTED_MANA in line or ACTIVATION_GATE.search(line):
+            continue
+        if not COSTED_ABILITY.match(line):
+            continue
+        got = costed_net(line)
+        if got:
+            cols |= got[0]
+            amount = max(amount, got[1])
+    return cols, amount
 
 
 def drop_restricted(txt, pm, amount):

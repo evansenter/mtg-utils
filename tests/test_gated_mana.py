@@ -156,3 +156,53 @@ def test_a_filter_land_is_untouched(mm):
     assert lands["sunken ruins"]["colours"] == frozenset("UB")
     assert lands["sunken ruins"]["filter"] == "UB"
     assert lands["twilight mire"]["colours"] == frozenset("BG")
+
+
+# --- a costed line is priced at its NET, not dropped --------------------
+# The first version of the costed-line rule dropped every one, and no fixture
+# could show what that did: the Signet cycle's ONLY mana ability is costed, so
+# every colour-pair Signet was flagged restricted and fell out of the
+# accelerant count. Arcane Signet, the only Signet in any fixture, costs
+# nothing to activate. Both strings verbatim from Scryfall, 2026-09-24.
+SIGNET = "{1}, {T}: Add {W}{U}."            # Azorius Signet
+SKYCLOUD = "{1}, {T}: Add {W}{U}."          # Skycloud Expanse, a land
+
+
+@pytest.mark.parametrize("txt,cols,amount", [
+    (SIGNET, {"W", "U"}, 1),
+    (GROTTO, {"C"}, 1),
+    ("{x}, {t}: add {c}{c}.", set(), 0),
+], ids=["gate/a Signet nets one mana of its colours",
+        "gate/a taxed any-colour line nets zero and is dropped",
+        "gate/an {X} cost cannot be priced and is dropped"])
+def test_a_costed_line_counts_its_net(mm, txt, cols, amount):
+    assert mm.unrestricted_mana(txt.lower()) == (cols, amount)
+
+
+def test_a_signet_is_still_an_accelerant(mm):
+    """gate/a colour-pair Signet is counted, not excluded
+
+    The regression this guards is the whole reason `costed_net` exists: the
+    most common rock in Commander silently stopped being a source.
+    """
+    scry = {"azorius signet": {"name": "Azorius Signet", "type_line": "Artifact",
+                               "cmc": 2.0, "oracle_text": SIGNET,
+                               "produced_mana": ["U", "W"]}}
+    [p] = mm.build_accel_profiles(["Azorius Signet"], scry)
+    assert p["restricted"] is False
+    assert p["colours"] == frozenset("WU")
+    assert p["amount"] == 1
+
+
+def test_an_odyssey_filter_land_is_a_source(mm):
+    """gate/Skycloud Expanse keeps its colours at its net amount
+
+    It is not in FILTER_LANDS -- that table is the Shadowmoor cycle -- so it
+    goes through the costed-line rule like any other land.
+    """
+    scry = {"skycloud expanse": {"name": "Skycloud Expanse", "type_line": "Land",
+                                 "oracle_text": SKYCLOUD,
+                                 "produced_mana": ["U", "W"]}}
+    [p] = mm.build_land_profiles(["Skycloud Expanse"], scry)
+    assert p["restricted"] is False
+    assert p["colours"] == frozenset("WU")
