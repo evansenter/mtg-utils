@@ -27,7 +27,14 @@ REFERENCE = os.path.join(REPO, "reference", "mana_model_v0.py")
 if REPO not in sys.path:
     sys.path.insert(0, REPO)
 
-DECKS = ("mono", "multi", "colourless", "partner")
+DECKS = ("mono", "multi", "colourless", "partner", "brawl")
+
+# Extra CLI arguments a particular fixture deck always needs. `brawl` is the
+# one deck here that is not Commander, and every subcommand accepts --format,
+# so it is passed for all of them rather than per command: run as Commander
+# the same file is a 60-card deck reported as 40 cards short, with a legality
+# column read off the wrong key.
+DECK_EXTRA = {"brawl": ("--format=standardbrawl",)}
 
 
 def pytest_addoption(parser):
@@ -208,5 +215,6 @@ def run_cli(mod, argv, tmpdir):
 
 
 def deck_args(deck, cmd, extra=()):
-    return [cmd, os.path.join(FIXTURES, f"{deck}.txt"),
-            f"--cache={os.path.join(FIXTURES, f'{deck}.scry.json')}"] + list(extra)
+    return ([cmd, os.path.join(FIXTURES, f"{deck}.txt"),
+             f"--cache={os.path.join(FIXTURES, f'{deck}.scry.json')}"]
+            + list(DECK_EXTRA.get(deck, ())) + list(extra))

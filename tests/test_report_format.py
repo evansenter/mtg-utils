@@ -216,7 +216,7 @@ def test_combos_groups_by_the_piece_in_the_deck(report, monkeypatch, capsys):
     A flat list of 41 entries hides the shape; grouping collapses it to
     "Bloom Tender and Faeburrow Elder, eight untappers each".
     """
-    def fake_spellbook(cmdr, entries):
+    def fake_spellbook(cmdr, entries, scry=None):
         return {
             "included": [{"uses": [{"card": {"name": "A"}}, {"card": {"name": "B"}}],
                           "produces": [{"feature": {"name": "Infinite mana"}}]}],

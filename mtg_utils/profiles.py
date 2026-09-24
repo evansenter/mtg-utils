@@ -6,6 +6,7 @@ a ritual, which produces mana on exactly one turn and never again.
 import re
 
 from mtg_utils.cards import (COLOURS, MANA_SYMBOLS, BASIC_TYPE_COLOUR, enters_tapped,
+                             enters_tapped_turn,
                              fetch_targets, front, has_land_back, is_front_land,
                              land_face, mana_amount)
 
@@ -23,6 +24,117 @@ OMNI_TYPE = {"urborg, tomb of yawgmoth": "B", "yavimaya, cradle of growth": "G"}
 # ============================================================ profiles
 RESTRICTED_MANA = "spend this mana only"
 
+# A board condition on the ability itself. The Verge cycle is the live
+# example, and the whole cycle is a Standard staple:
+#
+#   {T}: Add {B}.
+#   {T}: Add {R}. Activate only if you control a Swamp or a Mountain.
+#
+# Read as two free abilities, Blazemire Verge is an unconditional {B}{R} dual.
+# Training Compound ("Activate only if this land entered this turn or if you
+# control a basic land") is the same shape with a different condition.
+#
+# "only if" and not "only": a TIMING restriction -- "Activate only as a
+# sorcery", "Activate only during your turn" -- gates when the mana can be
+# made, not whether, and both models ask what mana is available on your own
+# turn. Dropping those would understate a land that is not conditional at all.
+ACTIVATION_GATE = re.compile(r"\bactivate\b[^.]*?\bonly if\b")
+
+# An activation cost that includes MANA, which is the other half of the same
+# problem:
+#
+#   {T}: Add {C}.
+#   {1}, {T}: Add one mana of any color.
+#
+# Hidden Grotto, Conduit Pylons and Crystal Grotto all read that way and were
+# scored as free five-colour sources with the {1} nowhere -- a land that turns
+# one generic into one coloured, counted as a land that makes a colour.
+#
+# {T} and {Q} are not mana and do not gate a line; a LIFE payment does not
+# either. Starting Town's "{T}, Pay 1 life: Add one mana of any color" stays
+# free, which is the same call this repo already makes for the shockland
+# conditional tap -- life is a cost the models do not price, consistently, in
+# both directions. KNOWN_ISSUES.md #21 has that decision.
+COSTED_ABILITY = re.compile(r"^[^:\n]*\{(?!t\}|q\})[^}]*\}[^:\n]*:")
+
+
+def free_mana_text(txt):
+    """`txt` with every line whose mana is NOT free taken out.
+
+    Scryfall puts one ability per line and every string attached to a mana
+    ability rides on the line of the ability it attaches to, so the filter is
+    per line and the three conditions are one rule with three spellings:
+
+        spend this mana only ...   the mana buys only certain spells
+        Activate only if ...       the ability needs a board state
+        {1}, {T}: Add ...          the ability costs mana to use
+
+    What remains is exactly the mana that pays for anything, at no cost but
+    the tap. Returns the text UNCHANGED when nothing is dropped, which is how
+    callers tell there was nothing to drop.
+    """
+    keep = []
+    for line in (txt or "").split("\n"):
+        if RESTRICTED_MANA in line:
+            continue
+        if ACTIVATION_GATE.search(line):
+            continue
+        if COSTED_ABILITY.match(line):
+            continue
+        keep.append(line)
+    return "\n".join(keep)
+
+
+def costed_net(line):
+    """(colours, net mana) for a mana ability that COSTS mana, or None.
+
+    Dropping every costed line outright was the first version of this, and it
+    was wrong in a way no fixture could show: the Signet cycle's ONLY mana
+    ability is `{1}, {T}: Add {W}{U}`, so every colour-pair Signet came back
+    with no free line at all, was flagged restricted and fell out of the
+    accelerant count entirely. Odyssey's filter lands (Skycloud Expanse) read
+    the same way. None of the five fixtures runs one -- Arcane Signet costs
+    nothing to activate -- so the suite stayed green while the most common
+    rock in Commander stopped being counted.
+
+    So a costed line is priced at its NET: what it adds, less the mana it
+    costs. Hidden Grotto's `{1}, {T}: Add one mana of any color` nets zero and
+    is still dropped -- it converts a mana, it does not make one, which is the
+    FR-1 finding. A Signet nets one, of its two colours: still less than the
+    two it was credited on `main`, and exactly the extra mana it really adds.
+
+    What this does NOT model, and says so: the Signet's colours are credited
+    as if the mana spent to activate it came from nowhere in particular. With
+    a Mountain and an Azorius Signet you can make {R} or {W}{U}, never {R}{W};
+    the model allows the latter. That is the same shape as a filter land, which
+    this repo models properly only for the ten names in FILTER_LANDS, and it is
+    recorded in KNOWN_ISSUES #21 rather than papered over.
+
+    {X} in the cost, or a produced amount that cannot be read, returns None --
+    the line is dropped, which is the conservative reading.
+    """
+    if ":" not in line:
+        return None
+    cost, effect = line.split(":", 1)
+    cost_syms = [s for s in re.findall(r"\{([^}]*)\}", cost) if s not in ("t", "q")]
+    if not cost_syms or "add" not in effect:
+        return None
+    paid = 0
+    for sym in cost_syms:
+        if sym == "x":
+            return None
+        paid += int(sym) if sym.isdigit() else 1
+    m = re.search(r"\badd ([^.;\n]*)", effect)
+    if not m:
+        return None
+    clause = m.group(1)
+    made = mana_amount("add " + clause)
+    cols = {c.upper() for c in re.findall(r"\{([wubrgc])\}", clause)}
+    if "any color" in clause:
+        cols |= set(COLOURS)
+    net = made - paid
+    return (cols, net) if net >= 1 and cols else None
+
 
 def unrestricted_mana(txt):
     """(colours, amount) a land offers with NO strings attached.
@@ -39,10 +151,15 @@ def unrestricted_mana(txt):
     creature type, and counting it as free colour made a mono-red deck look
     like it had five.
 
+    A board condition and a mana cost on the ability are dropped the same way
+    and for the same reason -- see free_mana_text. Blazemire Verge is a {B}
+    source, not a {B}{R} one, and Hidden Grotto is a {C} source, not a
+    five-colour one.
+
     Returns (set(), 0) when every ability is restricted, which flags the card
     for exclusion the same way build_accel_profiles flags a restricted rock.
     """
-    free = "\n".join(l for l in txt.split("\n") if RESTRICTED_MANA not in l)
+    free = free_mana_text(txt)
     cols, amount = set(), 0
     for match in re.finditer(r"add ([^.;\n]*)", free):
         clause = match.group(1)
@@ -50,7 +167,20 @@ def unrestricted_mana(txt):
         if "any color" in clause:
             cols |= set(COLOURS)
         amount = max(amount, 1)
-    return cols, (mana_amount(free) if amount else 0)
+    amount = mana_amount(free) if amount else 0
+    # A costed line comes back at its NET, and only when that is positive --
+    # see costed_net. A gated or spend-restricted costed line is still
+    # dropped: those two conditions are checked first, on the whole line.
+    for line in (txt or "").split("\n"):
+        if RESTRICTED_MANA in line or ACTIVATION_GATE.search(line):
+            continue
+        if not COSTED_ABILITY.match(line):
+            continue
+        got = costed_net(line)
+        if got:
+            cols |= got[0]
+            amount = max(amount, got[1])
+    return cols, amount
 
 
 def drop_restricted(txt, pm, amount):
@@ -90,7 +220,11 @@ def drop_restricted(txt, pm, amount):
     break.
     """
     pm = {x for x in pm if x in MANA_SYMBOLS}
-    if RESTRICTED_MANA not in txt:
+    # Nothing to drop: not merely "no `spend this mana only`" but no gated and
+    # no costed line either. Written as a comparison against the filter rather
+    # than as three substring tests, so a fourth condition added to
+    # free_mana_text cannot be honoured by one caller and missed by this one.
+    if free_mana_text(txt) == txt:
         return pm, amount, False
     free_cols, free_amount = unrestricted_mana(txt)
     if not free_amount:
@@ -147,7 +281,7 @@ def build_land_profiles(deck_names, scry):
                     tl = lf2.get("type_line", "").lower()
                     if any(t in tl for t, col in BASIC_TYPE_COLOUR.items() if col in ft):
                         pm.update(x for x in (lf2.get("produced_mana") or []) if x in COLOURS)
-        tapped, cond = enters_tapped(lf, c)
+        tapped, cond, tapped_from = enters_tapped_turn(lf, c)
         amount = 1 if kind in ("filter", "fetch") else mana_amount(txt)
         restricted = False
         # "Spend this mana only to cast..." is not mana for a generic total,
@@ -163,6 +297,10 @@ def build_land_profiles(deck_names, scry):
             "filter": FILTER_LANDS.get(name),
             "tapped": False if kind == "fetch" else tapped,
             "cond_tap": cond,
+            # None on every land that is not turn-conditional, which is every
+            # land in four of the five fixtures -- both models read it through
+            # `tapped_at`, which answers `tapped` unchanged when it is None.
+            "tapped_from": None if kind == "fetch" else tapped_from,
             "amount": amount,
             "omni": OMNI_TYPE.get(name),
             "restricted": restricted,

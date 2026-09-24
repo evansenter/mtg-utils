@@ -243,3 +243,83 @@ def test_diff_commander_change_flagged(mm):
     """diff/commander change flagged"""
     ol, ov, cc = mm.diff_multiset("A", Counter({"X": 1}), ["B"], Counter({"X": 1}))
     assert cc == (["A"], ["B"])
+
+
+# --- diff_multiset: front faces ----------------------------------------
+# Measured against a live Moxfield deck that was byte-for-byte the delivered
+# list. All four reported "differences" were the same three cards written two
+# ways -- Moxfield returns the full `A // B` form, the file carries the front
+# face -- and `diff` is the step the output contract names as the confirmation
+# before anything is built on a change. A confirmation that cries wolf on
+# every DFC list is one the reader learns to skim.
+DFC = "Esper Origins // Summon: Esper Maduin"
+ADVENTURE = "Ishgard, the Holy See // Faith & Grief"
+
+
+def test_diff_a_dfc_written_two_ways_is_not_a_difference(mm):
+    """diff/DFC spelled two ways is one card"""
+    ol, ov, cc = mm.diff_multiset(
+        "A", Counter({"Esper Origins": 1, "Island": 9}),
+        ["A"], Counter({DFC: 1, "Island": 9}))
+    assert (ol, ov, cc) == ([], [], None)
+
+
+def test_diff_an_adventure_written_two_ways_is_not_a_difference(mm):
+    """diff/adventure spelled two ways is one card"""
+    ol, ov, cc = mm.diff_multiset(
+        "A", Counter({"Ishgard, the Holy See": 1}),
+        ["A"], Counter({ADVENTURE: 1}))
+    assert (ol, ov, cc) == ([], [], None)
+
+
+def test_diff_a_dfc_commander_written_two_ways_is_not_a_change(mm):
+    """diff/DFC commander spelled two ways is the same commander
+
+    The commander is the one row a reader cannot dismiss: `COMMANDER DIFFERS`
+    on a deck whose commander did not change reads as a delta applied to the
+    wrong list.
+    """
+    ol, ov, cc = mm.diff_multiset(
+        "Terra, Magical Adept", Counter({"Island": 1}),
+        ["Terra, Magical Adept // Esper Terra"], Counter({"Island": 1}))
+    assert cc is None
+
+
+def test_diff_still_reports_a_real_difference_under_a_dfc_name(mm):
+    """diff/a real difference survives front-facing
+
+    The normalisation must not swallow differences as well as spellings: this
+    is the same shape as the case above, one copy short on the live side.
+    """
+    ol, ov, cc = mm.diff_multiset(
+        "A", Counter({"Esper Origins": 2}),
+        ["A"], Counter({DFC: 1}))
+    assert (ol, ov) == ([("Esper Origins", 1)], [])
+
+
+def test_diff_reports_each_sides_own_spelling(mm):
+    """diff/rows print the fullest spelling of the side they came from
+
+    A row names a card the reader will look up -- in their file, or on
+    Moxfield -- so it has to be written the way that side writes it.
+    """
+    ol, ov, cc = mm.diff_multiset(
+        "A", Counter({"Ishgard, the Holy See": 1}),
+        ["A"], Counter({DFC: 1}))
+    assert ol == [("Ishgard, the Holy See", 1)]
+    assert ov == [(DFC, 1)]
+
+
+def test_diff_a_list_holding_both_spellings_prints_the_full_one(mm):
+    """diff/both spellings on one side collapse under the full name
+
+    A list really can carry the same card under both spellings -- a hand-added
+    line beside one `write` emitted -- and that is two copies of one card, not
+    two cards. The row has to say so under a name the reader can search for,
+    and the front face is a PREFIX of the full name, so taking whichever was
+    seen first takes the short one every time. That is the exact spelling
+    their file does not hold.
+    """
+    ol, ov, cc = mm.diff_multiset(
+        "A", Counter({"Esper Origins": 1, DFC: 1}), ["A"], Counter())
+    assert ol == [(DFC, 2)]

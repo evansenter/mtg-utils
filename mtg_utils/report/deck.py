@@ -12,15 +12,19 @@ import time
 from collections import defaultdict
 from mtg_utils.analysis import (CURVE_TOP, deck_skeleton, floor_audit,
                                 primer_audit)
+from mtg_utils.cards import front_name
 from mtg_utils.decklist import as_cmdrs, flat
+from mtg_utils.formats import says_illegal
+from mtg_utils.formats import spec as format_spec
 from mtg_utils.primer import parse_primer_links
 from mtg_utils.roster import ANY_COLOUR, PAIR_CYCLES, TRIPLE_CYCLES, WUBRG, identity_pairs, roster_names, roster_status
 from mtg_utils.sources.collection import load_collection
 from mtg_utils.sources.edhrec import PAGE_CAP
 from mtg_utils.sources.edhtop16 import MIN_ENTRIES
-from mtg_utils.sources.ranking import SOURCE_LABEL, fetch_ranking
+from mtg_utils.sources.ranking import (SOURCE_LABEL, fetch_ranking,
+                                        population_mismatch)
 from mtg_utils.sources.scryfall import scry_fetch
-from mtg_utils.sources.spellbook import spellbook
+from mtg_utils.sources.spellbook import spellbook, variant_says_illegal
 
 # Floor rows are NOT truncated, and the name column is sized to the run.
 #
@@ -79,26 +83,101 @@ def report_skeleton(cmdr, entries, scry):
     return s
 
 
-def report_roster(cmdr, entries, scry, cache_path=None):
+def _say_empty(fmt):
+    """A roster section the format filter emptied, said out loud.
+
+    A heading with nothing under it reads as a section with every slot
+    already filled, which is the opposite of what it means here. Printed only
+    where the FORMAT emptied the section -- several of these headings can be
+    legitimately empty (a two-colour identity has no off-pair fetch to reach)
+    and that case is in the committed snapshots.
+    """
+    print(f"  (nothing here is legal in {format_spec(fmt)['label']})")
+
+
+def report_roster(cmdr, entries, scry, cache_path=None, fmt=None, colours=None):
+    """Walk every roster slot for the colours this deck actually plays.
+
+    Two things were wrong on a non-Commander list, and they compound.
+
+    The walk went over the COMMANDER'S COLOUR IDENTITY, which on a five-colour
+    commander is the whole roster -- forty rows of duals, fetchlands and
+    pathways for a deck built in three colours. Those are not empty slots, they
+    are noise, and `--colours` says which colours the build actually uses. It
+    is a Commander problem too, on any partner or five-colour commander whose
+    build is narrower than its identity.
+
+    And nothing filtered on FORMAT. Essentially none of this roster is legal in
+    Standard Brawl, so the whole table was a shopping list of cards that cannot
+    be registered. The walk already asserts every name against Scryfall at
+    report time, so it is holding the card object and the legality with it.
+
+    Both default to what they did before: the commander's identity, and no
+    format filter beyond Commander's own, under which nothing here is dropped.
+    """
     ci = set()
     for cn in as_cmdrs(cmdr):
         if scry.get(cn.lower()):
             ci |= set(scry[cn.lower()]["color_identity"])
     ident = "".join(c for c in WUBRG if c in ci)
+    walk = ident
+    if colours:
+        # Every character has to BE a colour. Dropping the rest quietly turned
+        # a typo (`--colours BRX`) into a narrower walk and `--colours C` into
+        # an empty one that printed `ROSTER WALK: ... ()` -- a walk of nothing
+        # that looks like a result. Refused by name, as widening is below.
+        bad = sorted({c for c in colours.upper() if c not in WUBRG})
+        if bad:
+            raise SystemExit(
+                f"--colours {colours}: {''.join(bad)} is not a colour. Use "
+                f"the letters W, U, B, R and G, e.g. --colours BRG.")
+        want = set(colours.upper())
+        # Refused rather than silently widened. A roster row outside the
+        # commander's identity is ILLEGAL in the deck, and printing it under a
+        # flag the caller typed would read as a slot they could fill.
+        extra = "".join(c for c in WUBRG if c in want - set(ident))
+        if extra:
+            raise SystemExit(
+                f"--colours {colours}: {extra} is outside the commander's "
+                f"identity ({ident or 'C'}), so every row it adds would be "
+                f"illegal in this deck. The flag narrows the walk; it cannot "
+                f"widen it.")
+        walk = "".join(c for c in WUBRG if c in want)
     deck_names = {n.lower() for n in entries} | {c.lower() for c in as_cmdrs(cmdr)}
     owned = load_collection()
-    names = roster_names(ident)
+    names = roster_names(walk)
     scry2, nf = scry_fetch(names, cache_path)
     scry2.update(scry)
 
-    print(f"\n=== ROSTER WALK: {' + '.join(as_cmdrs(cmdr))} ({ident}) ===")
+    print(f"\n=== ROSTER WALK: {' + '.join(as_cmdrs(cmdr))} ({walk}) ===")
+    if walk != ident:
+        print(f"  walking {walk}, not the commander's identity "
+              f"{ident or 'C'} -- --colours narrowed it.")
     if nf:
         print(f"  *** ROSTER NAME NOT ON SCRYFALL: {nf} ***")
     bad = [n for n in names
            if scry2.get(n.lower())
-           and set(scry2[n.lower()]["color_identity"]) - set(ident)]
+           and set(scry2[n.lower()]["color_identity"]) - set(walk)]
     if bad:
         print(f"  *** OFF-IDENTITY, ILLEGAL HERE: {bad} ***")
+
+    def legal(n):
+        """Should this roster name be walked in the format being walked?
+
+        A name the cache has never seen -- or whose record carries no
+        `legalities` block -- is WALKED rather than dropped: it has already
+        been reported as NOT ON SCRYFALL above, and silently removing it as
+        well would turn one loud failure into a row that simply is not there.
+        Silence is not evidence; see formats.says_illegal.
+        """
+        return not says_illegal(scry2.get(n.lower()), fmt)
+
+    illegal = [n for n in names if not legal(n)]
+    if illegal:
+        # Said ONCE, with a count, rather than as forty rows the reader has to
+        # recognise as unbuyable one at a time.
+        print(f"  {len(illegal)} of {len(names)} roster names are not legal in "
+              f"{format_spec(fmt)['label']} and are not walked.")
 
     def price(n):
         c = scry2.get(n.lower()) or {}
@@ -106,23 +185,28 @@ def report_roster(cmdr, entries, scry, cache_path=None):
         return f"${p}" if p else "-"
 
     empty = []
-    if not identity_pairs(ident):
+    if not identity_pairs(walk):
         # Section 6: in a mono-colour identity the two-colour cycles are
         # ILLEGAL, not merely unnecessary (Sunbaked Canyon is RW, every filter
         # land is two-colour). Say so; do not silently omit the rows.
         print(f"  {len(PAIR_CYCLES)} two-colour cycles "
               f"({', '.join(s for s, _ in PAIR_CYCLES)}) are off-identity "
-              f"and ILLEGAL in {ident} -- no pair rows to walk.")
+              f"and ILLEGAL in {walk} -- no pair rows to walk.")
         print("  Fetchlands and any-colour painlands are legal here and "
               "strictly worse than a basic without shuffle payoffs: "
               "walked and skipped.")
-    for pk in identity_pairs(ident):
+    for pk in identity_pairs(walk):
         print(f"\n  --- {pk} ---")
+        rows = 0
         for slot, table in PAIR_CYCLES:
             name = table.get(pk)
             if not name:
                 print(f"  {slot:18s} {'(no such card)':30s}")
+                rows += 1
                 continue
+            if not legal(name):
+                continue
+            rows += 1
             st = roster_status(name, deck_names, owned)
             extra = "" if st == "IN" else f"   {price(name)}"
             print(f"  {slot:18s} {name:30s} {st}{extra}")
@@ -130,26 +214,49 @@ def report_roster(cmdr, entries, scry, cache_path=None):
                                        "Filter land", "Painland",
                                        "Battlebond land", "Horizon land"):
                 empty.append((pk, slot, name, st))
+        if not rows:
+            _say_empty(fmt)
 
     print("\n  --- off-pair fetchlands (reach one colour of the identity) ---")
+    off_pair = 0
     for pk, name in PAIR_CYCLES[2][1].items():
-        if set(pk) & set(ident) and not set(pk) <= set(ident):
+        if (set(pk) & set(walk) and not set(pk) <= set(walk)
+                and legal(name)):
+            off_pair += 1
             st = roster_status(name, deck_names, owned)
             print(f"  {pk:18s} {name:30s} {st}"
                   + ("" if st == "IN" else f"   {price(name)}"))
+    # Only when the FORMAT emptied it. This heading can be legitimately empty
+    # -- a two-colour identity has no off-pair fetch to reach -- and that
+    # case is in the committed snapshots, so a note printed unconditionally
+    # would move four decks' bytes to say nothing new about them.
+    if illegal and not off_pair:
+        _say_empty(fmt)
 
-    if ident in TRIPLE_CYCLES:
+    if walk in TRIPLE_CYCLES:
         print("\n  --- three-colour (tapped; only if the rider is real) ---")
-        for name in TRIPLE_CYCLES[ident]:
+        triples = 0
+        for name in TRIPLE_CYCLES[walk]:
+            if not legal(name):
+                continue
+            triples += 1
             st = roster_status(name, deck_names, owned)
             print(f"  {'Triome/tri-land':18s} {name:30s} {st}"
                   + ("" if st == "IN" else f"   {price(name)}"))
+        if not triples:
+            _say_empty(fmt)
 
     print("\n  --- identity-independent ---")
+    any_colour = 0
     for slot, name in ANY_COLOUR:
+        if not legal(name):
+            continue
+        any_colour += 1
         st = roster_status(name, deck_names, owned)
         print(f"  {slot:18s} {name:30s} {st}"
               + ("" if st == "IN" else f"   {price(name)}"))
+    if illegal and not any_colour:
+        _say_empty(fmt)
 
     print(f"\n  PREMIUM SLOTS NOT IN THE LIST: {len(empty)}")
     for pk, slot, name, st in empty:
@@ -158,12 +265,37 @@ def report_roster(cmdr, entries, scry, cache_path=None):
     return empty
 
 
-def report_combos(cmdr, entries):
-    res = spellbook(cmdr, entries)
-    inc = res.get("included", [])
-    almost = res.get("almostIncluded", [])
-    deck = set(n.lower() for n in flat(cmdr, entries))
+def report_combos(cmdr, entries, scry=None, fmt=None):
+    """The full-deck combo audit. NETWORK.
+
+    `scry` is the decklist's Scryfall cache, and it is what lets the names
+    sent match: Spellbook resolves a double-faced card by its FULL `A // B`
+    name and silently drops a front face. See spellbook_name -- the failure
+    mode is an in-deck combo reported as one card away from the commander.
+    Optional, so a caller without a cache still gets what it got before.
+
+    `fmt` drops the suggestions that cannot be registered in it. The payload
+    carries no format, so `almostIncluded` comes back Commander-legal whatever
+    deck was sent -- low harm, because this is a candidate generator whose
+    every row needs hand-verification, but a wasted read all the same. The
+    count dropped is printed rather than the list quietly shortened.
+    """
+    res = spellbook(cmdr, entries, scry)
+    inc = [v for v in res.get("included", [])
+           if not variant_says_illegal(v, fmt)]
+    almost = [v for v in res.get("almostIncluded", [])
+              if not variant_says_illegal(v, fmt)]
+    dropped = ((len(res.get("included", [])) - len(inc))
+               + (len(res.get("almostIncluded", [])) - len(almost)))
+    # Front faces on BOTH sides, like every other cross-source comparison
+    # here. Spellbook answers in full names, a decklist may hold either, and
+    # compared verbatim a DFC already in the list files under `miss` -- which
+    # renders as "one card away" from a card the reader is holding.
+    deck = set(front_name(n).lower() for n in flat(cmdr, entries))
     print(f"\n=== COMMANDER SPELLBOOK ({time.strftime('%Y-%m-%d')}) ===")
+    if dropped:
+        print(f"  {dropped} combo{'' if dropped == 1 else 's'} not legal in "
+              f"{format_spec(fmt)['label']}, dropped.")
     print(f"  in-deck combos: {len(inc)}")
     for v in inc:
         print("   *", " + ".join(u["card"]["name"] for u in v.get("uses", [])),
@@ -173,8 +305,8 @@ def report_combos(cmdr, entries):
     for v in almost:
         us = [u["card"]["name"] for u in v.get("uses", [])]
         tmpl = [t["template"]["name"] for t in v.get("requires", [])]
-        have = [u for u in us if u.lower() in deck]
-        miss = [u for u in us if u.lower() not in deck]
+        have = [u for u in us if front_name(u).lower() in deck]
+        miss = [u for u in us if front_name(u).lower() not in deck]
         for h in have:
             grp[h].append((miss, len(us) + len(tmpl)))
     print("  grouped by the piece already in the deck:")
@@ -314,7 +446,7 @@ def _floor_unranked_rows(rows, width):
 
 
 def report_floor(cmdr, entries, scry, rec_cache=None, cedh=False,
-                 threshold=50.0, sort="inclusion"):
+                 threshold=50.0, sort="inclusion", fmt=None):
     """The inverse of `ceiling`: what is IN the list and the population is not.
 
     NETWORK unless `rec_cache` already holds the page, exactly as `ceiling`
@@ -336,6 +468,14 @@ def report_floor(cmdr, entries, scry, rec_cache=None, cedh=False,
     """
     rank = fetch_ranking(as_cmdrs(cmdr), rec_cache, cedh)
     print(f"\n=== FLOOR vs {SOURCE_LABEL[rank['source']]}: {rank['label']} ===")
+    # The caveat, and NOT a legality filter. Every card `floor` ranks is
+    # already in the list, so there is nothing here to drop -- `verify` is
+    # what says whether the list is legal. What the format changes here is
+    # what the figures MEAN: a card's inclusion among Commander decks is
+    # weak evidence about whether to cut it from a Standard Brawl one, and
+    # this command exists to price a cut.
+    for line in population_mismatch(rank["source"], fmt):
+        print(line)
     if rank["source"] == "edhtop16":
         # The entry count sits beside every percentage, never behind it, for
         # the same reason it does in `ceiling`: at four entries every card is

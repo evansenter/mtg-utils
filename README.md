@@ -41,6 +41,19 @@ the play and on the draw separately**, because in a four-player game you are on
 the draw three turns in four and quoting only the on-the-play figure understates
 by roughly ten points.
 
+**That weighting is a fact about the TABLE, not about the deck.** In a 1v1
+format — Brawl, Standard Brawl — you are on the draw one game in two, so a
+summary that leans three-to-one on the on-the-draw column is wrong by half.
+Both printed columns are correct in every format; only the weighting moves.
+`mana` says which table it is assuming whenever `--format` names a
+two-player one.
+
+The horizon is seven turns, which is where a Commander game is decided and
+where every table here stops. It is a **hard edge**, not a budget: a line
+landing past it is dropped rather than measured coarsely, so it becomes a row
+that is simply not in the table. `--turns` moves it, and the report names a
+non-default horizon rather than leaving a shortened table looking complete.
+
 Anywhere a spell's mana value is close to the turn number — most obviously the
 commander's own cast — the sources model understates badly. Use it for pip
 questions on cheap spells. **Say which model produced any number you quote.**

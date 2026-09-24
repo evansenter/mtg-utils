@@ -6,14 +6,18 @@ import time
 
 from mtg_utils import __doc__ as _BANNER
 from mtg_utils.analysis import verify
+from mtg_utils.castability import PLAYSIM_MAX_TURNS, PLAYSIM_TURNS
 from mtg_utils.decklist import (as_cmdrs, flat, parse_swaps, read_decklist,
-                                split_names, write_deck)
-from mtg_utils.report import (report_calibrate, report_combos, report_contention,
+                                split_names, write_arena_deck, write_deck)
+from mtg_utils.formats import DEFAULT_FORMAT, FORMATS, deck_size, spec
+from mtg_utils.report import (report_arena_wildcards, report_calibrate,
+                              report_combos, report_contention,
                               report_ceiling, report_diff, report_floor,
                               report_mana,
                               report_own, report_primer, report_roster,
                               report_skeleton,
                               report_swap, report_variants)
+from mtg_utils.sources.arena import arena_printings
 from mtg_utils.sources.moxfield import moxfield_deck
 from mtg_utils.sources.scryfall import scry_fetch
 
@@ -83,6 +87,9 @@ def main():
                     help="write: card names the output must NOT contain; same "
                          "separator rule as --adds, and note that a mis-split "
                          "cut PASSES vacuously, so use ';' when in doubt")
+    ap.add_argument("--arena-cache", default="arena.json",
+                    help="write --arena: on-disk cache of Arena printings, "
+                         "one Scryfall search per card on a miss")
     ap.add_argument("--rec-cache", default="edhrec.json",
                     help="ceiling/floor: on-disk cache for EDHREC / edhtop16 pages")
     ap.add_argument("--cedh", action="store_true",
@@ -103,13 +110,51 @@ def main():
     ap.add_argument("--swap", default="",
                     help="variants: measure named swaps, 'Cut->Add,Cut2->Add2' "
                          "(use ';' between pairs if a name contains a comma)")
+    # The format is what the 100-card assumption used to be, said out loud:
+    # deck size, which Scryfall legality key to read, and how many players are
+    # at the table. Default `commander`, so every existing invocation means
+    # exactly what it meant.
+    ap.add_argument("--format", default=DEFAULT_FORMAT, dest="fmt",
+                    choices=sorted(FORMATS),
+                    help="deck format: sets the expected deck size, the "
+                         "legality key checked, and the table size the "
+                         "play/draw framing assumes")
+    ap.add_argument("--arena", action="store_true",
+                    help="own: report wildcard cost by rarity instead of a "
+                         "paper buy list; write: emit an Arena import block")
+    ap.add_argument("--turns", type=int, default=PLAYSIM_TURNS,
+                    help=f"mana: how far the play simulation runs "
+                         f"(default {PLAYSIM_TURNS}, at most "
+                         f"{PLAYSIM_MAX_TURNS}); a line landing later is not "
+                         f"measured")
+    # One spelling, no alias. argparse renders an aliased option differently
+    # on 3.13 ("--colours, --colors COLOURS") than on 3.11 and 3.12
+    # ("--colours COLOURS, --colors COLOURS"), and `--help` is one snapshot
+    # checked on all three -- an alias makes it unsatisfiable. No other flag
+    # here has one, which is why nothing tripped on it before.
+    ap.add_argument("--colours", default="", dest="colours",
+                    help="roster: walk these colours instead of the "
+                         "commander's whole identity, e.g. --colours BRG; "
+                         "narrows only, never widens")
+    ap.add_argument("--size", type=int, default=None,
+                    help="verify/write: expected total cards including "
+                         "commanders; defaults to the --format's size")
     a = ap.parse_args()
+    # Checked here, before anything prints: under `audit` the verify block
+    # runs first, and a horizon the simulation cannot hold would otherwise
+    # fail after output that reads like a normal run.
+    if not 1 <= a.turns <= PLAYSIM_MAX_TURNS:
+        ap.error(f"--turns must be between 1 and {PLAYSIM_MAX_TURNS}, got "
+                 f"{a.turns} -- the play simulation packs each hand into "
+                 f"six-bit fields and cannot run further")
+    size = a.size if a.size is not None else deck_size(a.fmt)
+    label = spec(a.fmt)["label"]
 
     if a.cmd == "selftest":
         sys.exit(selftest())
     if a.cmd == "calibrate":
         report_calibrate([x for x in a.decks.split(",") if x],
-                         a.cache, a.sims, a.trials, user=a.target)
+                         a.cache, a.sims, a.trials, user=a.target, fmt=a.fmt)
         return
     if not a.target:
         ap.error(f"`{a.cmd}` needs a target")
@@ -151,7 +196,7 @@ def main():
         print("SCRYFALL NOT FOUND (front-face names only!):", nf)
 
     if a.cmd in ("verify", "audit"):
-        v = verify(cmdr, entries, scry)
+        v = verify(cmdr, entries, scry, a.fmt)
         # The commander count is len(cmdrs), not 1. A partner or background
         # pair is TWO, and verify() has always counted both in `total` -- only
         # this sentence claimed otherwise, so the printed arithmetic came out
@@ -167,10 +212,15 @@ def main():
               f"{v['game_changers']}")
         print(f"  illegal: {v['illegal'] or 'none'}")
         print(f"  colour identity violations: {v['ci_violations'] or 'none'}")
-        if v["total"] != 100:
-            print(f"  *** DECK IS {v['total']} CARDS, COMMANDER IS 100 ***")
+        # The format's size, not a constant. Everything else in this block
+        # was already right on a 60-card list -- only the warning was wrong,
+        # and a wrong warning makes a correct deck look broken.
+        if v["total"] != size:
+            print(f"  *** DECK IS {v['total']} CARDS, {label.upper()} IS "
+                  f"{size} ***")
     if a.cmd in ("mana", "audit"):
-        report_mana(cmdr, entries, scry, a.sims, a.trials, a.seed, reps=a.reps)
+        report_mana(cmdr, entries, scry, a.sims, a.trials, a.seed,
+                    reps=a.reps, turns=a.turns, fmt=a.fmt)
     if a.cmd == "skeleton":
         report_skeleton(cmdr, entries, scry)
     if a.cmd == "primer":
@@ -183,13 +233,14 @@ def main():
                                     a.cache)["ok"] else 2)
     if a.cmd == "ceiling":
         report_ceiling(cmdr, entries, scry, a.cache, a.rec_cache, a.cedh,
-                       a.bar, a.sort, not a.no_combos, a.target)
+                       a.bar, a.sort, not a.no_combos, a.target, a.fmt)
     if a.cmd == "floor":
         # No --cache here, unlike `ceiling`: every card floor ranks is in the
         # decklist, so the fetch above already has its type line.
-        report_floor(cmdr, entries, scry, a.rec_cache, a.cedh, a.bar, a.sort)
+        report_floor(cmdr, entries, scry, a.rec_cache, a.cedh, a.bar, a.sort,
+                     a.fmt)
     if a.cmd in ("roster", "audit"):
-        report_roster(cmdr, entries, scry, a.cache)
+        report_roster(cmdr, entries, scry, a.cache, a.fmt, a.colours)
     if a.cmd == "variants":
         if swaps:
             report_swap(cmdr, entries, scry, swaps, a.sims, a.trials,
@@ -200,11 +251,35 @@ def main():
                             [int(x) for x in a.accel.split(",")], a.trials,
                             a.seed, a.reps)
     if a.cmd in ("combos", "audit"):
-        report_combos(cmdr, entries)
+        # The cache is passed so the names sent to Spellbook are the full
+        # `A // B` form it matches on -- see spellbook_name.
+        report_combos(cmdr, entries, scry, a.fmt)
     if a.cmd in ("own", "audit"):
-        report_own(cmdr, entries, scry)
+        # Two printers, one subcommand: `own` prices what is missing against a
+        # paper collection, `own --arena` counts what the list costs in
+        # wildcards. Neither answers the other's question.
+        if a.arena:
+            report_arena_wildcards(cmdr, entries, scry)
+        else:
+            report_own(cmdr, entries, scry)
     if a.cmd == "contention":
-        report_contention(cmdr, entries, [x for x in a.decks.split(",") if x])
+        report_contention(cmdr, entries, [x for x in a.decks.split(",") if x],
+                          a.arena)
     if a.cmd == "write":
-        write_deck(cmdr, entries, a.out or "final_deck.txt",
-                   split_names(a.adds), split_names(a.cuts))
+        if a.arena:
+            # NETWORK on a cache miss: one search per distinct card. The
+            # misses are reported BEFORE the write is attempted, so a list
+            # with an unavailable card says which card rather than failing on
+            # the first line that has no printing.
+            prints, missing = arena_printings(flat(cmdr, entries), a.fmt,
+                                              a.arena_cache)
+            if missing:
+                print(f"  NO IMPORTABLE ARENA PRINTING ({len(missing)}): "
+                      f"{', '.join(missing)}")
+            write_arena_deck(cmdr, entries, a.out or "final_deck_arena.txt",
+                             prints, split_names(a.adds), split_names(a.cuts),
+                             size=size, fmt=a.fmt)
+        else:
+            write_deck(cmdr, entries, a.out or "final_deck.txt",
+                       split_names(a.adds), split_names(a.cuts),
+                       size=size, fmt=a.fmt)

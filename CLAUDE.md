@@ -11,7 +11,7 @@ document someone acted on. A refactor that shifts a probability by half a point
 is worse than no refactor, because the number still looks plausible. The golden
 suite exists to make that impossible by accident:
 `tests/test_golden.py` runs `verify`, `mana`, `roster`, `skeleton`, `variants`
-and `--help` over **four** frozen decks and asserts stdout is byte-identical to
+and `--help` over **five** frozen decks and asserts stdout is byte-identical to
 committed snapshots in `tests/fixtures/expected/`. `variants` is snapshotted at
 `--trials=2000` rather than the default, because it sweeps six configurations and
 at full budget would cost the suite more than everything else in it together.
@@ -33,13 +33,19 @@ the behaviour was examined and deliberately kept, with the reasoning written
 down; changed meaning a reported number was moved on purpose, with what moved
 written down beside it. Nothing in it is currently outstanding.
 
+#21 and #22 are the newest, and both came out of the first run of this
+toolchain on a deck it had never seen — a 60-card Standard Brawl list. #21
+moved numbers on three fixtures and supersedes one row of #13; #22 is what that
+same run deliberately did NOT change.
+
 Its job did not end when the list emptied. It exists because "a finding that
 lives only in scrollback is a finding that gets rediscovered", so when you
 decide NOT to do something, record it there rather than in a commit message
 nobody greps. #13 (conditional accelerants), #14 (no mulligan model), #18
 (where the Monte Carlo optimisation stops, and the faster ideas that were
-measured and rejected) and #20 (what `floor` can and cannot say about a card
-the ranking page never ranked) are all that shape: deliberate limitations,
+measured and rejected), #20 (what `floor` can and cannot say about a card
+the ranking page never ranked) and #22 (what the format-awareness pass
+deliberately left alone) are all that shape: deliberate limitations,
 priced and kept.
 
 Do not quietly "fix" a resolved entry while doing something else — several are
@@ -78,10 +84,27 @@ python3 mana_model.py skeleton deck.txt --cache scry.json
 python3 mana_model.py ceiling deck.txt --bar 65      # network; --cedh for edhtop16
 python3 mana_model.py floor deck.txt --bar 50        # network; ceiling's inverse
 python3 -m mtg_utils --help              # equivalent entry point
+
+# not Commander
+python3 mana_model.py verify deck.txt --format standardbrawl   # 60, not 100
+python3 mana_model.py roster deck.txt --format standardbrawl --colours BRG
+python3 mana_model.py own deck.txt --arena                     # wildcards
+python3 mana_model.py write deck.txt --arena --out arena.txt   # network
 ```
 
-`ceiling`, `floor` and `calibrate` are the network subcommands. Everything else
-runs off the Scryfall cache.
+`--format` is the one flag that changes what a check MEANS rather than what it
+measures: deck size, the Scryfall legality key, and the table size the
+play/draw framing assumes. It defaults to `commander`, so every invocation
+that predates it means exactly what it meant. `mtg_utils/formats.py` is the
+whole table, three entries, each with its key checked against a live record --
+Scryfall spells historic Brawl `brawl` and the 60-card format `standardbrawl`,
+there is no `historicbrawl` key at all, and a guessed key reads as "every card
+is illegal" rather than as a mistake. Commander Spellbook spells the same
+formats differently again, so each entry carries a second key for it.
+
+`ceiling`, `floor`, `calibrate`, `combos`, `contention`, `diff`, `moxfield`
+and `write --arena` are the network subcommands; `roster` and `primer` also go
+out on a Scryfall cache miss. Everything else runs off the Scryfall cache.
 
 `argparse` reads a leading-minus value as a flag, so sweeps need `=`:
 `--lands=-2,0,2`, never `--lands -2,0,2`.
@@ -138,7 +161,9 @@ inside a printer.
 
 **Fetching is not computing.** Printers are the I/O boundary and several of
 them call out: `report_roster`, `report_own`, `report_contention`, `report_combos`,
-`report_diff`, `report_ceiling`, `report_floor` and `report_calibrate` all fetch.
+`report_diff`, `report_ceiling`, `report_floor` and `report_calibrate` all fetch;
+so does `write --arena`, through `arena_printings` in the CLI rather than in a
+printer.
 That is by design and is not the thing the split protects — what must stay below
 the printers is *measurement*, so a test can assert on a number without scraping
 stdout. This list is meant to be exhaustive: it is what gets grepped to answer
@@ -215,9 +240,13 @@ golden snapshots only exercise the hands four particular decks happen to deal.
 ### Module map
 
 `cards.py` → `profiles.py` → `castability.py` → `analysis.py` → `report/` →
-`cli.py`, with `decklist.py`, `roster.py`, `primer.py` and `sources/`
-alongside. `sources/ranking.py` sits above `edhrec.py` and `edhtop16.py` and
-picks between them: `ceiling` and `floor` read the same two endpoints through
+`cli.py`, with `decklist.py`, `formats.py`, `roster.py`, `primer.py` and
+`sources/` alongside. `formats.py` sits at the bottom with `cards.py` and
+imports nothing: it is three facts per format and every layer above reads it. `sources/arena.py` resolves the
+`(SET) NUMBER` an Arena import line needs, and is the one source module whose
+SELECTION rules matter more than its fetch -- `pick_arena_printing` is pure so
+they can be tested without the network. `sources/ranking.py` sits above
+`edhrec.py` and `edhtop16.py` and picks between them: `ceiling` and `floor` read the same two endpoints through
 the same slug and name rules, so the fetch and the "no response" guard live
 there rather than once per printer. It prints nothing — both printers emit
 their header between the fetch and their remaining guards, and `ceiling`'s
@@ -229,7 +258,7 @@ bytes are snapshotted.
 |---|---|
 | `report/mana.py` | `mana`, `variants`, the named swap — everything Monte Carlo |
 | `report/deck.py` | `skeleton`, `roster`, `combos`, `primer`, `floor` — what is in the 100 |
-| `report/own.py` | `own`, `contention`, `ceiling` — ownership and acquisition |
+| `report/own.py` | `own`, `arena_wildcards`, `contention`, `ceiling` — ownership and acquisition |
 | `report/live.py` | `diff`, `calibrate` — the live Moxfield account |
 
 `report/__init__.py` re-exports every printer, so `from mtg_utils.report
@@ -245,8 +274,16 @@ live with their consumer rather than in a shared constants module.
 **The CLI surface only grows.** Existing subcommands, flags and argument names
 do not change or disappear — anything already in use keeps working. Adding a
 subcommand or a flag is fine and has happened (`ceiling`; `--reps`, `--seed`,
-`--swap`, `--rec-cache`, `--cedh`, `--bar`), and costs one `--help` snapshot.
+`--swap`, `--rec-cache`, `--cedh`, `--bar`, `--format`, `--size`, `--colours`,
+`--turns`, `--arena`, `--arena-cache`), and costs one `--help` snapshot.
 Renaming or removing one is not.
+
+A flag that changes DEFAULT behaviour is a different thing from a flag that
+adds a mode, and none of the ones above does: every one defaults to what the
+tool already did. That is why the four Commander golden snapshots are
+byte-identical across all of them, and it is the cheapest available proof that
+a format-aware pass did not quietly re-answer the Commander question. Any new
+flag should be able to claim the same.
 
 The same rule covers the library surface, with one worked example: when
 `hypergeometric` was renamed to `at_least_in_draw` it was deliberately **not**
@@ -262,14 +299,24 @@ banner with a different module's docstring, and `--help` is snapshot-tested.
 
 ## Fixtures
 
-`tests/fixtures/` holds four decks — mono-colour, multicolour, colourless and a
-partner pair — plus frozen Scryfall caches, a ManaBox export, the `ceiling.*`
-captures for EDHREC and edhtop16, and `floor.rec.json`. **They are frozen
-inputs. Never edit one; add a new one.**
+`tests/fixtures/` holds five decks — mono-colour, multicolour, colourless, a
+partner pair and a 60-card Standard Brawl list — plus frozen Scryfall caches, a
+ManaBox export, the `ceiling.*` captures for EDHREC and edhtop16,
+`floor.rec.json` and `brawl.arena.json`. **They are frozen inputs. Never edit
+one; add a new one.**
+
+The Brawl deck is the only fixture that is not Commander, and it is what makes
+a format claim falsifiable at all: four 100-card Commander decks cannot fail a
+hard-coded 100 or a legality key read off the wrong format. It also carries the
+only DFC commander, the only five-colour identity on a three-colour build, the
+only gated and taxed lands (the Verge cycle, `{1}, {T}: Add one mana of any
+color`) and the only turn-conditional tap. `DECK_EXTRA` in `tests/conftest.py`
+passes `--format=standardbrawl` for it and for nothing else.
 
 The partner pair is not decoration either: it is the only shape with two
 commanders and a 98-card library, which is where "1 commander" and a hard-coded
-99 both used to be wrong.
+99 both used to be wrong — and it caught the hard-coded 99 in the `variants`
+sweep exactly as it was meant to.
 
 The colourless deck is not optional. A mono deck exercises no filter lands, a
 multicolour deck exercises no colourless-utility path, and **neither has a `{C}`
@@ -356,6 +403,33 @@ that touches a fetching path.
   0.1–0.2s; `/cards/search` 429s at that rate and needs ~0.5s plus backoff.
   `rulings_uri` and `prints_search_uri` are search calls and inherit the
   stricter limit. Guard every search loop and assert the result count.
+  `sources/arena.py` is a search per card and follows both rules.
+- **Scryfall's `legalities` is per CARD, not per printing.** It is an
+  oracle-level field repeated identically on every printing record, so no
+  filter can use it to choose between two printings of the same card. What it
+  can do is reject the card. `pick_arena_printing` says so where it is easy to
+  assume otherwise, and the Arena fixture cannot exercise that rule at all —
+  which the case says out loud rather than leaving to be assumed.
+- **Three external sources, three name conventions, and no two agree.** EDHREC
+  answers in FRONT faces, Moxfield and Commander Spellbook in full `A // B`,
+  and an Arena import line wants the front face. Every comparison reduces both
+  sides through `front_name`, and every one of those reductions is there
+  because a card sitting in the deck was reported as missing without it —
+  `ceiling`, `floor`, `diff` and `combos` each had that bug separately.
+  Spellbook is the sharpest: sent a front face it does not fail, it drops the
+  card, re-derives the deck's colour identity from what is left, and answers
+  confidently about a different deck.
+- **Both ranking sources are COMMANDER populations, in every format.** Neither
+  says so in its payload. `population_mismatch` is the warning, and it is
+  printed above the first figure rather than under the table — a caveat below
+  the numbers is one the reader meets after believing them.
+- **Silence is not evidence.** Wherever a row is REMOVED from a report the rule
+  is `says_illegal`, never `not is_legal`: a record that has no `legalities`
+  block said nothing, and dropping it looks exactly like dropping a banned
+  card. Two live cases in this repo — a name Scryfall did not know, which is
+  reported separately, and `ceiling.scry.json`, whose projected records carry
+  no `legalities` at all. Read as illegal, four rows vanish from a Commander
+  report about a Commander deck and every assertion around them still passes.
 - **The EDHREC slug drops apostrophes; it does not hyphenate them.** A general
   punctuation-to-hyphen "cleanup" of `edhrec_slug` breaks it, and breaks it
   confusingly: `y-shtola-nights-blessed` returns **403**, not 404, so the

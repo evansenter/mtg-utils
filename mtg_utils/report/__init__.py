@@ -23,10 +23,12 @@ matched something.
 from mtg_utils.report.mana import report_mana, report_swap, report_variants
 from mtg_utils.report.deck import (report_combos, report_floor, report_primer,
                                    report_roster, report_skeleton)
-from mtg_utils.report.own import report_ceiling, report_contention, report_own
+from mtg_utils.report.own import (report_arena_wildcards, report_ceiling,
+                                  report_contention, report_own)
 from mtg_utils.report.live import report_calibrate, report_diff
 
-__all__ = ["report_calibrate", "report_ceiling", "report_combos",
+__all__ = ["report_arena_wildcards", "report_calibrate",
+           "report_ceiling", "report_combos",
            "report_contention", "report_diff", "report_floor", "report_mana",
            "report_own", "report_primer", "report_roster", "report_skeleton",
            "report_swap", "report_variants"]

@@ -8,14 +8,17 @@ a reported number was moved on purpose, with what moved written down beside it.
 The file's job does not end when the list empties. It exists because a finding
 that lives only in scrollback gets rediscovered — so a decision NOT to do
 something belongs here too, not in a commit message nobody greps. #13, #14,
-#18 and #20 are that shape, and #15 is the other one: a limitation that was priced,
-kept, and later revisited deliberately, with the earlier entry left standing.
+#18 and #20 are that shape, and #15 and #21 are the other one: a limitation that
+was priced, kept, and later revisited deliberately, with the earlier entry left
+standing — #21 supersedes one row of #13's table and says so at the top of both.
 #17 carries a residual of the same kind inside an otherwise-fixed entry, with
 the four repairs considered and why each was worse.
 
-Everything here was found while moving `mana_model.py` into `mtg_utils/`, and
-every one was left exactly as it was, because **fixing any of them would change
-a reported number** and the migration's whole contract was that no output moves.
+Everything up to #20 was found while moving `mana_model.py` into `mtg_utils/`,
+and every one was left exactly as it was, because **fixing any of them would
+change a reported number** and the migration's whole contract was that no output
+moves. #21 onward were found later, running the toolchain on a deck it had never
+seen: a 60-card Standard Brawl list.
 
 They are recorded here rather than in a chat message because a finding that
 lives only in scrollback is a finding that gets rediscovered.
@@ -369,7 +372,14 @@ prints only `wrote <path>`.
 
 ---
 
-## 13. Conditional accelerants are counted as unconditional — RESOLVED, documented
+## 13. Conditional accelerants are counted as unconditional — RESOLVED, then PARTLY CHANGED by #21
+
+> **Superseded in part.** Mox Opal, the first row of the table below, is no
+> longer counted: its mana sits behind `Activate only if you control three or
+> more artifacts`, which #21 now reads. Chrome Mox and Mox Diamond are
+> untouched and the resolution below still stands for them — neither carries a
+> clause any parser can see. The reasoning here is what #21 was written
+> against, so it is left standing rather than edited.
 
 Found while fixing #2 and #3, by sweeping the fixtures for counted sources whose
 availability has a cost or condition the model does not read:
@@ -1074,3 +1084,167 @@ exactly one of three blocks, and `floor_audit` asserts that identity rather
 than printing arithmetic for a reader to check. A name Scryfall does not know
 is in none of them — it is filed before its type line is read, so it is neither
 excluded as a land nor bounded — and is counted and named separately.
+
+
+---
+
+## 21. Mana behind a board condition or a mana cost was counted as free — CHANGED, the numbers moved on purpose
+
+`build_land_profiles` / `build_accel_profiles`, through `drop_restricted`.
+
+Only one of the three ways a mana ability can carry a string attached was
+modelled. Scryfall puts one ability per line and the string rides on the line
+of the ability it attaches to, so all three are the same rule with three
+spellings — and only the first was read:
+
+| shape | example | was scored as |
+|---|---|---|
+| `Spend this mana only ...` | Eldrazi Temple | correctly, a 1 |
+| `Activate only if ...` | Blazemire Verge, Mox Opal | an unconditional `{B}{R}` dual; a free any-colour rock |
+| `{1}, {T}: Add ...` | Hidden Grotto, Conduit Pylons, Crystal Grotto | a free five-colour source, with the `{1}` nowhere |
+
+All three now go through one filter, `free_mana_text`, and a COSTED line is
+then priced back in at its **net** by `costed_net`: what it adds less what it
+costs, and only when that is positive. Hidden Grotto's `{1}, {T}: Add one mana
+of any color` nets zero and stays out -- it converts a mana, it does not make
+one. A Signet's `{1}, {T}: Add {W}{U}` nets one, of its two colours.
+
+**The first version dropped every costed line, and no fixture could show what
+that did.** The Signet cycle's ONLY mana ability is costed, so every
+colour-pair Signet came back with no free line, was flagged restricted and fell
+out of the accelerant count entirely -- the most common rock in Commander,
+silently uncounted. Arcane Signet, the only Signet in any fixture, costs
+nothing to activate, so the suite stayed green. Caught on review before it
+merged; `test_a_signet_is_still_an_accelerant` is the guard.
+
+**Residual, kept:** a Signet's colours are credited as if the mana spent to
+activate it came from nowhere in particular. With a Mountain and an Azorius
+Signet the real options are {R} or {W}{U}; the model also allows {R}{W}. That is
+the filter-land shape, which this repo models properly only for the ten
+Shadowmoor names in `FILTER_LANDS`. Direction: overstates colour slightly, on
+fewer mana than `main` credited the same card (one, not two).
+
+**What moved.** The brawl fixture hardest, because the Verge cycle and the
+taxed any-colour lands are Standard staples and it runs six of them: the
+commander's on-curve line falls 80.2% → 57.1% on the play, and the two
+off-colour one-drops fall 41% → 12%, which is the honest reading of a BRG deck
+whose only white source is one Starting Town. Mono and colourless move too, and
+for one card each: Mox Opal, which #13 named and could not then fix.
+
+**Direction: this now UNDERSTATES where it used to overstate**, and that is a
+deliberate choice rather than an accident of the implementation.
+
+- A Verge's gated half is real mana in a deck with twelve Swamps and Mountains.
+  Pricing it needs a probability for a board state, and neither model has a
+  representation for a colour that is sometimes there — a profile carries a
+  fixed colour set, and the sources model solves a bipartite matching over it.
+- The alternative, counting it when the deck runs "enough" qualifying lands,
+  needs a threshold nobody can derive. That is exactly the failure #13 records:
+  a play simulation once hard-coded tap probabilities of 0.25/0.30/0.05 for
+  three conditional lands and moved a commander-on-curve figure by five points
+  on invented numbers.
+- Every other unpromisable source here is excluded rather than discounted —
+  restricted mana, event-triggered accelerants — so excluding these is the
+  consistent call, and it leaves every figure a floor, which is what the
+  mulligan note (#14) already says every play-simulation figure is.
+
+**Not changed, deliberately: a LIFE payment is still free.** Starting Town's
+`{T}, Pay 1 life: Add one mana of any color` still counts, so the deck's only
+white source is a land that costs a life to use it. That is the same call this
+repo already makes for the shockland conditional tap, where "you may pay 2 life"
+is read as *not* a real cost. Life is a cost neither model prices, and it is now
+not priced in both directions rather than in one.
+
+**Not changed: a timing restriction is not a gate.** `Activate only as a
+sorcery` says when the mana can be made, not whether. Both models ask what mana
+is available on your own turn, so the filter matches `only if` and not `only`.
+
+**A filter land is skipped entirely**, as it already was: every filter land
+reads `{U/B}, {T}: Add {U}{U}, {U}{B}, or {B}{B}`, which is an activation cost
+carrying a mana symbol and would match the new rule exactly. Their colours come
+from the pairing table rather than from the text, so `build_land_profiles`
+never sends them through the drop. `test_a_filter_land_is_untouched` is the
+guard: without it, every filter land in the repo silently becomes a
+zero-colour source.
+
+**The `restricted` flag now means "no free mana line at all"** rather than
+"every line says spend this mana only". The `restricted, excluded:` line in
+`mana` therefore names Mox Opal beside Fíli and Kíli — both are cards whose
+mana this model will not promise, which is what the line has always meant.
+
+
+---
+
+## 22. What the format-awareness pass deliberately did NOT change — RESOLVED, documented
+
+Recorded because each of these was considered, has a cost, and would otherwise
+be rediscovered as an oversight.
+
+### `own --arena` prices the CACHED printing's rarity
+
+Arena grants wildcards by rarity, and rarity varies by printing: Abrade is
+uncommon in SOA, FDN and AKR and common in LCI and VOW. `scry_fetch` stores
+whichever printing Scryfall returned for the name, so a card reprinted at a
+different rarity is priced at the wrong wildcard.
+
+Resolving it exactly is a `unique=prints` search per card at ~0.5s, which is
+what `write --arena` already does and what an ownership summary should not.
+The report says which rarity it read and points at the command that resolves
+it. Direction: unknown per card, and it is a count rather than a probability,
+so nothing compounds.
+
+### A LIFE payment is still free mana
+
+Starting Town's `{T}, Pay 1 life: Add one mana of any color` counts, so a BRG
+deck's only white source is a land that costs a life every time. This is the
+same call the repo already makes for the shockland conditional tap, where "you
+may pay 2 life" is read as *not* a real cost. Life is a cost neither model
+prices; it is now not priced in both directions rather than in one. Changing it
+would move every conditional-tap figure in the four Commander fixtures, which
+is a different commit.
+
+### `--turns` is on `mana` only
+
+`variants` and `--swap` still run to `PLAYSIM_TURNS`. `variants` reads exactly
+two figures and both are at the commander's own turn, so a horizon shorter than
+that turn would empty the table rather than shorten it -- and it already
+refuses a commander past turn seven by name. `--swap` compares two runs of
+`analyse_mana` and would need the horizon threaded through `compare_swap` to
+both sides; that is a real change and there is no measurement asking for it
+yet.
+
+### `calibrate` takes ONE format for the whole run
+
+It names a Moxfield account or a list of ids and there is nowhere per-deck to
+put a format. Mixing formats in one table would put decks measured at different
+deck sizes and against different legality keys under one heading, which is
+exactly the comparison the table exists to make safe. Run it once per format.
+
+### EDHREC and edhtop16 are still the only ranking sources
+
+Neither has a Standard Brawl population and there is no third endpoint to add.
+`ceiling` and `floor` therefore WARN and, for `ceiling`, filter -- rather than
+refuse. Refusing was the other option the report proposed and it is worse: the
+cross-format ranking is a real archetype signal when it is read as one, and the
+warning is what makes that reading available. Direction: the rows that survive
+the legality filter are still Commander inclusion rates, and no number on that
+page is about the format the deck is in.
+
+### `roster`'s cycle tables are still Commander's cycle tables
+
+`--format` filters them; it does not add the cycles a Standard-legal manabase
+actually wants. The walk therefore reports what the Commander roster has to say
+about a Brawl deck, minus the illegal rows, and on the brawl fixture that is
+29 of 119 names. A Standard roster is a new data table, not a filter, and
+nothing has measured what belongs in it.
+
+### `write --arena` names every card by its front face, and only a transform card has been checked
+
+The brawl fixture's one double-faced card is its commander, a `transform`
+layout. Whether Arena's importer wants the front face or the full `A // B` for
+a SPLIT or AFTERMATH card (`Fire // Ice`, `Commit // Memory`), an adventure or
+an MDFC has not been checked against Arena itself, and the two plausible rules
+disagree. No fixture holds one. If an import rejects such a line, the fix is a
+layout-keyed rule in `write_arena_deck` -- and it wants a fixture holding one
+of each layout before it is written, not a guess from memory.
+

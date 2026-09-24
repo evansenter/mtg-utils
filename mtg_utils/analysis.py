@@ -3,11 +3,14 @@ import math
 import random
 import re
 
-from mtg_utils.cards import (enters_tapped, front, front_name, has_land_back,
+from mtg_utils.cards import (enters_tapped, enters_tapped_turn, front,
+                             front_name, has_land_back,
                              is_front_land, land_face)
 from mtg_utils.castability import (PLAYSIM_TURNS, at_least_in_draw, castable_faces,
                                    pips_from_cost, playsim_report, probability)
 from mtg_utils.decklist import apply_swaps, as_cmdrs, flat, read_decisions
+from mtg_utils.formats import says_illegal
+from mtg_utils.formats import spec as format_spec
 from mtg_utils.primer import parse_primer_links, unclosed_openers
 from mtg_utils.profiles import (build_accel_profiles, build_land_profiles,
                                 build_ritual_profiles)
@@ -15,7 +18,15 @@ from mtg_utils.roster import (OFF_ROSTER_RANK, PAIR_CYCLES, TRIPLE_CYCLES,
                               pair_from_type_line, roster_slot)
 
 # ============================================================ verify
-def verify(cmdr, entries, scry):
+def verify(cmdr, entries, scry, fmt=None):
+    """Counts, legality and colour identity. `fmt` defaults to Commander.
+
+    The legality column is read from the FORMAT's own Scryfall key. Read as
+    `legalities["commander"]` on a Standard Brawl list it says nothing useful
+    in either direction: Sol Ring is Commander-legal and not Standard Brawl
+    legal, and a card printed this year is legal in both.
+    """
+    legality = format_spec(fmt)["legality"]
     cmdrs = as_cmdrs(cmdr)
     names = flat(cmdr, entries)
     total = len(names)
@@ -26,14 +37,14 @@ def verify(cmdr, entries, scry):
             ident |= set(scry[cn.lower()]["color_identity"])
     lands = nonland = 0
     mv_sum = 0.0
-    truly, cond = [], []
-    truly_n = cond_n = 0
+    truly, cond, turn_tap = [], [], []
+    truly_n = cond_n = turn_n = 0
     for n, q in list(entries.items()) + [(cn, 1) for cn in cmdrs]:
         c = scry.get(n.lower())
         if not c:
             illegal.append((n, "NOT FOUND")); continue
-        if c["legalities"]["commander"] != "legal":
-            illegal.append((n, c["legalities"]["commander"]))
+        if c["legalities"].get(legality) != "legal":
+            illegal.append((n, c["legalities"].get(legality, "no such format")))
         if set(c["color_identity"]) - ident:
             ci_bad.append((n, "".join(c["color_identity"])))
         if c.get("game_changer"):
@@ -41,13 +52,21 @@ def verify(cmdr, entries, scry):
         if is_front_land(c):
             lands += q
             lf = land_face(c)
-            t, cm = enters_tapped(lf, c)
+            t, cm, tfrom = enters_tapped_turn(lf, c)
             # The name is listed once; the COUNT is by quantity, so it is in
             # the same units as `lands` beside it in the header. They coincide
             # in singleton Commander -- basics are the only entries above one
             # and are never tapped -- so this changes no current output. The
             # two numbers were simply in different units.
-            if t:
+            # Three buckets, not two. A land that is untapped early and
+            # tapped late belongs in neither of the others: TRULY TAPPED
+            # understates it on exactly the turns a tapped land costs the
+            # most, and the conditional bucket would report it as untapped on
+            # turn seven.
+            if t and tfrom:
+                turn_tap.append((n, tfrom))
+                turn_n += q
+            elif t:
                 truly.append(n)
                 truly_n += q
             elif cm:
@@ -63,11 +82,69 @@ def verify(cmdr, entries, scry):
             "game_changers": sorted(gc), "illegal": illegal,
             "ci_violations": ci_bad, "truly_tapped": truly,
             "conditional_tapped": cond,
-            "truly_tapped_copies": truly_n, "conditional_tapped_copies": cond_n}
+            "turn_tapped": turn_tap,
+            "truly_tapped_copies": truly_n, "conditional_tapped_copies": cond_n,
+            "turn_tapped_copies": turn_n}
+
+
+# Arena grants wildcards by rarity, and they do not convert between rarities,
+# so the cost of building a list there is FOUR numbers rather than one price.
+# Ordered most-expensive-first, which is the order the constraint binds in.
+ARENA_RARITIES = ("mythic", "rare", "uncommon", "common")
+
+
+def wildcard_cost(cmdr, entries, scry):
+    """Arena's answer to `own`: how many wildcards of each rarity a list costs.
+
+    Pure compute; report_own only formats it.
+
+    `own` and `contention` read a ManaBox export, which is PAPER. Arena has no
+    equivalent -- there is no per-card ownership file to diff a list against --
+    so the question that survives the translation is not "what do I still need
+    to buy" but "what does this cost in wildcards", and that is a count by
+    rarity over the list itself.
+
+    Basics are excluded and counted separately: Arena grants them without
+    limit, so a list is never short of them. That is the same exclusion the
+    paper buy list makes, arrived at from the opposite direction -- there,
+    because ManaBox does not track them.
+
+    THE RARITY IS THE CACHED PRINTING'S, which is not necessarily the Arena
+    printing's. A card reprinted at a different rarity costs a different
+    wildcard, and `scry_fetch` stores whichever printing Scryfall returned for
+    the name. Reported as a caveat rather than papered over: resolving the
+    Arena printing is a search per card, which is what `write --arena` does
+    and what this deliberately does not.
+    """
+    counts = {r: 0 for r in ARENA_RARITIES}
+    other, unresolved = {}, []
+    basics = 0
+    for n, q in [(c, 1) for c in as_cmdrs(cmdr)] + sorted(entries.items()):
+        c = scry.get(n.lower())
+        if not c:
+            # Named, never dropped: a card in no bucket is a card the total
+            # does not cover and nobody thinks about.
+            unresolved.append((n, q))
+            continue
+        if "Basic Land" in c.get("type_line", ""):
+            basics += q
+            continue
+        r = (c.get("rarity") or "").lower()
+        if r in counts:
+            counts[r] += q
+        else:
+            # "special" and "bonus" exist on Scryfall and buy no wildcard.
+            # Bucketed by their own name rather than folded into one of the
+            # four, so a total that does not add up says why.
+            other[r or "(no rarity)"] = other.get(r or "(no rarity)", 0) + q
+    return {"counts": counts, "other": other, "basics": basics,
+            "unresolved": unresolved,
+            "total": sum(counts.values()) + sum(other.values())}
 
 
 # ============================================================ reporting
-def worst_lines(names, scry, lands, accels, sims, rng, top=5, deck_size=None):
+def worst_lines(names, scry, lands, accels, sims, rng, top=5, deck_size=None,
+                turns=PLAYSIM_TURNS):
     """Sources-model rows, worst first. Pure compute -- no printing, so a test
     can assert on the numbers instead of scraping stdout.
 
@@ -75,6 +152,11 @@ def worst_lines(names, scry, lands, accels, sims, rng, top=5, deck_size=None):
     commander and 98 for a partner or background pair. Defaults to len(names),
     which is exactly that, because `names` is already the non-commander
     multiset.
+
+    `turns` is the horizon, and it has to be the SAME one the play simulation
+    is given -- see the comment below. It is a parameter rather than the
+    constant because seven turns is where a Commander game is decided, and a
+    60-card 1v1 game is not a Commander game.
     """
     if deck_size is None:
         deck_size = len(names)
@@ -94,7 +176,7 @@ def worst_lines(names, scry, lands, accels, sims, rng, top=5, deck_size=None):
             # past `PLAYSIM_TURNS`. A row allowed through here that the
             # simulation would not measure becomes a line silently missing
             # from the table beside it.
-            if turn > PLAYSIM_TURNS:
+            if turn > turns:
                 continue
             cand.setdefault((turn, mv, tuple(sorted(req))), []).append(label)
     rows = []
@@ -223,11 +305,17 @@ def opening_hand_floor(lands, deck_size, hand=7):
             "p_one_or_fewer": 1.0 - at_least_in_draw(2, lands, hand, deck_size)}
 
 
-def analyse_mana(cmdr, entries, scry, sims, trials, seed=17, lines=None, reps=3):
+def analyse_mana(cmdr, entries, scry, sims, trials, seed=17, lines=None,
+                 reps=3, turns=PLAYSIM_TURNS):
     """The whole section 6 measurement, as data. report_mana only prints it.
 
     `sims` and `trials` are totals across `reps` replicates -- see
     split_budget. Rows carry their spread as a sixth element.
+
+    `turns` is the horizon for BOTH models, passed to each from here so they
+    cannot hold different ones: a candidate row this allowed through that the
+    simulation would not measure becomes a line silently missing from the
+    table beside it.
     """
     ncmdr = len(as_cmdrs(cmdr))
     names = flat(cmdr, entries)[ncmdr:]
@@ -257,7 +345,7 @@ def analyse_mana(cmdr, entries, scry, sims, trials, seed=17, lines=None, reps=3)
     for i, s in enumerate(split_budget(sims, reps)):
         for p, turn, mv, req, cards in worst_lines(
                 names, scry, lands, accels, s, random.Random(seed + i),
-                top=None, deck_size=deck_size):
+                top=None, deck_size=deck_size, turns=turns):
             acc.setdefault((turn, mv, req), (cards, []))[1].append(p)
     rows = []
     for (turn, mv, req), (cards, ps) in acc.items():
@@ -279,12 +367,13 @@ def analyse_mana(cmdr, entries, scry, sims, trials, seed=17, lines=None, reps=3)
                           "".join("{%s}" % x for x in req)))
         lines += commander_lines(cmdr, scry)
     res = replicate_playsim(lands, accels, deck_size, lines, trials, seed, reps,
-                            rituals=rituals)
+                            turns=turns, rituals=rituals)
     # An MDFC back is a land you can play, so it counts toward keepability.
     floor = opening_hand_floor(v["lands"] + v["mdfc_land_backs"], deck_size)
     return {"verify": v, "lands": lands, "accels": accels, "rituals": rituals,
             "rows": rows, "lines": lines, "sim": res, "floor": floor,
-            "sims": sims, "trials": trials, "seed": seed, "reps": reps}
+            "sims": sims, "trials": trials, "seed": seed, "reps": reps,
+            "turns": turns}
 
 
 # Two-sided 95% Student-t multipliers by degrees of freedom. With three
@@ -400,7 +489,7 @@ def compare_swap(cmdr, entries, scry, swaps, sims, trials, seed=17, reps=3):
 
 
 def ceiling_audit(cmdr, entries, rows, capped, owned, scry, threshold=50.0,
-                  sort="inclusion", completions=None):
+                  sort="inclusion", completions=None, fmt=None):
     """Which cards above the inclusion bar for this commander are missing.
 
     Pure compute; report_ceiling only formats it.
@@ -422,9 +511,20 @@ def ceiling_audit(cmdr, entries, rows, capped, owned, scry, threshold=50.0,
     cap. It is carried through untouched: a card absent from a capped list is
     of UNKNOWN inclusion, not 0%, and nothing here may turn one into the
     other.
+
+    `fmt` drops rows that are not legal in it, and COUNTS what it dropped.
+    Both ranking sources are Commander populations -- neither says so
+    anywhere in its payload -- so on any other format a majority of the rows
+    above the bar are cards that cannot be registered. Dropped silently they
+    would just be a shorter list; counted, the reader can see the filter ran.
+    A row whose Scryfall record is missing, or carries no `legalities` block,
+    is KEPT: silence is not evidence. The report already names the names
+    Scryfall did not know separately, as NOT FOUND, and removing them here as
+    well would turn one loud failure into a row that is simply absent. See
+    formats.says_illegal.
     """
     have = {front_name(n).lower() for n in list(entries) + as_cmdrs(cmdr)}
-    missing = []
+    missing, illegal = [], []
     for r in rows:
         if r["inclusion"] < threshold:
             continue
@@ -432,6 +532,9 @@ def ceiling_audit(cmdr, entries, rows, capped, owned, scry, threshold=50.0,
         if key in have:
             continue
         card = scry.get(key) or scry.get(r["name"].lower())
+        if says_illegal(card, fmt):
+            illegal.append(r["name"])
+            continue
         price = (card or {}).get("prices", {}).get("usd")
         missing.append(dict(r, owned=owned.get(key, 0),
                             price=float(price) if price else None,
@@ -452,7 +555,7 @@ def ceiling_audit(cmdr, entries, rows, capped, owned, scry, threshold=50.0,
     else:
         missing.sort(key=lambda r: (-r["inclusion"], r["name"]))
     return {"missing": missing, "threshold": threshold, "capped": capped,
-            "sort": sort,
+            "sort": sort, "illegal": sorted(illegal), "format": fmt,
             "combo_rows": sum(1 for m in missing if m["combos"]),
             "considered": len(rows),
             "owned_count": sum(1 for m in missing if m["owned"] > 0),

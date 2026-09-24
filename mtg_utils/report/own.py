@@ -11,15 +11,18 @@ mtg_utils/sources/ranking.py rather than through this file.
 """
 import time
 from collections import defaultdict
-from mtg_utils.analysis import (ceiling_audit, collapse_temps,
-                                combo_completions, decisions_audit)
+from mtg_utils.analysis import (ARENA_RARITIES, ceiling_audit, collapse_temps,
+                                combo_completions, decisions_audit,
+                                wildcard_cost)
 from mtg_utils.cards import front_name
 from mtg_utils.decklist import as_cmdrs, read_decisions
 from mtg_utils.sources.collection import load_collection
 from mtg_utils.sources.edhrec import PAGE_CAP
 from mtg_utils.sources.edhtop16 import MIN_ENTRIES
 from mtg_utils.sources.moxfield import moxfield_deck
-from mtg_utils.sources.ranking import SOURCE_LABEL, fetch_ranking
+from mtg_utils.formats import spec as format_spec
+from mtg_utils.sources.ranking import (SOURCE_LABEL, fetch_ranking,
+                                        population_mismatch)
 from mtg_utils.sources.scryfall import scry_fetch
 from mtg_utils.sources.spellbook import spellbook
 
@@ -79,7 +82,52 @@ def _combo_line(c):
     return line
 
 
+def report_arena_wildcards(cmdr, entries, scry):
+    """`own --arena`: what the list costs in wildcards, by rarity.
+
+    Not a buy list. Arena has no per-card ownership file to diff against, so
+    the question that survives the translation from paper is what the list
+    COSTS rather than what is still missing -- and Arena grants wildcards by
+    rarity without converting between them, so that is four numbers and not
+    one price. wildcard_cost measures it.
+    """
+    w = wildcard_cost(cmdr, entries, scry)
+    print("\n=== ARENA WILDCARDS ===")
+    for r in ARENA_RARITIES:
+        print(f"  {r:10s} {w['counts'][r]:3d}")
+    for r, n in sorted(w["other"].items()):
+        print(f"  {r:10s} {n:3d}   (not a wildcard rarity)")
+    print(f"\n  {w['total']} cards need a wildcard; {w['basics']} basic "
+          f"land{'' if w['basics'] == 1 else 's'} do not -- Arena grants "
+          f"those without limit.")
+    if w["unresolved"]:
+        # Named rather than dropped: a card in no bucket is a card the total
+        # above does not cover.
+        print(f"  {len(w['unresolved'])} card"
+              f"{'' if len(w['unresolved']) == 1 else 's'} in no bucket, "
+              f"because Scryfall does not know the name: "
+              f"{', '.join(n for n, _q in w['unresolved'])}")
+    # The caveat is the honest half of an offline answer. Resolving the Arena
+    # printing is a search per card, which `write --arena` does and this does
+    # not -- so a card reprinted at a different rarity is priced at whichever
+    # printing the cache happens to hold.
+    print("  Rarity is the CACHED printing's, not necessarily the Arena "
+          "printing's:\n  a card reprinted at a different rarity costs a "
+          "different wildcard.\n  `write --arena` resolves the Arena printing "
+          "itself.")
+    return w
+
+
 def report_own(cmdr, entries, scry):
+    """The paper buy list: what is missing from the ManaBox export, in USD.
+
+    `report_arena_wildcards` is the Arena question and a SEPARATE printer
+    rather than a flag on this one, because they are not the same question
+    with a switch: this one diffs a list against an ownership file and prices
+    what is missing; that one has no ownership file and no prices to read, and
+    counts a cost the list carries whether or not you own anything. The CLI
+    picks between them, the way report/ is split by question everywhere else.
+    """
     owned = load_collection()
     buckets = defaultdict(list)
     tot = 0.0
@@ -121,7 +169,23 @@ def report_own(cmdr, entries, scry):
     print("  Null usd (Reserved List / promo): re-query !\"Name\" with order=eur&unique=prints")
 
 
-def report_contention(cmdr, entries, other_ids):
+def report_contention(cmdr, entries, other_ids, arena=False):
+    """Owned copies against the physical decks that want them.
+
+    DECLINES on Arena rather than producing a table. Contention is a question
+    about physical cards moving between sleeved decks: on Arena a card in one
+    deck is in every deck that wants it, so every row would read "no
+    contention" and the report would be a page of reassurance about a
+    constraint that does not exist. An empty table and an inapplicable
+    question look identical, and only one of them is worth printing.
+    """
+    if arena:
+        print("\n=== CONTENTION ===")
+        print("  Not applicable on Arena: a card in your collection is "
+              "available to every\n  deck at once, so there is nothing to "
+              "contend over. `own --arena` is the\n  question that survives "
+              "-- what the list costs in wildcards.")
+        return None
     owned = load_collection()
     use = {}
     for pid in other_ids:
@@ -150,7 +214,7 @@ def report_contention(cmdr, entries, other_ids):
 
 def report_ceiling(cmdr, entries, scry, cache=None, rec_cache=None, cedh=False,
                    threshold=50.0, sort="inclusion", combos=True,
-                   decklist=None):
+                   decklist=None, fmt=None):
     """Collection-ceiling audit: what is above the bar and not in the list.
 
     NETWORK unless both caches already hold what it needs, following the
@@ -172,6 +236,11 @@ def report_ceiling(cmdr, entries, scry, cache=None, rec_cache=None, cedh=False,
     rows, capped = rank["rows"], rank["capped"]
     n_entries, slug = rank["n_entries"], rank["label"]
     print(f"\n=== CEILING vs {SOURCE_LABEL[rank['source']]}: {slug} ===")
+    # Immediately under the header, before a single figure is printed. A
+    # caveat below the table is a caveat read after the reader has already
+    # believed the percentages.
+    for line in population_mismatch(rank["source"], fmt):
+        print(line)
     if rank["source"] == "edhtop16":
         # The entry count sits beside every percentage, never behind it. At
         # four entries every card is 25/50/75/100% and the table would read
@@ -238,12 +307,21 @@ def report_ceiling(cmdr, entries, scry, cache=None, rec_cache=None, cedh=False,
     completions, combo_note = {}, None
     if combos:
         try:
-            completions = combo_completions(spellbook(cmdr, entries), cmdr,
-                                            entries)
+            # `scry` so a double-faced card is sent under the full `A // B`
+            # name Spellbook matches on -- see spellbook_name.
+            completions = combo_completions(spellbook(cmdr, entries, scry),
+                                            cmdr, entries)
         except SystemExit as e:
             combo_note = str(e)
     a = ceiling_audit(cmdr, entries, rows, capped, load_collection(), scry,
-                      threshold, sort, completions)
+                      threshold, sort, completions, fmt)
+    if a["illegal"]:
+        # Counted, not silently shortened: a filtered list and a short list
+        # look identical, and here the filter routinely removes most of it.
+        print(f"  {len(a['illegal'])} row{'' if len(a['illegal']) == 1 else 's'}"
+              f" above the bar {'is' if len(a['illegal']) == 1 else 'are'} not "
+              f"legal in {format_spec(fmt)['label']} and "
+              f"{'is' if len(a['illegal']) == 1 else 'are'} not listed.")
     # `g` rather than `.0f` for the same reason `floor` uses it: --bar is a
     # float and rounding it in print puts the bar the report NAMES on the far
     # side of a row from the bar it was measured against. No snapshot moves --

@@ -1,0 +1,74 @@
+
+=== ROSTER WALK: Terra, Magical Adept (WUBRG) ===
+  90 of 119 roster names are not legal in Standard Brawl and are not walked.
+
+  --- WU ---
+  Shockland          Hallowed Fountain              BUY   -
+  Horizon land       (no such card)                
+  Surveil land       Meticulous Archive             BUY   $12.26
+
+  --- WB ---
+  Shockland          Godless Shrine                 BUY   -
+  Surveil land       Shadowy Backstreet             BUY   $11.29
+  Fastland           Concealed Courtyard            BUY   $0.96
+
+  --- WR ---
+  Shockland          Sacred Foundry                 BUY   -
+  Surveil land       Elegant Parlor                 BUY   $10.11
+  Fastland           Inspiring Vantage              BUY   $1.98
+
+  --- WG ---
+  Shockland          Temple Garden                  BUY   -
+  Surveil land       Lush Portico                   BUY   $5.81
+
+  --- UB ---
+  Shockland          Watery Grave                   BUY   -
+  Horizon land       (no such card)                
+  Surveil land       Undercity Sewers               BUY   $13.99
+
+  --- UR ---
+  Shockland          Steam Vents                    BUY   -
+  Surveil land       Thundering Falls               BUY   $15.05
+  Fastland           Spirebluff Canal               BUY   $5.29
+
+  --- UG ---
+  Shockland          Breeding Pool                  BUY   -
+  Surveil land       Hedge Maze                     BUY   $10.08
+  Fastland           Botanical Sanctum              BUY   $1.87
+
+  --- BR ---
+  Shockland          Blood Crypt                    BUY   -
+  Horizon land       (no such card)                
+  Surveil land       Raucous Theater                BUY   $11.05
+
+  --- BG ---
+  Shockland          Overgrown Tomb                 BUY   -
+  Surveil land       Underground Mortuary           BUY   $14.30
+  Fastland           Blooming Marsh                 BENCH x1   $2.79
+
+  --- RG ---
+  Shockland          Stomping Ground                BUY   -
+  Horizon land       (no such card)                
+  Surveil land       Commercial District            BUY   $7.55
+
+  --- off-pair fetchlands (reach one colour of the identity) ---
+  (nothing here is legal in Standard Brawl)
+
+  --- identity-independent ---
+  Any-colour         Command Tower                  BENCH x3   $0.33
+  Typal              Cavern of Souls                BUY   $50.02
+  Typal              Secluded Courtyard             BUY   $0.32
+  Typal              Three Tree City                BENCH x2   $28.09
+
+  PREMIUM SLOTS NOT IN THE LIST: 10
+    WU Shockland          Hallowed Fountain              BUY
+    WB Shockland          Godless Shrine                 BUY
+    WR Shockland          Sacred Foundry                 BUY
+    WG Shockland          Temple Garden                  BUY
+    UB Shockland          Watery Grave                   BUY
+    UR Shockland          Steam Vents                    BUY
+    UG Shockland          Breeding Pool                  BUY
+    BR Shockland          Blood Crypt                    BUY
+    BG Shockland          Overgrown Tomb                 BUY
+    RG Shockland          Stomping Ground                BUY
+  Ownership routes the purchase; it never decides the slot.

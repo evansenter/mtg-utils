@@ -2,6 +2,9 @@
 import re
 from collections import Counter
 
+from mtg_utils.cards import front_name
+from mtg_utils.formats import spec as format_spec
+
 # ============================================================ decklist IO
 def _entry(line):
     m = re.match(r"^(\d+)\s+(.*)$", line)
@@ -56,7 +59,19 @@ def flat(cmdr, entries):
     return out
 
 
-def write_deck(cmdr, entries, out_path, expect_adds=(), expect_cuts=()):
+def write_deck(cmdr, entries, out_path, expect_adds=(), expect_cuts=(),
+               size=None, fmt=None):
+    """Write the list, read it back, and assert what came back.
+
+    `size` is the total the file must hold, commanders included; it defaults
+    to the size of `fmt`, which defaults to Commander's 100. The ASSERTION is
+    right and stays -- it is the one thing `write` exists to provide, along
+    with --adds/--cuts. It was the constant that was wrong: a 60-card Standard
+    Brawl list could not be written at all, so the final list was assembled by
+    hand and neither check ran on it.
+    """
+    fspec = format_spec(fmt)
+    size = fspec["size"] if size is None else size
     cmdrs = as_cmdrs(cmdr)
     lines = list(cmdrs) + [""]
     for n in sorted(entries, key=str.lower):
@@ -74,7 +89,83 @@ def write_deck(cmdr, entries, out_path, expect_adds=(), expect_cuts=()):
         assert not any(l.split(" ", 1)[1] == c for l in body), f"CUT STILL PRESENT: {c}"
     print(f"\n=== WROTE {out_path} ===")
     print(f"  read back: {len(body)} entries, {total} cards, commander line OK")
-    assert total == 100, f"deck is {total} cards, Commander is 100"
+    assert total == size, (f"deck is {total} cards, {fspec['label']} is "
+                          f"{size}")
+    return total
+
+
+def write_arena_deck(cmdr, entries, out_path, printings, expect_adds=(),
+                     expect_cuts=(), size=None, fmt=None):
+    """Write an Arena import block, read it back, and assert what came back.
+
+    Arena's format is not this repo's. It is
+
+        Commander
+        1 Terra, Magical Adept (FIN) 289
+        <blank>
+        Deck
+        1 Abrade (SOA) 37
+
+    -- a `Commander` header, the commander lines, a blank, a `Deck` header,
+    then the 59 or 99. Card names are FRONT FACES: Arena names a double-faced
+    card by its front, which is a third convention beside EDHREC's front faces
+    and Moxfield's and Spellbook's full `A // B`.
+
+    `printings` maps a lowered front-face name to the record
+    `pick_arena_printing` chose. A name missing from it is refused BY NAME
+    rather than written without its `(SET) NUMBER`: Arena rejects such a line
+    and reports it against the line number, so a file that is right for 58
+    cards and silently wrong for one is the expensive failure here.
+
+    Same read-back-and-assert contract `write_deck` has, over the same
+    --adds/--cuts, because that contract is the whole reason `write` exists:
+    the run that prompted all of this hand-assembled a list precisely because
+    `write` refused it, and lost both checks.
+    """
+    fspec = format_spec(fmt)
+    size = fspec["size"] if size is None else size
+    cmdrs = as_cmdrs(cmdr)
+
+    def line(name, qty):
+        key = front_name(name).lower()
+        if key not in printings:
+            raise SystemExit(
+                f"write --arena: no importable Arena printing for "
+                f"{front_name(name)!r}. Arena rejects a line with no "
+                f"'(SET) NUMBER' and names the line it stopped on, so this "
+                f"refuses to write the file rather than write one that fails "
+                f"partway through. The card may not be on Arena at all, or "
+                f"every Arena printing of it may be illegal in "
+                f"{fspec['label']}.")
+        p = printings[key]
+        return (f"{qty} {front_name(name)} ({str(p['set']).upper()}) "
+                f"{p['collector_number']}")
+
+    lines = ["Commander"] + [line(c, 1) for c in cmdrs] + ["", "Deck"]
+    lines += [line(n, entries[n]) for n in sorted(entries, key=str.lower)]
+    with open(out_path, "w", encoding="utf-8") as f:
+        f.write("\n".join(lines) + "\n")
+
+    got = [l.rstrip("\n") for l in open(out_path, encoding="utf-8")]
+    assert got[0] == "Commander", f"first line is {got[0]!r}, not 'Commander'"
+    assert got[len(cmdrs) + 2] == "Deck", \
+        f"'Deck' header is missing: {got[:len(cmdrs) + 3]}"
+    body = [l for l in got[len(cmdrs) + 3:] if l.strip()]
+    total = len(cmdrs) + sum(int(l.split(" ", 1)[0]) for l in body)
+    # Matched on the NAME between the quantity and the ' (SET' suffix, because
+    # every line here carries a printing the caller never typed. Splitting on
+    # the space alone -- what write_deck can do -- would compare 'Abrade (SOA)
+    # 37' against 'Abrade' and pass no --adds check ever.
+    names = [l.split(" ", 1)[1].rsplit(" (", 1)[0] for l in body]
+    for a in expect_adds:
+        assert front_name(a) in names, f"MISSING ADD: {a}"
+    for c in expect_cuts:
+        assert front_name(c) not in names, f"CUT STILL PRESENT: {c}"
+    print(f"\n=== WROTE {out_path} (Arena import format) ===")
+    print(f"  read back: {len(body)} entries, {total} cards, "
+          f"Commander/Deck headers OK")
+    assert total == size, (f"deck is {total} cards, {fspec['label']} is "
+                           f"{size}")
     return total
 
 
@@ -187,18 +278,62 @@ def apply_swaps(cmdr, entries, swaps):
     return out
 
 
+def by_front_face(names):
+    """(Counter keyed on the lowered front face, best spelling per key).
+
+    `names` is a Counter of name -> quantity, or any iterable of names.
+
+    The two sides of a diff do not agree on how to write a double-faced card.
+    A decklist written by hand carries the front face alone; Moxfield returns
+    the full `A // B`; `write` emits whichever the file already held. Compared
+    verbatim, one card sitting identically on both sides comes out as two
+    differences -- one missing, one added -- and it does that for every DFC,
+    adventure and split card in the list.
+
+    The LONGEST spelling wins as the label, which is the full `A // B` form:
+    the front face is a prefix of it, so taking whichever was seen first would
+    take whichever sorted first and always report the short one. Same rule
+    floor_audit uses for the same reason, and the reader looking a row up
+    wants the name their list actually holds.
+    """
+    out, label = Counter(), {}
+    # Sorted, so a length TIE breaks the same way on every run rather than on
+    # the order the decklist or the API happened to hand the names over.
+    for n, q in sorted(Counter(names).items()):
+        k = front_name(n).lower()
+        out[k] += q
+        if len(n) > len(label.get(k, "")):
+            label[k] = n
+    return out, label
+
+
 def diff_multiset(local_cmdrs, local_entries, live_cmdrs, live_main):
     """Card-multiset diff. Pure compute.
 
     lastUpdatedAtUtc moves on a description or folder edit, so the timestamp is
     not evidence the LIST changed -- diff the multiset, never the stamp.
     Returns (only_local, only_live, cmdr_change) as sorted (name, n) lists.
+
+    Both sides are reduced to FRONT FACES before comparison, commanders
+    included. Without it, a list that is byte-for-byte the live deck reports
+    one difference per double-faced card in it -- and `diff` is the step the
+    output contract names as the confirmation before anything is built on top
+    of a change, so a check that cries wolf on every DFC list is a check the
+    reader learns to skim. Measured on a live 100-card list whose only three
+    "differences" were three DFCs written two ways; front-faced, it reports
+    IDENTICAL.
+
+    The names REPORTED are each side's own spelling, so a row still reads as
+    the line the reader will find in the file or on Moxfield.
     """
-    a, b = Counter(local_entries), Counter(live_main)
-    only_local = sorted((n, c) for n, c in (a - b).items())
-    only_live = sorted((n, c) for n, c in (b - a).items())
+    a, alab = by_front_face(local_entries)
+    b, blab = by_front_face(live_main)
+    only_local = sorted((alab[n], c) for n, c in (a - b).items())
+    only_live = sorted((blab[n], c) for n, c in (b - a).items())
     ca, cb = sorted(as_cmdrs(local_cmdrs)), sorted(as_cmdrs(live_cmdrs))
-    return only_local, only_live, (None if ca == cb else (ca, cb))
+    same = ([front_name(x).lower() for x in ca]
+            == [front_name(x).lower() for x in cb])
+    return only_local, only_live, (None if same else (ca, cb))
 
 
 # A decision note, carried in the decklist file itself:

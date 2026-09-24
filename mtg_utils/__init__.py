@@ -1,5 +1,10 @@
 """
-mana_model.py — deck validation and castability for Commander decks.
+mana_model.py — deck validation and castability for singleton commander decks.
+
+Commander by default. `--format` selects Brawl or Standard Brawl, which sets
+the deck size, the Scryfall legality key every check reads, and the table size
+the play/draw framing assumes. Everything else is format-independent and was
+already correct on a 60-card list.
 
 ONE FILE. Do not create a second script beside this one; extend it and
 re-deliver the whole thing (see PROJECT NOTES at the bottom).
@@ -21,17 +26,19 @@ Subcommands
   verify      count, legality, colour identity, Game Changers, MV, tapped classes
   mana        sources model + play simulation (the full section 6 pass)
   roster      section 6 roster walk: every cycle slot, IN / benched / buy
-  skeleton    slot budget and curve: 100 = commanders + lands + non-land
+  skeleton    slot budget and curve: total = commanders + lands + non-land
   ceiling     EDHREC (or --cedh edhtop16) inclusion: what is above the bar
               and missing from the list, with ownership and price
   floor       the inverse of ceiling: what is IN the list and below the bar,
               so a cut has a number beside it. Lands excluded; see `roster`
   variants    opt-in land/accelerant sweep; slow, run when the base is unsettled
   combos      Commander Spellbook full-deck audit
-  own         ownership vs ManaBox + grouped buy list
-  contention  copies owned vs Moxfield decks wanting the card
+  own         ownership vs ManaBox + grouped buy list; --arena counts
+              wildcards by rarity instead, since Arena has no ownership file
+  contention  copies owned vs Moxfield decks wanting the card (paper only)
   moxfield    fetch a live deck into decklist format
-  write       write the final 100 and assert it back
+  write       write the final list and assert it back; --arena emits an
+              Arena import block with each printing resolved
   diff        card-multiset diff of a local list against the LIVE Moxfield deck
   primer      check every [[Card]] link in a primer against the decklist
   audit       verify + mana + roster + combos + own  (full pass, no variants)
@@ -40,6 +47,11 @@ Subcommands
 
 Decklist format: first non-blank line is the commander, then one entry per
 line as "N Card Name" or bare "Card Name".
+
+Names: a double-faced card may be written either way in a decklist. The three
+external sources disagree with each other -- EDHREC answers in front faces,
+Moxfield and Commander Spellbook in full "A // B", and Arena imports want the
+front face -- so every comparison reduces both sides. See cards.front_name.
 """
 # The docstring above is argparse's `description` and is therefore
 # OUTPUT: cli.py passes it explicitly rather than relying on __doc__,
@@ -49,28 +61,39 @@ line as "N Card Name" or bare "Card Name".
 # working for anything that used the single file as a library.
 
 from mtg_utils.cards import (BASIC_TYPE_COLOUR, COLOURS, CONDITIONAL_TAP_MARKERS,
-                             CONDITIONAL_TAP_PATTERNS, MANA_SYMBOLS, WORDNUM,
-                             enters_tapped, faces, fetch_targets, front,
+                             CONDITIONAL_TAP_PATTERNS, MANA_SYMBOLS, ORDINALS,
+                             TURN_TAP, WORDNUM,
+                             enters_tapped, enters_tapped_turn, faces,
+                             fetch_targets, front,
                              front_name, has_land_back, is_front_land, land_face,
-                             mana_amount)
-from mtg_utils.profiles import (ADDITIONAL_COST, FILTER_LANDS, OMNI_TYPE,
+                             mana_amount, tapped_from_turn)
+from mtg_utils.profiles import (ACTIVATION_GATE, ADDITIONAL_COST,
+                                COSTED_ABILITY, FILTER_LANDS, OMNI_TYPE,
                                 RITUAL_ADD, TRIGGERED_EVENT, TRIGGERED_PHASE,
                                 build_accel_profiles, build_land_profiles,
                                 build_ritual_profiles, drop_restricted,
+                                free_mana_text,
                                 ritual_add, triggered_mana, unrestricted_mana)
-from mtg_utils.castability import (PLAYSIM_TURNS, _match, at_least_in_draw,
+from mtg_utils.castability import (PLAYSIM_MAX_TURNS, PLAYSIM_TURNS, _match,
+                                   at_least_in_draw,
                                    castable, castable_faces, pips_from_cost,
                                    playable_set, playsim, playsim_report,
-                                   probability, ritual_burst)
-from mtg_utils.decklist import (DECISION, apply_swaps, as_cmdrs, diff_multiset, flat,
+                                   probability, ritual_burst, tapped_at)
+from mtg_utils.decklist import (DECISION, apply_swaps, as_cmdrs, by_front_face,
+                                diff_multiset, flat,
                                 parse_swaps, read_decisions, read_decklist,
-                                split_names, write_deck)
+                                split_names, write_arena_deck,
+                                write_deck)
+from mtg_utils.formats import (DEFAULT_FORMAT, FORMATS, deck_size, is_legal,
+                               legality, says_illegal)
+from mtg_utils.formats import spec as format_spec
 from mtg_utils.primer import LINK_RE, parse_primer_links, unclosed_openers
 from mtg_utils.roster import (ANY_COLOUR, OFF_ROSTER_RANK, PAIR_CYCLES,
                               TRIPLE_CYCLES, WUBRG, identity_pairs,
                               pair_from_type_line, pair_key, roster_names,
                               roster_slot, roster_status)
-from mtg_utils.analysis import (CURVE_TOP, FLOOR_HEADER_STEMS, SKELETON_TYPES,
+from mtg_utils.analysis import (ARENA_RARITIES, CURVE_TOP, FLOOR_HEADER_STEMS,
+                                SKELETON_TYPES,
                                 analyse_mana,
                                 ceiling_audit, collapse_temps,
                                 combo_completions, commander_lines,
@@ -79,7 +102,8 @@ from mtg_utils.analysis import (CURVE_TOP, FLOOR_HEADER_STEMS, SKELETON_TYPES,
                                 land_roster_note, mean_spread,
                                 opening_hand_floor, primer_audit,
                                 replicate_playsim, split_budget, t95,
-                                type_bucket, verify, worst_lines)
+                                type_bucket, verify, wildcard_cost,
+                                worst_lines)
 from mtg_utils.sources import UA_BROWSER, UA_TOOL
 from mtg_utils.sources.collection import COLLECTION, load_collection
 from mtg_utils.sources.moxfield import (moxfield_deck, moxfield_user_decks,
@@ -88,10 +112,15 @@ from mtg_utils.sources.edhrec import (PAGE_CAP, display_floors, edhrec_fetch,
                                       edhrec_slug, parse_commander_page)
 from mtg_utils.sources.edhtop16 import (MIN_ENTRIES, edhtop16_commander_name,
                                         edhtop16_fetch, parse_edhtop16)
-from mtg_utils.sources.ranking import SOURCE_LABEL, fetch_ranking
+from mtg_utils.sources.ranking import (POPULATION, SOURCE_LABEL, fetch_ranking,
+                                       population_mismatch)
+from mtg_utils.sources.arena import (PRINTING_FIELDS, arena_fetch,
+                                     arena_printings, pick_arena_printing)
 from mtg_utils.sources.scryfall import scry_fetch
-from mtg_utils.sources.spellbook import spellbook
-from mtg_utils.report import (report_calibrate, report_combos, report_contention,
+from mtg_utils.sources.spellbook import (spellbook, spellbook_name,
+                                         variant_says_illegal)
+from mtg_utils.report import (report_arena_wildcards, report_calibrate,
+                              report_combos, report_contention,
                               report_ceiling, report_diff, report_floor,
                               report_mana, report_own, report_primer,
                               report_roster, report_skeleton, report_swap,

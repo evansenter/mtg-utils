@@ -357,6 +357,30 @@ def _search(derived, subsets, nreq):
     return recurse(0, frozenset())
 
 
+def tapped_at(p, turn):
+    """Is this source tapped on `turn`?
+
+    `tapped` alone for everything except a turn-conditional land, which is
+    untapped before its threshold and tapped from it -- Starting Town enters
+    untapped on turns one to three and tapped from turn four.
+
+    `tapped_from` is absent from every accelerant profile and None on every
+    land that carries no such clause, so this answers `p["tapped"]` unchanged
+    for all of them and no figure moves on a deck without one.
+
+    In the SOURCES model this is read at the turn being asked about, which is
+    a floor rather than an exact reading: a Starting Town in a turn-five
+    combination may have been played on turn two and be untapped now, and this
+    calls it tapped. Understating is the safe direction here and the effect is
+    confined to the all-tapped rule in `playable_set`. The play simulation has
+    no such gap -- it knows the turn the land was actually played.
+    """
+    if not p["tapped"]:
+        return False
+    frm = p.get("tapped_from")
+    return frm is None or turn >= frm
+
+
 def playable_set(chosen):
     if chosen and all(p["tapped"] for p in chosen):
         for i, p in enumerate(chosen):
@@ -535,7 +559,8 @@ def probability(lands, accels, deck_size, req, mv, turn, sims, rng,
     # Membership tests, so "is there a land here" and "is everything here
     # tapped" are one C call over the combo rather than a Python loop.
     land_idx = frozenset(i for i, p in enumerate(allp) if p["kind"] == "land")
-    untapped = frozenset(i for i, p in enumerate(allp) if not p["tapped"])
+    untapped = frozenset(i for i, p in enumerate(allp)
+                         if not tapped_at(p, turn))
     # Everything a combo's answer turns on, packed into one int, so two draws
     # that differ only in which particular Mountain came up are recognisable
     # as the same question.
@@ -734,11 +759,26 @@ def _playsim_core(lands, accels, deck_size, turns, on_draw, trials, rng,
 
     l_tap = [p["tapped"] for p in lands]
     l_amt = [p.get("amount", 1) for p in lands]
+    # The turn from which a land enters tapped, 0 for every land whose
+    # tappedness does not depend on the turn -- which is every land in four of
+    # the five fixtures, and the reason nothing below runs unless one is
+    # present.
+    l_from = [p.get("tapped_from") or 0 for p in lands]
+    turn_tap = any(l_from)
     # The land played is the first minimum of this key, which is exactly what
     # `sort()` then `[0]` chose: untapped first, then most colours, then most
     # mana, ties going to whichever was drawn first.
     l_key = [(p["tapped"], -len(p["colours"]), -p.get("amount", 1))
              for p in lands]
+    # The same key with the turn-conditional lands read as UNTAPPED. Which of
+    # the two applies depends on the turn, so a deck holding one is chosen
+    # from per turn rather than off the static sort order below: a Starting
+    # Town is the best land in hand on turn two and among the worst on turn
+    # five, and one static answer is wrong on one of those turns. Built
+    # whether or not it is used, because it costs one list comprehension per
+    # simulation rather than per trial.
+    l_key_early = [(False, k[1], k[2]) if l_from[i] else k
+                   for i, k in enumerate(l_key)]
     a_cost = [p["cost"] for p in accels]
     a_amt = [p.get("amount", 1) for p in accels]
     # An untapped non-creature rock is online the turn it enters; anything
@@ -863,8 +903,24 @@ def _playsim_core(lands, accels, deck_size, turns, on_draw, trials, rng,
                 online_total += pend_total
                 pend_total = 0
             if hand_l:
-                code = hand_l.pop(0)[2]
-                if l_tap[code]:
+                if turn_tap:
+                    # Scanned rather than popped, and ONLY on a deck holding a
+                    # turn-conditional land: `hand_l` is kept sorted on the
+                    # static key, which is the wrong order on one side of the
+                    # threshold. The draw order stays in the tie-break, so an
+                    # otherwise equal pair still goes to whichever was drawn
+                    # first -- which is what `insort` placing equals last and
+                    # `[0]` did.
+                    pick = min(range(len(hand_l)),
+                               key=lambda i, _t=t: (
+                                   l_key[hand_l[i][2]]
+                                   if l_from[hand_l[i][2]] and _t >= l_from[hand_l[i][2]]
+                                   else l_key_early[hand_l[i][2]],
+                                   hand_l[i][1]))
+                    code = hand_l.pop(pick)[2]
+                else:
+                    code = hand_l.pop(0)[2]
+                if l_tap[code] and (not l_from[code] or t >= l_from[code]):
                     pend_land = code
                     pend_total += l_amt[code]
                 else:
@@ -984,6 +1040,15 @@ def playsim(lands, accels, deck_size, turns, on_draw, trials, rng,
 # that reads a line back by label has to know the limit. Defined once here so
 # that caller cannot hold a different number.
 PLAYSIM_TURNS = 7
+
+# The furthest a caller may ask the play simulation to run. Not a policy
+# choice: `_playsim_core` asserts `5 * turns + 1 <= _SIG_LIMIT`, because a turn
+# can bring one land, four accelerants and one ritual burst online, and a
+# signature's count must fit its six-bit field in the packed hand. Derived from
+# that same constant so the CLI's bound and the simulator's cannot drift --
+# `--turns 13` used to run the whole sources model and then die on a bare
+# AssertionError.
+PLAYSIM_MAX_TURNS = (_SIG_LIMIT - 1) // 5
 
 
 def playsim_report(lands, accels, deck_size, lines, trials, rng,

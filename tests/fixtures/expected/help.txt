@@ -1,13 +1,21 @@
 usage: mana_model.py [-h] [--cache CACHE] [--sims SIMS] [--trials TRIALS]
                      [--reps REPS] [--seed SEED] [--out OUT] [--decks DECKS]
                      [--lands LANDS] [--accel ACCEL] [--adds ADDS]
-                     [--cuts CUTS] [--rec-cache REC_CACHE] [--cedh]
-                     [--bar BAR] [--no-combos] [--sort {inclusion,synergy}]
+                     [--cuts CUTS] [--arena-cache ARENA_CACHE]
+                     [--rec-cache REC_CACHE] [--cedh] [--bar BAR]
+                     [--no-combos] [--sort {inclusion,synergy}]
                      [--primer PRIMER] [--swap SWAP]
+                     [--format {brawl,commander,standardbrawl}] [--arena]
+                     [--turns TURNS] [--colours COLOURS] [--size SIZE]
                      {fetch,verify,mana,variants,combos,own,contention,moxfield,write,audit,roster,diff,selftest,calibrate,ceiling,floor,skeleton,primer}
                      [target]
 
-mana_model.py — deck validation and castability for Commander decks.
+mana_model.py — deck validation and castability for singleton commander decks.
+
+Commander by default. `--format` selects Brawl or Standard Brawl, which sets
+the deck size, the Scryfall legality key every check reads, and the table size
+the play/draw framing assumes. Everything else is format-independent and was
+already correct on a 60-card list.
 
 ONE FILE. Do not create a second script beside this one; extend it and
 re-deliver the whole thing (see PROJECT NOTES at the bottom).
@@ -29,17 +37,19 @@ Subcommands
   verify      count, legality, colour identity, Game Changers, MV, tapped classes
   mana        sources model + play simulation (the full section 6 pass)
   roster      section 6 roster walk: every cycle slot, IN / benched / buy
-  skeleton    slot budget and curve: 100 = commanders + lands + non-land
+  skeleton    slot budget and curve: total = commanders + lands + non-land
   ceiling     EDHREC (or --cedh edhtop16) inclusion: what is above the bar
               and missing from the list, with ownership and price
   floor       the inverse of ceiling: what is IN the list and below the bar,
               so a cut has a number beside it. Lands excluded; see `roster`
   variants    opt-in land/accelerant sweep; slow, run when the base is unsettled
   combos      Commander Spellbook full-deck audit
-  own         ownership vs ManaBox + grouped buy list
-  contention  copies owned vs Moxfield decks wanting the card
+  own         ownership vs ManaBox + grouped buy list; --arena counts
+              wildcards by rarity instead, since Arena has no ownership file
+  contention  copies owned vs Moxfield decks wanting the card (paper only)
   moxfield    fetch a live deck into decklist format
-  write       write the final 100 and assert it back
+  write       write the final list and assert it back; --arena emits an
+              Arena import block with each printing resolved
   diff        card-multiset diff of a local list against the LIVE Moxfield deck
   primer      check every [[Card]] link in a primer against the decklist
   audit       verify + mana + roster + combos + own  (full pass, no variants)
@@ -48,6 +58,11 @@ Subcommands
 
 Decklist format: first non-blank line is the commander, then one entry per
 line as "N Card Name" or bare "Card Name".
+
+Names: a double-faced card may be written either way in a decklist. The three
+external sources disagree with each other -- EDHREC answers in front faces,
+Moxfield and Commander Spellbook in full "A // B", and Arena imports want the
+front face -- so every comparison reduces both sides. See cards.front_name.
 
 positional arguments:
   {fetch,verify,mana,variants,combos,own,contention,moxfield,write,audit,roster,diff,selftest,calibrate,ceiling,floor,skeleton,primer}
@@ -73,6 +88,9 @@ options:
   --cuts CUTS           write: card names the output must NOT contain; same
                         separator rule as --adds, and note that a mis-split
                         cut PASSES vacuously, so use ';' when in doubt
+  --arena-cache ARENA_CACHE
+                        write --arena: on-disk cache of Arena printings, one
+                        Scryfall search per card on a miss
   --rec-cache REC_CACHE
                         ceiling/floor: on-disk cache for EDHREC / edhtop16
                         pages
@@ -89,3 +107,16 @@ options:
   --primer PRIMER       primer: path to the primer markdown to check
   --swap SWAP           variants: measure named swaps, 'Cut->Add,Cut2->Add2'
                         (use ';' between pairs if a name contains a comma)
+  --format {brawl,commander,standardbrawl}
+                        deck format: sets the expected deck size, the legality
+                        key checked, and the table size the play/draw framing
+                        assumes
+  --arena               own: report wildcard cost by rarity instead of a paper
+                        buy list; write: emit an Arena import block
+  --turns TURNS         mana: how far the play simulation runs (default 7, at
+                        most 12); a line landing later is not measured
+  --colours COLOURS     roster: walk these colours instead of the commander's
+                        whole identity, e.g. --colours BRG; narrows only,
+                        never widens
+  --size SIZE           verify/write: expected total cards including
+                        commanders; defaults to the --format's size

@@ -1,0 +1,9 @@
+
+=== VARIANTS SWEEP (2000 trials over 3 reps, seed 17) — commander line and generic baseline ===
+  config                            cmdr on curve        any N on turn N
+  23 lands, 4 accel          56.9±1.9 /  62.6±1.4     84.1±0.4 /  90.3±0.5
+  23 lands, 6 accel          57.5±1.8 /  62.9±1.3     88.5±0.7 /  93.5±0.7
+  25 lands, 4 accel          56.0±0.4 /  63.4±0.7     88.3±0.4 /  94.0±0.8
+  25 lands, 6 accel          56.3±0.3 /  63.4±0.9     91.1±0.3 /  96.1±0.4
+  27 lands, 4 accel          56.9±0.7 /  61.7±1.1     91.8±0.3 /  96.7±0.5
+  27 lands, 6 accel          57.1±0.9 /  61.0±1.3     94.3±0.9 /  97.8±0.3
