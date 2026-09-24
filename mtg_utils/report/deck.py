@@ -122,7 +122,16 @@ def report_roster(cmdr, entries, scry, cache_path=None, fmt=None, colours=None):
     ident = "".join(c for c in WUBRG if c in ci)
     walk = ident
     if colours:
-        want = {c.upper() for c in colours if c.upper() in WUBRG}
+        # Every character has to BE a colour. Dropping the rest quietly turned
+        # a typo (`--colours BRX`) into a narrower walk and `--colours C` into
+        # an empty one that printed `ROSTER WALK: ... ()` -- a walk of nothing
+        # that looks like a result. Refused by name, as widening is below.
+        bad = sorted({c for c in colours.upper() if c not in WUBRG})
+        if bad:
+            raise SystemExit(
+                f"--colours {colours}: {''.join(bad)} is not a colour. Use "
+                f"the letters W, U, B, R and G, e.g. --colours BRG.")
+        want = set(colours.upper())
         # Refused rather than silently widened. A roster row outside the
         # commander's identity is ILLEGAL in the deck, and printing it under a
         # flag the caller typed would read as a slot they could fill.

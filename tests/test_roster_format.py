@@ -118,3 +118,22 @@ def test_no_colours_walks_the_identity(mm, tmp_path):
     out = _roster(mm, tmp_path, MULTI)
     assert "=== ROSTER WALK: Muldrotha, the Gravetide (UBG) ===" in out
     assert "--colours narrowed it" not in out
+
+
+@pytest.mark.parametrize("spec", ["BRX", "C", "X"],
+                         ids=["roster/--colours refuses a typo",
+                              "roster/--colours refuses colourless",
+                              "roster/--colours refuses a non-colour"])
+def test_colours_refuses_a_letter_that_is_not_a_colour(mm, tmp_path, spec):
+    """Found in review: unrecognised letters were dropped without a word, so
+    `--colours C` walked nothing and printed `ROSTER WALK: ... ()` -- an empty
+    walk that looks like a result, and a typo quietly narrowed the walk."""
+    out = _roster(mm, tmp_path, BRAWL, f"--colours={spec}")
+    assert "is not a colour" in out
+    assert "=== ROSTER WALK" not in out
+
+
+def test_colours_is_case_insensitive(mm, tmp_path):
+    """roster/--colours brg is the same walk as --colours BRG"""
+    out = _roster(mm, tmp_path, BRAWL, "--colours=brg")
+    assert "=== ROSTER WALK: Terra, Magical Adept (BRG) ===" in out
