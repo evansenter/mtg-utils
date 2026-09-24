@@ -33,8 +33,12 @@ against hand-built candidates, and the fact that the capture cannot exercise
 them is written down in the cases rather than left for someone to assume it
 does.
 
-The tie-break is the most RECENT printing, because that is the one Arena
-players actually have and the one its collection UI shows first. Ties on the
+The tie-break is the most recent RELEASED printing, because that is the one
+Arena players actually have and the one its collection UI shows first.
+"Released" is load-bearing: Scryfall lists preview sets weeks ahead, and the
+first capture of the brawl fixture's basics picked `TRK`, dated 2026-11-13,
+on 2026-08-30 -- a set code Arena did not have yet, on 17 lines of a 60-card
+import. A printing dated after `today` is not a candidate. Ties on the
 release date break on the set code, so a rerun writes the same file: two Arena
 sets really do share a release day.
 
@@ -91,7 +95,40 @@ def arena_fetch(name, cache_path=None):
         return cache[key]
     q = f'!"{front_name(name)}" game:arena'
     url = (f"{SEARCH}?q={urllib.parse.quote(q)}&unique=prints&order=released")
-    data = None
+    rows, total = [], None
+    while url:
+        data = _search_page(url, q)
+        if data.get("object") == "error":
+            # "Your query didn't match any cards" is the shape a card with no
+            # Arena printing comes back as. Any OTHER error is a fault and must
+            # not be stored as "this card is not on Arena".
+            if data.get("code") != "not_found" or rows:
+                raise SystemExit(f"Scryfall /cards/search: {data.get('details')}")
+            break
+        total = data.get("total_cards")
+        rows += data.get("data") or []
+        # A page is 175 cards and a basic land has more Arena printings than
+        # that -- Swamp had 209 on 2026-09-24. The first version read one page
+        # and checked `len(rows) <= total`, which cannot fail.
+        url = data.get("next_page") if data.get("has_more") else None
+        if url:
+            time.sleep(0.5)
+    if total is not None:
+        # Asserted, not trusted: a short page under `object: list` is what a
+        # silent 429 looks like, and a card that came back short here would be
+        # priced off whichever printings happened to arrive.
+        assert len(rows) == total, (q, total, len(rows))
+    out = [_project(c) for c in rows]
+    cache[key] = out
+    if cache_path:
+        with open(cache_path, "w", encoding="utf-8") as f:
+            json.dump(cache, f)
+    time.sleep(0.5)
+    return out
+
+
+def _search_page(url, q):
+    """One /cards/search page, with backoff. See the module docstring."""
     for attempt in range(4):
         r = subprocess.run(["curl", "-s", "-H", "Accept: application/json",
                             "-H", f"User-Agent: {UA_TOOL}", url],
@@ -102,46 +139,30 @@ def arena_fetch(name, cache_path=None):
             time.sleep(0.5 + attempt * 2)
             continue
         if data.get("object") in ("list", "error"):
-            break
+            return data
         time.sleep(0.5 + attempt * 2)
-    else:
-        raise SystemExit(f"Scryfall /cards/search failed after retries: {q}")
-    if data.get("object") == "error":
-        # "Your query didn't match any cards" is the shape a card with no
-        # Arena printing comes back as. Any OTHER error is a fault and must
-        # not be stored as "this card is not on Arena".
-        if data.get("code") != "not_found":
-            raise SystemExit(f"Scryfall /cards/search: {data.get('details')}")
-        out = []
-    else:
-        rows = data.get("data") or []
-        # Asserted rather than trusted: a truncated or empty page under an
-        # `object: list` is the failure mode a silent 429 produces, and a card
-        # that came back empty here would be filed as "not on Arena".
-        assert len(rows) == min(data.get("total_cards", 0), len(rows)), \
-            (q, data.get("total_cards"), len(rows))
-        assert rows, (q, "an object:list page with no rows")
-        out = [_project(c) for c in rows]
-    cache[key] = out
-    if cache_path:
-        with open(cache_path, "w", encoding="utf-8") as f:
-            json.dump(cache, f)
-    time.sleep(0.5)
-    return out
+    raise SystemExit(f"Scryfall /cards/search failed after retries: {q}")
 
 
-def pick_arena_printing(printings, fmt=None):
+def pick_arena_printing(printings, fmt=None, today=None):
     """The printing an Arena import line should name, or None.
 
     Pure, so the selection rules are testable without the network -- which is
     the half that actually goes wrong. See the module docstring for why each
     filter is there and why the tie-break is total.
+
+    `today` is an ISO date string and defaults to the current UTC date. It is
+    a parameter so a test can pin it: the frozen capture holds a preview set
+    dated 2026-11-13, and a case that read the clock would change its answer
+    on that day with no code change.
     """
+    today = today or time.strftime("%Y-%m-%d", time.gmtime())
     key = format_spec(fmt)["legality"]
     ok = [p for p in printings or []
           if "arena" in (p.get("games") or [])
           and (p.get("legalities") or {}).get(key) == "legal"
-          and str(p.get("collector_number") or "").isdigit()]
+          and str(p.get("collector_number") or "").isdigit()
+          and (p.get("released_at") or "") <= today]
     if not ok:
         return None
     # Newest first; the set code makes the order total. Sorting rather than
@@ -151,7 +172,7 @@ def pick_arena_printing(printings, fmt=None):
                                   p.get("set") or ""))
 
 
-def arena_printings(names, fmt=None, cache_path=None):
+def arena_printings(names, fmt=None, cache_path=None, today=None):
     """({front-face name lowered: printing}, [names with no usable printing]).
 
     NETWORK per distinct name on a cache miss, one search each -- see the
@@ -165,7 +186,7 @@ def arena_printings(names, fmt=None, cache_path=None):
     """
     out, missing = {}, []
     for n in dict.fromkeys(front_name(x) for x in names):
-        pick = pick_arena_printing(arena_fetch(n, cache_path), fmt)
+        pick = pick_arena_printing(arena_fetch(n, cache_path), fmt, today)
         if pick is None:
             missing.append(n)
         else:

@@ -104,6 +104,14 @@ narrowed to one format could not test the selection at all, because every row
 in it would be a valid answer. Abrade came back with five printings spanning
 six years, which is what makes the "newest wins" rule testable.
 
+**The three basic lands are truncated at 175 printings**, one Scryfall page:
+the capture predates pagination in `arena_fetch`, and Swamp had 209 Arena
+printings on 2026-09-24. Pages come back newest first, so the truncation drops
+only the oldest printings and cannot change a pick; a cache hit never
+refetches, so it stays as captured. The capture also holds `TRK` basics dated
+2026-11-13 -- a preview set, which is what `test_an_unreleased_printing_is_not_named`
+pins with `today` fixed on both sides of that date.
+
 Two of the three selection filters reject NOTHING in it, and that is a fact
 about the data rather than a gap. The search applies `game:arena` itself, and
 Scryfall's `legalities` is an oracle-level field repeated identically on every

@@ -102,8 +102,9 @@ there is no `historicbrawl` key at all, and a guessed key reads as "every card
 is illegal" rather than as a mistake. Commander Spellbook spells the same
 formats differently again, so each entry carries a second key for it.
 
-`ceiling`, `floor` and `calibrate` are the network subcommands. Everything else
-runs off the Scryfall cache.
+`ceiling`, `floor`, `calibrate`, `combos`, `contention`, `diff`, `moxfield`
+and `write --arena` are the network subcommands; `roster` and `primer` also go
+out on a Scryfall cache miss. Everything else runs off the Scryfall cache.
 
 `argparse` reads a leading-minus value as a flag, so sweeps need `=`:
 `--lands=-2,0,2`, never `--lands -2,0,2`.

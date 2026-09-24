@@ -277,3 +277,65 @@ def test_the_size_assertion_still_holds(mm, tmp_path, arena_cache):
                             os.path.join(str(tmp_path), "x.txt"), prints,
                             fmt="standardbrawl")
     assert "deck is 6 cards, Standard Brawl is 60" in str(e.value)
+
+
+# --- found on review: unreleased sets, and pages past the first -----------
+def test_an_unreleased_printing_is_not_named(mm, arena_cache, no_network):
+    """arena/a preview set is not a printing Arena has
+
+    Scryfall lists preview sets weeks ahead. The frozen capture, taken on
+    2026-08-30, holds `TRK` basics dated 2026-11-13, and "newest wins" named
+    that set on all 17 basic-land lines of the brawl import -- a set code
+    Arena did not have. `today` is pinned both ways, so this case does not
+    change its answer when the calendar passes that date.
+    """
+    swamps = mm.arena_fetch("Swamp", arena_cache)
+    assert any(p["set"] == "trk" for p in swamps)
+    before = mm.pick_arena_printing(swamps, "standardbrawl", today="2026-09-24")
+    after = mm.pick_arena_printing(swamps, "standardbrawl", today="2026-11-13")
+    assert before["set"] != "trk"
+    assert before["released_at"] <= "2026-09-24"
+    assert after["set"] == "trk"
+
+
+def test_every_page_is_read_and_counted(mm, monkeypatch, tmp_path):
+    """arena/a search longer than one page is followed to the end
+
+    A page is 175 cards and Swamp had 209 Arena printings on 2026-09-24. The
+    first version read one page and asserted `len(rows) <= total`, which
+    cannot fail.
+    """
+    import mtg_utils.sources.arena as arena
+    pages = {
+        "p1": {"object": "list", "total_cards": 3, "has_more": True,
+               "next_page": "p2", "data": [_p("a", "1", "2020-01-01"),
+                                           _p("b", "2", "2021-01-01")]},
+        "p2": {"object": "list", "total_cards": 3, "has_more": False,
+               "data": [_p("c", "3", "2022-01-01")]},
+    }
+    seen = []
+
+    def fake_page(url, q):
+        key = "p1" if url.startswith("https://") else url
+        seen.append(key)
+        return pages[key]
+
+    monkeypatch.setattr(arena, "_search_page", fake_page)
+    monkeypatch.setattr(arena.time, "sleep", lambda *_: None)
+    got = arena.arena_fetch("Anything", str(tmp_path / "c.json"))
+    assert seen == ["p1", "p2"]
+    assert [p["set"] for p in got] == ["a", "b", "c"]
+
+
+def test_a_short_capture_is_refused(mm, monkeypatch, tmp_path):
+    """arena/fewer rows than the total is an error, not an answer
+
+    A short page is what a silent 429 looks like; priced off whichever
+    printings arrived, it would name the wrong set without saying so.
+    """
+    import mtg_utils.sources.arena as arena
+    monkeypatch.setattr(arena, "_search_page", lambda url, q: {
+        "object": "list", "total_cards": 5, "has_more": False,
+        "data": [_p("a", "1", "2020-01-01")]})
+    with pytest.raises(AssertionError):
+        arena.arena_fetch("Anything", str(tmp_path / "c.json"))
