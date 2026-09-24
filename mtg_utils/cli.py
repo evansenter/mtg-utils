@@ -126,7 +126,12 @@ def main():
                     help=f"mana: how far the play simulation runs "
                          f"(default {PLAYSIM_TURNS}); a line landing later is "
                          f"not measured")
-    ap.add_argument("--colours", "--colors", default="", dest="colours",
+    # One spelling, no alias. argparse renders an aliased option differently
+    # on 3.13 ("--colours, --colors COLOURS") than on 3.11 and 3.12
+    # ("--colours COLOURS, --colors COLOURS"), and `--help` is one snapshot
+    # checked on all three -- an alias makes it unsatisfiable. No other flag
+    # here has one, which is why nothing tripped on it before.
+    ap.add_argument("--colours", default="", dest="colours",
                     help="roster: walk these colours instead of the "
                          "commander's whole identity, e.g. --colours BRG; "
                          "narrows only, never widens")

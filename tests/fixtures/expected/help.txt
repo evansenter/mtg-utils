@@ -115,8 +115,7 @@ options:
                         buy list; write: emit an Arena import block
   --turns TURNS         mana: how far the play simulation runs (default 7); a
                         line landing later is not measured
-  --colours COLOURS, --colors COLOURS
-                        roster: walk these colours instead of the commander's
+  --colours COLOURS     roster: walk these colours instead of the commander's
                         whole identity, e.g. --colours BRG; narrows only,
                         never widens
   --size SIZE           verify/write: expected total cards including
