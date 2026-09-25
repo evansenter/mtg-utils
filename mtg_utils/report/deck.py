@@ -201,8 +201,11 @@ def report_roster(cmdr, entries, scry, cache_path=None, fmt=None, colours=None):
         for slot, table in PAIR_CYCLES:
             name = table.get(pk)
             if not name:
+                # Printed, but NOT counted as a walked row. It is a slot the
+                # pair never had, so it cannot stand in for one the format
+                # emptied: counted, a pair whose every real member is illegal
+                # printed only "(no such card)" and no note at all.
                 print(f"  {slot:18s} {'(no such card)':30s}")
-                rows += 1
                 continue
             if not legal(name):
                 continue
@@ -214,7 +217,7 @@ def report_roster(cmdr, entries, scry, cache_path=None, fmt=None, colours=None):
                                        "Filter land", "Painland",
                                        "Battlebond land", "Horizon land"):
                 empty.append((pk, slot, name, st))
-        if not rows:
+        if illegal and not rows:
             _say_empty(fmt)
 
     print("\n  --- off-pair fetchlands (reach one colour of the identity) ---")
@@ -274,19 +277,27 @@ def report_combos(cmdr, entries, scry=None, fmt=None):
     mode is an in-deck combo reported as one card away from the commander.
     Optional, so a caller without a cache still gets what it got before.
 
-    `fmt` drops the suggestions that cannot be registered in it. The payload
+    `fmt` drops the SUGGESTIONS that cannot be registered in it. The payload
     carries no format, so `almostIncluded` comes back Commander-legal whatever
     deck was sent -- low harm, because this is a candidate generator whose
     every row needs hand-verification, but a wasted read all the same. The
     count dropped is printed rather than the list quietly shortened.
+
+    `included` is NOT filtered, in any format. Every piece of an in-deck
+    combo is already in the list, so whether those cards are legal is
+    `verify`'s question -- the same reason `floor` warns rather than filters.
+    Filtering it anyway hid a real interaction behind a count: a Commander
+    list holding one banned piece printed "1 combo not legal in Commander,
+    dropped" and then "in-deck combos: 0", which is the reassuring wrong
+    answer spellbook_name exists to prevent, reached by a different road. A
+    combo in the deck is a fact about the deck whether or not the deck is
+    legal.
     """
     res = spellbook(cmdr, entries, scry)
-    inc = [v for v in res.get("included", [])
-           if not variant_says_illegal(v, fmt)]
+    inc = res.get("included", [])
     almost = [v for v in res.get("almostIncluded", [])
               if not variant_says_illegal(v, fmt)]
-    dropped = ((len(res.get("included", [])) - len(inc))
-               + (len(res.get("almostIncluded", [])) - len(almost)))
+    dropped = len(res.get("almostIncluded", [])) - len(almost)
     # Front faces on BOTH sides, like every other cross-source comparison
     # here. Spellbook answers in full names, a decklist may hold either, and
     # compared verbatim a DFC already in the list files under `miss` -- which
@@ -294,8 +305,8 @@ def report_combos(cmdr, entries, scry=None, fmt=None):
     deck = set(front_name(n).lower() for n in flat(cmdr, entries))
     print(f"\n=== COMMANDER SPELLBOOK ({time.strftime('%Y-%m-%d')}) ===")
     if dropped:
-        print(f"  {dropped} combo{'' if dropped == 1 else 's'} not legal in "
-              f"{format_spec(fmt)['label']}, dropped.")
+        print(f"  {dropped} suggestion{'' if dropped == 1 else 's'} not "
+              f"legal in {format_spec(fmt)['label']}, dropped.")
     print(f"  in-deck combos: {len(inc)}")
     for v in inc:
         print("   *", " + ".join(u["card"]["name"] for u in v.get("uses", [])),

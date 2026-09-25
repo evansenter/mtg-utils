@@ -63,6 +63,44 @@ def test_a_section_the_filter_empties_says_so(mm, tmp_path):
     assert body.splitlines()[1] == "  (nothing here is legal in Standard Brawl)"
 
 
+def test_a_pair_left_with_only_a_missing_slot_says_so(
+        mm, monkeypatch, capsys, tmp_path):
+    """roster/"(no such card)" does not stand in for a walked row
+
+    Some cycles have no member for some pairs -- there is no BR Horizon land
+    -- and the walk prints that row as "(no such card)". It used to COUNT it
+    as walked, so a pair whose every real member was illegal in the format
+    printed that one line and no note, reading as a pair with nothing to
+    fill rather than as a pair the format had emptied.
+
+    No format empties a pair on the committed capture, so the BR members are
+    marked not legal here. Only the legality VALUE is edited; the records are
+    otherwise the frozen ones.
+    """
+    import json
+    import shutil
+
+    import mtg_utils.report as report
+    from conftest import load_fixture_collection, patch_everywhere
+    cache = os.path.join(str(tmp_path), "brawl.scry.json")
+    shutil.copyfile(os.path.join(FIXTURES, "brawl.scry.json"), cache)
+    with open(cache, encoding="utf-8") as f:
+        scry = json.load(f)
+    br = [t["BR"] for _slot, t in mm.PAIR_CYCLES if t.get("BR")]
+    assert any(not t.get("BR") for _slot, t in mm.PAIR_CYCLES), \
+        "the case needs a cycle with no BR member"
+    for n in br:
+        rec = dict(scry[n.lower()])
+        rec["legalities"] = dict(rec["legalities"], standardbrawl="not_legal")
+        scry[n.lower()] = rec
+    patch_everywhere(monkeypatch, "load_collection", load_fixture_collection)
+    cmdr, entries = mm.read_decklist(os.path.join(FIXTURES, "brawl.txt"))
+    report.report_roster(cmdr, entries, scry, cache, "standardbrawl", "BRG")
+    block = capsys.readouterr().out.split("--- BR ---")[1].split("---")[0]
+    assert "(no such card)" in block
+    assert "(nothing here is legal in Standard Brawl)" in block
+
+
 def test_commander_drops_nothing(mm, tmp_path):
     """roster/the default format filters nothing out
 

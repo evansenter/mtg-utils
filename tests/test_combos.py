@@ -215,9 +215,36 @@ def test_illegal_suggestions_are_dropped_and_counted(mm, monkeypatch, capsys):
     patch_everywhere(monkeypatch, "spellbook", fake_spellbook)
     report.report_combos("Cmdr", Counter({"Cmdr": 1}), None, "standardbrawl")
     out = capsys.readouterr().out
-    assert "1 combo not legal in Standard Brawl, dropped." in out
+    assert "1 suggestion not legal in Standard Brawl, dropped." in out
     assert "one card away: 1" in out
     assert "Banned Piece" not in out
+
+
+@pytest.mark.parametrize("fmt", ["commander", "standardbrawl"],
+                         ids=["combos/an in-deck combo survives Commander",
+                              "combos/an in-deck combo survives Standard Brawl"])
+def test_an_in_deck_combo_is_never_dropped(mm, monkeypatch, capsys, fmt):
+    """combos/legality filters suggestions, not what the deck already holds
+
+    Every piece of an `included` combo is in the list, so its legality is
+    `verify`'s question. Filtered here, a list holding one banned piece
+    printed "1 combo not legal in Commander, dropped." and then
+    "in-deck combos: 0" -- a bracket-relevant infinite reported as absent,
+    on the DEFAULT format, which no `--format` flag had asked for.
+    """
+    import mtg_utils.report as report
+
+    def fake_spellbook(cmdr, entries, scry=None):
+        return {"included": [_variant("Banned Piece", {"commander": False,
+                                                       "standardBrawl": False})],
+                "almostIncluded": []}
+
+    patch_everywhere(monkeypatch, "spellbook", fake_spellbook)
+    report.report_combos("Cmdr", Counter({"Cmdr": 1}), None, fmt)
+    out = capsys.readouterr().out
+    assert "in-deck combos: 1" in out
+    assert "Banned Piece" in out
+    assert "dropped" not in out
 
 
 def test_commander_drops_nothing(mm, monkeypatch, capsys):
