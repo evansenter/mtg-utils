@@ -151,11 +151,16 @@ def test_the_capture_has_no_order_dependent_pick(mm, arena_cache):
         rev = mm.pick_arena_printing(list(reversed(prints)), "standardbrawl",
                                      today="2026-08-30")
         assert fwd == rev, key
+        # Eligibility is asked of pick_arena_printing itself, one printing at
+        # a time, rather than re-implemented here. A partial copy of its
+        # filter counted a set holding one usable printing and one illegal or
+        # unreleased one as a tie, which `max` never saw -- so the guard below
+        # could pass on a capture with no real tie at all.
         if fwd and sum(1 for p in prints
                        if (p.get("released_at"), p.get("set"))
                        == (fwd["released_at"], fwd["set"])
-                       and str(p.get("collector_number")).isdigit()
-                       and "arena" in (p.get("games") or [])) > 1:
+                       and mm.pick_arena_printing([p], "standardbrawl",
+                                                  today="2026-08-30")) > 1:
             ties += 1
     # Without a real tie on the capture this case could not fail.
     assert ties >= 1
