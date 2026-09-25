@@ -165,11 +165,22 @@ def pick_arena_printing(printings, fmt=None, today=None):
           and (p.get("released_at") or "") <= today]
     if not ok:
         return None
-    # Newest first; the set code makes the order total. Sorting rather than
-    # trusting `order=released` because the cache is a frozen projection and
-    # a rerun has to write the same file as the run before it.
+    # Newest first, then the set code, then the LOWEST collector number.
+    # Sorting rather than trusting `order=released` because the cache is a
+    # frozen projection and a rerun has to write the same file as the run
+    # before it.
+    #
+    # The set code alone did not make the order total, although this comment
+    # once said it did: one set holds several numeric printings of the same
+    # card -- basics in every set, and Foundations prints Phyrexian Arena at
+    # both 180 and 728 -- and `max` then returned whichever the search
+    # happened to list first. Four lines of the brawl import were decided
+    # that way. The lowest number wins because it is the main-set printing;
+    # the high numbers in a set are its extended-art and showcase variants.
+    # Every candidate here has passed `isdigit()`, so `int` cannot raise.
     return max(ok, key=lambda p: (p.get("released_at") or "",
-                                  p.get("set") or ""))
+                                  p.get("set") or "",
+                                  -int(p["collector_number"])))
 
 
 def arena_printings(names, fmt=None, cache_path=None, today=None):

@@ -119,6 +119,53 @@ def test_the_tie_break_is_total(mm):
     assert mm.pick_arena_printing([b, a])["set"] == "bbb"
 
 
+def test_the_tie_break_is_total_within_one_set(mm):
+    """arena/two printings in the SAME set sort the same way twice
+
+    The set code breaks a tie between sets and not within one. Basics carry
+    several numeric printings per set, and Foundations prints Phyrexian Arena
+    at both 180 and 728; with (released, set) as the whole key, `max` returned
+    whichever the search listed first, which is an order the API does not
+    promise. On the frozen capture that decided four lines of the brawl
+    import. The lowest number is the main-set printing.
+    """
+    a = _p("fdn", "180", "2024-11-15")
+    b = _p("fdn", "728", "2024-11-15")
+    assert mm.pick_arena_printing([a, b])["collector_number"] == "180"
+    assert mm.pick_arena_printing([b, a])["collector_number"] == "180"
+
+
+def test_the_capture_has_no_order_dependent_pick(mm, arena_cache):
+    """arena/every pick on the frozen capture survives reversing its input
+
+    The case above pins the rule; this one pins that the rule is ENOUGH on
+    real data, where the ties are ones nobody chose. Reversed input is the
+    cheapest stand-in for "the API listed them in another order".
+    """
+    import json
+    with open(arena_cache, encoding="utf-8") as f:
+        cache = json.load(f)
+    ties = 0
+    for key, prints in cache.items():
+        fwd = mm.pick_arena_printing(prints, "standardbrawl", today="2026-08-30")
+        rev = mm.pick_arena_printing(list(reversed(prints)), "standardbrawl",
+                                     today="2026-08-30")
+        assert fwd == rev, key
+        # Eligibility is asked of pick_arena_printing itself, one printing at
+        # a time, rather than re-implemented here. A partial copy of its
+        # filter counted a set holding one usable printing and one illegal or
+        # unreleased one as a tie, which `max` never saw -- so the guard below
+        # could pass on a capture with no real tie at all.
+        if fwd and sum(1 for p in prints
+                       if (p.get("released_at"), p.get("set"))
+                       == (fwd["released_at"], fwd["set"])
+                       and mm.pick_arena_printing([p], "standardbrawl",
+                                                  today="2026-08-30")) > 1:
+            ties += 1
+    # Without a real tie on the capture this case could not fail.
+    assert ties >= 1
+
+
 def test_no_printings_at_all_is_none_not_an_error(mm):
     """arena/a card with no Arena printing answers None
 

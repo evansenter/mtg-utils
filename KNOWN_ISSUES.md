@@ -1248,6 +1248,54 @@ disagree. No fixture holds one. If an import rejects such a line, the fix is a
 layout-keyed rule in `write_arena_deck` -- and it wants a fixture holding one
 of each layout before it is written, not a guess from memory.
 
+### `ceiling` filters Commander-illegal rows under the DEFAULT format
+
+Added on the follow-up audit rather than by the pass itself, and recorded
+because it is the one place the "every flag defaults to what the tool already
+did" claim is not exactly true. `ceiling_audit` applies `says_illegal` for
+whatever format is in force, and with no `--format` that is Commander -- so a
+row Scryfall marks as not Commander-legal (a banned card still ranked on the
+page) is dropped from a Commander report, with a count printed. That was not
+the behaviour before #21. It is kept: a banned card is not a card anyone can
+add, the drop is counted rather than silent, and no golden snapshot covers
+`ceiling`, so nothing moved that a snapshot would show. Direction: a Commander
+`ceiling` table can be shorter than it was, by exactly the printed count.
+
+`combos` used to do the same to IN-DECK combos, and that one was a bug and is
+fixed: see the next section.
+
+### `combos` filters suggestions, never what the deck already holds
+
+Found on the follow-up audit. `report_combos` applied the format's legality
+filter to `included` as well as `almostIncluded`, on every format including
+the default. A Commander list holding one banned piece of an infinite printed
+"1 combo not legal in Commander, dropped." and then "in-deck combos: 0" -- the
+reassuring wrong answer `spellbook_name` exists to prevent, reached by a
+different road. Every piece of an in-deck combo is in the list, so its legality
+is `verify`'s question, which is the same reason `floor` warns rather than
+filters. **Fixed**: only `almostIncluded` is filtered, and the dropped line now
+says "suggestion" rather than "combo".
+
+### The Arena printing tie-break was not total
+
+Found on the follow-up audit. `pick_arena_printing` keyed on (released, set),
+and its comment said that made the order total. It does not within ONE set:
+basics carry several numeric printings per set, and Foundations prints
+Phyrexian Arena at both 180 and 728. `max` returned whichever the search
+listed first, which decided four lines of the brawl import (three HOB basics
+and Phyrexian Arena, which took the 728 variant). **Fixed**: the lowest
+collector number breaks the tie, because it is the main-set printing. Both
+printings of every affected card import, so no written file was invalid --
+only not reproducible from a fresh fetch.
+
+### Energy is priced as one mana in an activation cost
+
+`costed_net` counts every non-`{T}`/`{Q}` symbol in a cost as one mana paid,
+and `{E}` is one of them. Aether Hub's `{T}, Pay {E}: Add one mana of any
+color` therefore nets zero and the land reads as a `{C}` source. Kept: the
+models do not track energy, so the any-colour line cannot be promised, and
+dropping it errs downward. No fixture holds an energy land.
+
 ---
 
 ## 23. Every fetchland was scored untapped, including the ones that are not — CHANGED, the number moved on purpose
@@ -1310,8 +1358,8 @@ suite is blind to a card shape it contains no card of.
 ### What moved
 
 - **No committed snapshot.** Verified by running, not by reasoning: the whole
-  suite is byte-identical across all five decks: 857 passed on the base
-  this landed on, 870 with the thirteen new cases and nothing else moved.
+  suite is byte-identical across all five decks: 862 passed on the base
+  this landed on, 875 with the thirteen new cases and nothing else moved.
 - **Any deck holding a tapped-fetch land.** Both models, downward, by roughly
   what one tapped land costs — which is the whole point of the change.
 - **The `truly tapped` count in the `mana` header, and the `tap` column in
