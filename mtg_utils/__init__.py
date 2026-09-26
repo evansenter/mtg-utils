@@ -89,10 +89,11 @@ from mtg_utils.formats import (DEFAULT_FORMAT, FORMATS, deck_size, is_legal,
                                legality, says_illegal)
 from mtg_utils.formats import spec as format_spec
 from mtg_utils.primer import LINK_RE, parse_primer_links, unclosed_openers
-from mtg_utils.roster import (ANY_COLOUR, OFF_ROSTER_RANK, PAIR_CYCLES,
-                              TRIPLE_CYCLES, WUBRG, identity_pairs,
-                              pair_from_type_line, pair_key, roster_names,
-                              roster_slot, roster_status)
+from mtg_utils.roster import (ANY_COLOUR, FETCHLANDS, OFF_ROSTER_RANK,
+                              PAIR_CYCLES, PREMIUM_SLOTS, TRIPLE_CYCLES, WUBRG,
+                              identity_pairs, pair_from_type_line, pair_key,
+                              roster_colours, roster_names, roster_slot,
+                              roster_status, roster_walk)
 from mtg_utils.analysis import (ARENA_RARITIES, CURVE_TOP, FLOOR_HEADER_STEMS,
                                 SKELETON_TYPES,
                                 BUY_BUCKETS, analyse_mana, buy_list,
@@ -127,7 +128,7 @@ from mtg_utils.report import (report_arena_wildcards, report_calibrate,
                               report_ceiling, report_diff, report_floor,
                               report_mana, report_own, report_primer,
                               report_roster, report_skeleton, report_swap,
-                              report_variants)
+                              report_variants, report_verify)
 
 
 # `hypergeometric` was renamed to `at_least_in_draw`. Everything here is

@@ -5,11 +5,10 @@ import sys
 import time
 
 from mtg_utils import __doc__ as _BANNER
-from mtg_utils.analysis import verify
 from mtg_utils.castability import PLAYSIM_MAX_TURNS, PLAYSIM_TURNS
-from mtg_utils.decklist import (as_cmdrs, flat, parse_swaps, read_decklist,
+from mtg_utils.decklist import (flat, parse_swaps, read_decklist,
                                 split_names, write_arena_deck, write_deck)
-from mtg_utils.formats import DEFAULT_FORMAT, FORMATS, deck_size, spec
+from mtg_utils.formats import DEFAULT_FORMAT, FORMATS, deck_size
 from mtg_utils.parallel import default_jobs
 from mtg_utils.report import (report_arena_wildcards, report_calibrate,
                               report_combos, report_contention,
@@ -17,7 +16,7 @@ from mtg_utils.report import (report_arena_wildcards, report_calibrate,
                               report_mana,
                               report_own, report_primer, report_roster,
                               report_skeleton,
-                              report_swap, report_variants)
+                              report_swap, report_variants, report_verify)
 from mtg_utils.sources import collection
 from mtg_utils.sources.arena import arena_printings
 from mtg_utils.sources.moxfield import moxfield_deck
@@ -162,7 +161,6 @@ def main():
     if a.collection:
         collection.COLLECTION = a.collection
     size = a.size if a.size is not None else deck_size(a.fmt)
-    label = spec(a.fmt)["label"]
 
     if a.cmd == "selftest":
         sys.exit(selftest())
@@ -210,28 +208,7 @@ def main():
         print("SCRYFALL NOT FOUND (front-face names only!):", nf)
 
     if a.cmd in ("verify", "audit"):
-        v = verify(cmdr, entries, scry, a.fmt)
-        # The commander count is len(cmdrs), not 1. A partner or background
-        # pair is TWO, and verify() has always counted both in `total` -- only
-        # this sentence claimed otherwise, so the printed arithmetic came out
-        # one short (100 = 1 + 60 + 38) on exactly the decks whose primer
-        # header is hardest to check by eye.
-        ncmdr = len(as_cmdrs(cmdr))
-        print(f"\n=== VERIFY: {cmdr} ===")
-        print(f"  {v['total']} cards = {ncmdr} commander"
-              f"{'' if ncmdr == 1 else 's'} + {v['nonland']} non-land "
-              f"+ {v['lands']} lands  ({v['mdfc_land_backs']} MDFC land-backs)")
-        print(f"  average non-land MV {v['avg_mv']:.2f}")
-        print(f"  Game Changers ({len(v['game_changers'])}, Scryfall game_changer): "
-              f"{v['game_changers']}")
-        print(f"  illegal: {v['illegal'] or 'none'}")
-        print(f"  colour identity violations: {v['ci_violations'] or 'none'}")
-        # The format's size, not a constant. Everything else in this block
-        # was already right on a 60-card list -- only the warning was wrong,
-        # and a wrong warning makes a correct deck look broken.
-        if v["total"] != size:
-            print(f"  *** DECK IS {v['total']} CARDS, {label.upper()} IS "
-                  f"{size} ***")
+        report_verify(cmdr, entries, scry, a.fmt, size)
     if a.cmd in ("mana", "audit"):
         report_mana(cmdr, entries, scry, a.sims, a.trials, a.seed,
                     reps=a.reps, turns=a.turns, fmt=a.fmt, jobs=a.jobs)
