@@ -1,10 +1,11 @@
 """Byte-exact output for the printers the golden suite does not run.
 
-`test_golden.py` covers verify, mana, roster and skeleton, because those are
-the subcommands that run offline through the CLI. `variants`, the named swap,
-`own`, `ceiling` and `floor` also run offline, and until now nothing pinned
-their bytes -- so a refactor could reflow a column, drop a caveat line, or
-reorder a table and every test would still pass.
+`test_golden.py` covers verify, mana, roster, skeleton and variants through
+the CLI. The named swap, `own`, `ceiling` and `floor` also run offline once
+their fetches are fixtures, and without these nothing pinned their bytes -- a
+refactor could reflow a column, drop a caveat line, or reorder a table and
+every test would still pass. `variants` is here too, on a non-default sweep
+the golden run does not take.
 
 These call the printers DIRECTLY rather than through the CLI. That is
 deliberate: the thing at risk in a move is the printer, and going through

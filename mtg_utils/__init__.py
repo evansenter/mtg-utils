@@ -79,7 +79,7 @@ from mtg_utils.castability import (PLAYSIM_MAX_TURNS, PLAYSIM_TURNS, _match,
                                    at_least_in_draw,
                                    castable, castable_faces, pips_from_cost,
                                    playable_set, playsim, playsim_report,
-                                   probability, ritual_burst, tapped_at)
+                                   probability, tapped_at)
 from mtg_utils.decklist import (DECISION, apply_swaps, as_cmdrs, by_front_face,
                                 diff_multiset, flat,
                                 parse_swaps, read_decisions, read_decklist,
@@ -137,6 +137,11 @@ from mtg_utils.report import (report_arena_wildcards, report_calibrate,
 # deliberately does NOT alias the old name, because the whole point of the
 # rename is that `hypergeometric` reads like a figure worth quoting.
 def __getattr__(name):
+    if name == "ritual_burst":
+        raise AttributeError(
+            "ritual_burst() was removed: nothing called it. The play "
+            "simulation reads the burst inline in _playsim_core against its "
+            "packed board, and that is the only implementation.")
     if name == "hypergeometric":
         raise AttributeError(
             "hypergeometric() is now at_least_in_draw(k, sources, cards_seen, "

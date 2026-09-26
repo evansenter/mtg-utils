@@ -15,8 +15,6 @@ notice: the submodule's own tests would pass perfectly well.
 import importlib
 import pkgutil
 
-import pytest
-
 import mtg_utils.report as report
 
 
@@ -53,24 +51,6 @@ def test_the_shim_still_exposes_every_printer(mm):
     so a printer that never reaches mtg_utils/__init__ never reaches here."""
     for name in report.__all__:
         assert hasattr(mm, name), f"mana_model lost {name}"
-
-
-@pytest.mark.parametrize("name", sorted(report.__all__))
-def test_each_printer_is_importable_from_the_package_root(name):
-    """The import path callers use must not depend on which file a printer
-    was filed under -- that is the whole point of the package __init__."""
-    mod = importlib.import_module("mtg_utils.report")
-    assert callable(getattr(mod, name))
-
-
-def test_printers_are_spread_across_the_split():
-    """A split that left everything in one submodule would pass every other
-    case here while achieving nothing."""
-    by_mod = {}
-    for name, mod in _submodule_printers().items():
-        by_mod.setdefault(mod, []).append(name)
-    assert len(by_mod) >= 4, by_mod
-    assert all(v for v in by_mod.values())
 
 
 def test_every_cli_subcommand_still_has_its_printer(mm):

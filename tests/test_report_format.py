@@ -1,8 +1,8 @@
 """report_* formatting.
 
-The golden suite covers verify, mana and roster because those run offline.
-The other printers need Moxfield, Spellbook or the collection file, so nothing
-exercised their formatting at all -- and formatting is where a number gets
+The golden suite covers the subcommands that run offline through the CLI.
+These printers need Moxfield, Spellbook or the collection file, so without
+this file nothing exercised their formatting at all -- and formatting is where a number gets
 attached to the wrong label, or a column silently stops lining up.
 
 Dependencies are patched with `patch_everywhere`, NOT with

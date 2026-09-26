@@ -15,8 +15,29 @@ import pytest
 
 from conftest import FIXTURES, run_cli
 
-BRAWL = [os.path.join(FIXTURES, "brawl.txt"),
-         f"--cache={os.path.join(FIXTURES, 'brawl.scry.json')}"]
+def _brawl_cache(tmp_path):
+    """brawl.scry.json plus roster_brg.scry.json, merged into tmp_path.
+
+    The `--colours=BRG` walk looks up two BRG cycle members the brawl deck's
+    own cache never held -- Ziatora's Proving Ground and Savage Lands -- and
+    without them here scry_fetch fetched both live on every run.
+    """
+    import json
+    scry = {}
+    for name in ("brawl.scry.json", "roster_brg.scry.json"):
+        with open(os.path.join(FIXTURES, name), encoding="utf-8") as f:
+            scry.update(json.load(f))
+    # A subdirectory, because run_cli copies --cache INTO tmp_path.
+    os.makedirs(tmp_path / "merged", exist_ok=True)
+    path = os.path.join(str(tmp_path), "merged", "brawl_brg.scry.json")
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(scry, f)
+    return path
+
+
+def _brawl(tmp_path):
+    return [os.path.join(FIXTURES, "brawl.txt"),
+            f"--cache={_brawl_cache(tmp_path)}"]
 MULTI = [os.path.join(FIXTURES, "multi.txt"),
          f"--cache={os.path.join(FIXTURES, 'multi.scry.json')}"]
 
@@ -33,7 +54,7 @@ def test_illegal_roster_rows_are_not_walked(mm, tmp_path):
     can be registered in Standard Brawl. Printed, they read as slots the deck
     could fill.
     """
-    out = _roster(mm, tmp_path, BRAWL, "--format=standardbrawl")
+    out = _roster(mm, tmp_path, _brawl(tmp_path), "--format=standardbrawl")
     assert "Bayou" not in out
     assert "Verdant Catacombs" not in out
     # ...while the format-legal member of the same pair still is.
@@ -46,7 +67,7 @@ def test_the_count_dropped_is_said_once(mm, tmp_path):
     A reader who cannot see what was left out cannot tell a filtered walk
     from a short roster.
     """
-    out = _roster(mm, tmp_path, BRAWL, "--format=standardbrawl")
+    out = _roster(mm, tmp_path, _brawl(tmp_path), "--format=standardbrawl")
     assert "roster names are not legal in Standard Brawl and are not walked."\
         in out
 
@@ -57,7 +78,7 @@ def test_a_section_the_filter_empties_says_so(mm, tmp_path):
     A heading with nothing under it reads as a section whose slots are all
     filled, which is the opposite of what it means.
     """
-    out = _roster(mm, tmp_path, BRAWL, "--format=standardbrawl",
+    out = _roster(mm, tmp_path, _brawl(tmp_path), "--format=standardbrawl",
                   "--colours=BRG")
     body = out.split("three-colour (tapped; only if the rider is real)")[1]
     assert body.splitlines()[1] == "  (nothing here is legal in Standard Brawl)"
@@ -78,12 +99,10 @@ def test_a_pair_left_with_only_a_missing_slot_says_so(
     otherwise the frozen ones.
     """
     import json
-    import shutil
 
     import mtg_utils.report as report
     from conftest import load_fixture_collection, patch_everywhere
-    cache = os.path.join(str(tmp_path), "brawl.scry.json")
-    shutil.copyfile(os.path.join(FIXTURES, "brawl.scry.json"), cache)
+    cache = _brawl_cache(tmp_path)
     with open(cache, encoding="utf-8") as f:
         scry = json.load(f)
     br = [t["BR"] for _slot, t in mm.PAIR_CYCLES if t.get("BR")]
@@ -120,8 +139,8 @@ def test_colours_narrows_the_walk(mm, tmp_path):
     Terra's identity is WUBRG and the list is BRG. The WU rows are not empty
     slots for that deck; they are rows about a deck nobody is building.
     """
-    wide = _roster(mm, tmp_path, BRAWL, "--format=standardbrawl")
-    narrow = _roster(mm, tmp_path, BRAWL, "--format=standardbrawl",
+    wide = _roster(mm, tmp_path, _brawl(tmp_path), "--format=standardbrawl")
+    narrow = _roster(mm, tmp_path, _brawl(tmp_path), "--format=standardbrawl",
                      "--colours=BRG")
     assert "--- WU ---" in wide
     assert "--- WU ---" not in narrow
@@ -134,7 +153,7 @@ def test_the_narrowed_walk_says_what_it_narrowed_from(mm, tmp_path):
     Otherwise a reader cannot tell a narrowed walk from a commander with
     three colours.
     """
-    out = _roster(mm, tmp_path, BRAWL, "--colours=BRG")
+    out = _roster(mm, tmp_path, _brawl(tmp_path), "--colours=BRG")
     assert "=== ROSTER WALK: Terra, Magical Adept (BRG) ===" in out
     assert ("walking BRG, not the commander's identity WUBRG -- --colours "
             "narrowed it.") in out
@@ -166,12 +185,12 @@ def test_colours_refuses_a_letter_that_is_not_a_colour(mm, tmp_path, spec):
     """Found in review: unrecognised letters were dropped without a word, so
     `--colours C` walked nothing and printed `ROSTER WALK: ... ()` -- an empty
     walk that looks like a result, and a typo quietly narrowed the walk."""
-    out = _roster(mm, tmp_path, BRAWL, f"--colours={spec}")
+    out = _roster(mm, tmp_path, _brawl(tmp_path), f"--colours={spec}")
     assert "is not a colour" in out
     assert "=== ROSTER WALK" not in out
 
 
 def test_colours_is_case_insensitive(mm, tmp_path):
     """roster/--colours brg is the same walk as --colours BRG"""
-    out = _roster(mm, tmp_path, BRAWL, "--colours=brg")
+    out = _roster(mm, tmp_path, _brawl(tmp_path), "--colours=brg")
     assert "=== ROSTER WALK: Terra, Magical Adept (BRG) ===" in out

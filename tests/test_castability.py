@@ -280,3 +280,36 @@ def test_omni_still_reaches_every_land(mm):
     assert mm.castable([src("R"), src("G", omni="G")], ["G", "G"], 2) is True
     assert mm.castable([src("R"), src("R"), src("B", omni="B")],
                        ["B", "B", "B"], 3) is True
+
+
+def test_a_colourless_line_reads_the_same_beside_a_coloured_one(mm):
+    """playsim/a pip-free line is unmoved by a coloured line on its turn
+
+    A turn some line asks a colour question about records (total, hand)
+    pairs instead of bare totals, and a pip-free line on that turn is read
+    through a separate branch. What a turn RECORDS cannot change what is
+    DRAWN, so the colourless figure must be identical either way -- and
+    without this case, `>=` in that branch could become `>` with the whole
+    suite green, because no fixture line lands there.
+    """
+    import json
+    import os
+    import random
+
+    from conftest import FIXTURES
+    cmdr, entries = mm.read_decklist(os.path.join(FIXTURES, "multi.txt"))
+    with open(os.path.join(FIXTURES, "multi.scry.json"), encoding="utf-8") as f:
+        scry = json.load(f)
+    names = mm.flat(cmdr, entries)[1:]
+    lands = mm.build_land_profiles(names, scry)
+    accels = mm.build_accel_profiles(names, scry)
+
+    def read(lines):
+        return mm.playsim_report(lands, accels, len(names), lines, 3000,
+                                 random.Random(5))
+    alone = read([("colourless", 3, "")])
+    beside = read([("colourless", 3, ""), ("green", 3, "{G}{G}")])
+    for side in ("play", "draw"):
+        assert alone[side]["lines"]["colourless"] == \
+            beside[side]["lines"]["colourless"]
+        assert 0 < alone[side]["lines"]["colourless"][0] < 100

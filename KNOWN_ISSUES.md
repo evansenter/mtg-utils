@@ -552,7 +552,7 @@ unaffected. Admitting it is correct; the expectation was the error.
   firing it on sight would model casting Dark Ritual into an empty hand — and
   it is the one place where "one-shot" is not literally simulated.
 - **The ritual is chosen by net, not by the line being measured.**
-  `ritual_burst` runs once per turn, before any line is evaluated, and takes
+  The burst is read once per turn, before any line is evaluated, and takes
   the largest castable net. On a hand holding two rituals of different colours
   that can pick the one paying nothing toward the pips: Dark Ritual (net 2) and
   Pyretic Ritual (net 1) off Swamp, Mountain, Mountain gives `{B}{R}{R}` plus
