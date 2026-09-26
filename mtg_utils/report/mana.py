@@ -165,6 +165,8 @@ def report_variants(cmdr, entries, scry, land_deltas, accel_deltas, trials,
         print(f"  every row includes the ritual burst, held constant and not in "
               f"the accel count: {_burst_note(rituals)}")
     print(f"  {'config':26s} {'cmdr on curve':>20} {'any N on turn N':>22}")
+    # Each cell is two figures, and which is which was never said.
+    print(f"  {'':26s} {'on play /   on draw':>20} {'on play /   on draw':>22}")
     for nl, na, r in sw["rows"]:
         a, turn, sa = r["play"]["lines"]["cmdr"]
         b, _, sb = r["draw"]["lines"]["cmdr"]

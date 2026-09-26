@@ -11,33 +11,37 @@ usage: mana_model.py [-h] [--cache CACHE] [--sims SIMS] [--trials TRIALS]
                      {fetch,verify,mana,variants,combos,own,contention,moxfield,write,audit,roster,diff,selftest,calibrate,ceiling,floor,skeleton,primer}
                      [target]
 
-mana_model.py — deck validation and castability for singleton commander decks.
+mana_model.py — manabase and deck checks for Commander (and Brawl) decks.
 
 Commander by default. `--format` selects Brawl or Standard Brawl, which sets
 the deck size, the Scryfall legality key every check reads, and the table size
-the play/draw framing assumes. Everything else is format-independent and was
-already correct on a 60-card list.
+the play/draw framing assumes.
 
-ONE FILE. Do not create a second script beside this one; extend it and
-re-deliver the whole thing (see PROJECT NOTES at the bottom).
+Two models, because they answer different questions -- every figure printed
+says which one produced it:
 
-Two models, because they answer different questions:
-
-  sources model   "can I make these pips"      -> analyse()
-  play simulation "do I have N mana on turn N" -> playsim()
+  sources model   "can I make these pips"       -> castability.probability()
+  play simulation "do I have N mana on turn N"  -> castability.playsim()
 
 Mana sources are LANDS PLUS CHEAP ACCELERANTS (mana value <= 3 that tap for
-mana) plus MDFC land backs. Lands-only understates castability badly: measured
-on Pantlaza, {2}{R}{G}{W} on turn five was 36.4% lands-only and 53.5% once the
-accelerants were counted. The lands-only figure is a statement about land
-count, not about castability, and must not be reported as one.
+mana) plus MDFC land backs. Lands-only understates castability badly -- on one
+measured deck, {2}{R}{G}{W} on turn five was 36.4% lands-only and 53.5% once
+the accelerants were counted -- so a lands-only figure is a statement about
+land count, not about castability.
+
+Offline once `fetch` has built the Scryfall cache: verify, mana, variants,
+skeleton, own, write. roster and primer go to Scryfall on a cache miss, and
+write --arena to Scryfall per card. ceiling, floor, combos, contention,
+moxfield, diff, calibrate and audit (which runs combos) reach the network
+every time. Ownership reads a ManaBox CSV export: --collection.
 
 Subcommands
 -----------
   fetch       build/refresh the Scryfall cache for a decklist
-  verify      count, legality, colour identity, Game Changers, MV, tapped classes
-  mana        sources model + play simulation (the full section 6 pass)
-  roster      section 6 roster walk: every cycle slot, IN / benched / buy
+  verify      count, legality, colour identity, Game Changers, average MV
+  mana        sources model + play simulation, worst lines first, with the
+              tapped-land classes and the mulligan floor
+  roster      land roster walk: every cycle slot, IN / benched / buy
   skeleton    slot budget and curve: total = commanders + lands + non-land
   ceiling     EDHREC (or --cedh edhtop16) inclusion: what is above the bar
               and missing from the list, with ownership and price
@@ -54,11 +58,13 @@ Subcommands
   diff        card-multiset diff of a local list against the LIVE Moxfield deck
   primer      check every [[Card]] link in a primer against the decklist
   audit       verify + mana + roster + combos + own  (full pass, no variants)
-  selftest    offline regression tests; run after ANY edit to this file
+  selftest    run the offline test suite (needs pytest and the repository)
   calibrate   re-measure every live deck into one table (never store the rows)
 
-Decklist format: first non-blank line is the commander, then one entry per
-line as "N Card Name" or bare "Card Name".
+Decklist format: the commander block (one line, or two for a partner or
+background pair), a blank line, then one entry per line as "N Card Name" or
+bare "Card Name". Lines starting with # are ignored. A file with no blank
+line reads its first line as the commander.
 
 Names: a double-faced card may be written either way in a decklist. The three
 external sources disagree with each other -- EDHREC answers in front faces,

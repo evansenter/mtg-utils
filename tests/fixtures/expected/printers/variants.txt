@@ -2,5 +2,6 @@
 === VARIANTS SWEEP (600 trials over 3 reps, seed 17) — commander line and generic baseline ===
   every row includes the ritual burst, held constant and not in the accel count: dark ritual +2
   config                            cmdr on curve        any N on turn N
+                              on play /   on draw    on play /   on draw
   40 lands, 14 accel          78.3±0.6 /  89.5±2.6     79.2±0.4 /  89.8±2.2
   42 lands, 14 accel          81.5±0.5 /  90.8±1.7     82.7±0.7 /  91.3±1.4
