@@ -31,7 +31,15 @@ from mtg_utils.castability import (_sample_hits, _sample_plan, _sample_set,
 
 
 def _deal(rng, deck, m):
-    """The top `m` of `deck`, as playsim deals them, plus the RNG state."""
+    """The top `m` of `deck`, as playsim deals them, plus the RNG state.
+
+    A COPY of the loop `_playsim_core` runs inline, because that loop is not a
+    function it could call. So this file pins `_shuffle_plan` -- the plan the
+    loop follows -- and not the loop itself: deleting the tail drain inside
+    `_playsim_core` leaves every case here green. What catches that is the
+    golden suite, where it moves a dozen snapshots. Keep this copy identical
+    to the production loop, or it stops meaning even that much.
+    """
     n = len(deck)
     head, tail = _shuffle_plan(n, m)
     getrandbits = rng.getrandbits

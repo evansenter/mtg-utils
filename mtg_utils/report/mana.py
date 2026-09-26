@@ -4,11 +4,8 @@ Everything here formats a Monte Carlo measurement, so everything here prints
 a figure with its noise beside it. analysis.py does the measuring.
 """
 from mtg_utils.analysis import analyse_mana, compare_swap, sweep_variants
-from mtg_utils.castability import PLAYSIM_TURNS, pips_from_cost
-from mtg_utils.decklist import as_cmdrs, flat
+from mtg_utils.castability import PLAYSIM_TURNS
 from mtg_utils.formats import spec as format_spec
-from mtg_utils.profiles import (build_accel_profiles, build_land_profiles,
-                                build_ritual_profiles)
 
 
 def _burst_note(rituals):
