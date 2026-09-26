@@ -13,11 +13,32 @@ say which one it answered:
 - **Roster** — for every colour pair in the identity, is each premium land slot
   filled, and if not, is the card owned or does it need buying.
 
+## Quick start
+
+Python 3.11+, standard library only, and `curl` on `PATH` for the calls that
+go out (Scryfall, EDHREC, Moxfield, Commander Spellbook). `pytest` is the sole
+dev dependency.
+
 ```
-python3 mana_model.py audit deck.txt --cache scry.json
+# deck.txt: the commander, a blank line, then "1 Card Name" per line
+python3 mana_model.py fetch deck.txt --cache scry.json    # one Scryfall pass
+python3 mana_model.py verify deck.txt --cache scry.json   # count, legality, identity
+python3 mana_model.py mana deck.txt --cache scry.json     # the manabase
+python3 mana_model.py variants deck.txt --cache scry.json # +/- lands and rocks
+python3 mana_model.py variants deck.txt --cache scry.json \
+    --swap="Evolving Wilds->Llanowar Wastes"             # one named swap
 ```
 
-Standard library only. `pytest` is the sole dev dependency.
+To see the output before writing a decklist, run it on a committed fixture:
+`python3 mana_model.py mana tests/fixtures/multi.txt --cache
+tests/fixtures/multi.scry.json` (a complete cache is never written to).
+
+After the first fetch those run offline. `mana` takes a second or two: the
+Monte Carlo replicates run one per CPU (`--jobs`), and the figures are
+identical at any `--jobs`. `roster`, `own` and `audit` also read ownership
+from a ManaBox CSV export — pass `--collection PATH` or set
+`MTG_COLLECTION`. `ceiling`, `floor`, `combos` and `audit` always reach the
+network. `--format=standardbrawl` (or `brawl`) for a Brawl list.
 
 Compute lives in `analysis.py` and below; `report/` only formats what it is
 given, which is what lets the tests assert on numbers instead of scraping
@@ -208,8 +229,8 @@ five points; `KNOWN_ISSUES.md` #13 records them instead.
 | Command | What it does |
 |---|---|
 | `fetch` | Build or refresh the Scryfall cache for a decklist |
-| `verify` | Count, legality, colour identity, Game Changers, average MV, tapped classes |
-| `mana` | The full mana pass: sources model + play simulation |
+| `verify` | Count, legality, colour identity, Game Changers, average MV |
+| `mana` | The full mana pass: sources model + play simulation, with the tapped-land classes and the mulligan floor |
 | `skeleton` | Slot budget and curve: `100 = commanders + lands + non-land`, asserted |
 | `roster` | The roster walk: every cycle slot, IN / benched / buy |
 | `variants` | Land and accelerant count sweep. Slow, opt-in |
@@ -222,13 +243,16 @@ five points; `KNOWN_ISSUES.md` #13 records them instead.
 | `audit` | verify + mana + roster + combos + own |
 | `ceiling` | EDHREC (or `--cedh` edhtop16) inclusion: what is above the bar and missing, with ownership and price |
 | `floor` | The inverse: what is **in** the list and below the bar, so a cut has a number beside it |
+| `primer` | Check every `[[Card]]` link in a primer against the list (`--primer`); exits 2 on a finding |
 | `calibrate` | Re-measure every live deck into one table |
 | `selftest` | Run the test suite |
 
-Flags: `--cache` (default `scry.json`), `--sims` (8000), `--trials` (20000),
-`--reps` (3), `--seed` (17), `--out`, `--decks`, `--lands`, `--accel`,
-`--adds`, `--cuts`, `--swap`, and for `ceiling` and `floor`: `--rec-cache`
-(default `edhrec.json`), `--cedh`, `--bar` (50), `--sort`.
+`python3 mana_model.py --help` lists every flag with its default. The ones
+that change what a check MEANS rather than how hard it measures are
+`--format` (deck size, legality key, table size) and `--size`; everything
+else is a budget (`--sims`, `--trials`, `--reps`, `--seed`, `--jobs`), a
+file (`--cache`, `--collection`, `--rec-cache`, `--arena-cache`, `--out`), or
+belongs to one subcommand and says which in its help line.
 
 ### Every figure carries its own noise
 
@@ -704,13 +728,15 @@ Send `Content-Type` **and** `Accept: application/json`; omitting `Accept`
 returns 400.
 
 The cache persists between subcommands: one fetch per deck, not one per
-question. It is written back on every run.
+question. It is written back only when a card had to be fetched.
 
 ### The collection file
 
-`ManaBox_Collection.csv`, UTF-8 with a BOM (`encoding='utf-8-sig'`). It is the
-authoritative ownership source. Its path is the `COLLECTION` constant in
-`mtg_utils/sources/collection.py`.
+A ManaBox CSV export, UTF-8 with a BOM (`encoding='utf-8-sig'`). It is the
+authoritative ownership source. Its path is `--collection`, else
+`$MTG_COLLECTION`, else the `COLLECTION` default in
+`mtg_utils/sources/collection.py`; a missing file stops the run with a message
+saying so.
 
 Sum `Quantity` across rows, never count rows — the same card appears once per
 printing and per finish. Match case-insensitively, and always also compare
@@ -738,23 +764,31 @@ looks like a real result.
 
 ```
 mtg_utils/
+  formats.py       the three formats: deck size, legality keys, table size
   cards.py         faces and DFC plumbing, enters_tapped, fetch_targets,
                    mana_amount, pips-relevant constants
-  profiles.py      build_land_profiles, build_accel_profiles
+  profiles.py      build_land_profiles, build_accel_profiles, build_ritual_profiles
   castability.py   pips_from_cost, castable, probability, playsim, playsim_report
-  roster.py        PAIR_CYCLES, TRIPLE_CYCLES, ANY_COLOUR, roster_names, roster_status
+                   -- the one file written for speed; see CLAUDE.md
+  parallel.py      pmap: Monte Carlo replicates across worker processes
+  roster.py        PAIR_CYCLES, TRIPLE_CYCLES, ANY_COLOUR, roster_walk
   decklist.py      read_decklist, flat, as_cmdrs, write_deck, diff_multiset
-  sources/         scryfall.py, moxfield.py, spellbook.py, collection.py
-  analysis.py      verify, analyse_mana, worst_lines, commander_lines, collapse_temps
-  report.py        every report_* printer
+  primer.py        [[Card]] link parsing
+  sources/         scryfall, moxfield, spellbook, collection, edhrec,
+                   edhtop16, ranking (picks between those two), arena
+  analysis.py      verify, analyse_mana, sweep_variants, compare_swap,
+                   ceiling_audit, floor_audit, buy_list, ...
+  report/          the report_* printers, split by question: mana, deck,
+                   own, live
   cli.py           argparse wiring
 mana_model.py      entry point; also re-exports the package as a library
 tests/
 ```
 
 **Compute is separate from printing, and that separation is load-bearing.**
-`verify`, `analyse_mana`, `worst_lines`, `commander_lines`, `parse_moxfield`,
-`diff_multiset` and `collapse_temps` return data; the `report_*` wrappers only
+`verify`, `analyse_mana`, `sweep_variants`, `roster_walk`, `buy_list`,
+`worst_lines`, `commander_lines`, `parse_moxfield`, `diff_multiset` and
+`collapse_temps` return data; the `report_*` wrappers only
 format it. That is what lets a test assert on numbers instead of scraping
 stdout. Keep it that way.
 
@@ -773,11 +807,13 @@ works as a library import.
 pytest                      # or: python3 mana_model.py selftest
 ```
 
-Around 700 cases, offline, under half a minute. Deliberately rounded: the
+Around 850 cases, offline, under half a minute. Deliberately rounded: the
 exact count moves with every merge, and three files quoting three different
 figures is how a reader learns to distrust all of them. `pytest` prints the
-real number. No test touches the network; anything that would need Scryfall or
-Moxfield uses a frozen fixture instead.
+real number. No test touches the network -- `tests/conftest.py` refuses `curl`
+suite-wide, so a fixture cache that misses a card fails the test rather than
+quietly fetching it; anything that would need Scryfall or Moxfield uses a
+frozen fixture instead.
 
 ### The invariant
 
@@ -790,17 +826,15 @@ looks plausible.
 `tests/test_golden.py` enforces it: it runs the current code over checked-in
 fixtures with a fixed seed and asserts the stdout is byte-identical to committed
 snapshots, for `verify`, `mana`, `roster`, `skeleton`, `variants` and
-`--help`, on four decks. `variants` is snapshotted at a reduced `--trials`: it
+`--help`, on five decks. `variants` is snapshotted at a reduced `--trials`: it
 sweeps six configurations, so at the default budget it would cost the suite
 more than everything else in it together.
 
-Those snapshots were produced by the original single-file version, which lived
-at `reference/mana_model_v0.py` through the refactor. While it existed the suite
-asserted three ways — reference against snapshot, current against snapshot, and
-reference directly against current — so the snapshots are provably the original
-program's bytes and not something typed to make a test pass. The reference copy
-is gone; the snapshots carry the invariant, and the tests that compared against
-it skip with a message saying so.
+Those snapshots were produced by the original single-file version, and
+through the refactor every case was also diffed directly against a frozen copy
+of it -- so they are provably the original program's bytes and not something
+typed to make a test pass. Every deliberate move since is in the commit that
+made it.
 
 **The snapshots are the definition of correct output.** Regenerating them is a
 deliberate act: `pytest tests/test_golden.py --regen-golden` rewrites them from
@@ -809,9 +843,11 @@ intend to change what the tool reports, regenerate, review the diff, and commit
 the snapshots alongside the code, saying what moved and why. If you did not
 intend to change it, the failing diff is the finding.
 
-### The three deck shapes
+### The deck shapes
 
-Mono-colour, multicolour, and **colourless**. The third is not optional. A
+Five fixtures: mono-colour, multicolour, **colourless**, a partner pair and a
+60-card Standard Brawl list -- `tests/fixtures/README.md` says what each one
+is the only coverage of. The colourless deck is not optional. A
 mono-colour deck never exercises the filter-land or multi-pip paths; a
 multicolour deck never exercises the "colourless utility land costs a coloured
 source" path; and neither has a `{C}` pip to get wrong. A `{C}`-parsing bug
@@ -842,24 +878,26 @@ clean bill of health.**
   the MDFC land backs used the invented string `"enters tapped unless you pay 3
   life"`. No printed card uses that wording, so it passed while the real cards
   were misclassified.
-- **Cases that look redundant usually are not.**
+- **Cases that look redundant usually are not -- but check.**
   `collection/sums quantities across printings` and `collection/no double count`
-  assert the same value for two different reasons.
+  guard two different bugs, and once asserted the same value on the same row,
+  so no mutation could fail one without the other. A pair that can only fail
+  together tests one thing.
 - **Fixtures are frozen.** To add coverage, add a new fixture; never edit an
   existing one. See `tests/fixtures/README.md`.
 
 ### Where a change is claimed to be behaviour-preserving
 
-Run both copies and diff them. Do not reason about the code.
+Run it before and after and diff the output. Do not reason about the code.
 
 ## Known issues
 
 `KNOWN_ISSUES.md` began as the fourteen things found during the migration that
 looked wrong and were deliberately left alone, because fixing any of them would
 change a reported number and the migration's contract was that none do. Each
-entry says what it costs and which way it moves the figure. Most are now FIXED;
-#8, #11, #13 and #14 are RESOLVED — examined and kept, with the reasoning
-written down.
+entry says what it costs and which way it moves the figure. Every entry is now
+FIXED, RESOLVED (examined and kept, with the reasoning written down) or
+CHANGED (a number moved on purpose, with what moved written beside it).
 
 It did not stop being useful when the list emptied. #15 is an entry of the
 other kind: a limitation priced and kept in #2, revisited later on purpose, with

@@ -12,7 +12,7 @@ split up.
 The banner `--help` prints is mtg_utils.__doc__, not this docstring.
 """
 from mtg_utils import *          # noqa: F401,F403  -- library compatibility
-from mtg_utils.cli import main   # noqa: F401
+from mtg_utils.cli import main, run   # noqa: F401
 
 
 def __getattr__(name):
@@ -29,4 +29,4 @@ def __getattr__(name):
     return getattr(mtg_utils, name)
 
 if __name__ == "__main__":
-    main()
+    run()

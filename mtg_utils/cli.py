@@ -51,6 +51,19 @@ def selftest():
 
 
 # ============================================================ CLI
+def run():
+    """main(), for the two entry points: output piped into `head` or a pager
+    that closes early ends the run quietly instead of with a traceback."""
+    try:
+        main()
+        sys.stdout.flush()
+    except BrokenPipeError:
+        # Python flushes stdout again at exit; point it somewhere that cannot
+        # raise, or the traceback comes back from the interpreter's shutdown.
+        os.dup2(os.open(os.devnull, os.O_WRONLY), sys.stdout.fileno())
+        sys.exit(1)
+
+
 def main():
     ap = argparse.ArgumentParser(description=_BANNER,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
