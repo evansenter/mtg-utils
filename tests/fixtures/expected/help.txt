@@ -1,7 +1,7 @@
 usage: mana_model.py [-h] [--cache CACHE] [--sims SIMS] [--trials TRIALS]
-                     [--reps REPS] [--seed SEED] [--out OUT] [--decks DECKS]
-                     [--lands LANDS] [--accel ACCEL] [--adds ADDS]
-                     [--cuts CUTS] [--arena-cache ARENA_CACHE]
+                     [--reps REPS] [--seed SEED] [--jobs JOBS] [--out OUT]
+                     [--decks DECKS] [--lands LANDS] [--accel ACCEL]
+                     [--adds ADDS] [--cuts CUTS] [--arena-cache ARENA_CACHE]
                      [--rec-cache REC_CACHE] [--cedh] [--bar BAR]
                      [--no-combos] [--sort {inclusion,synergy}]
                      [--primer PRIMER] [--swap SWAP]
@@ -76,6 +76,9 @@ options:
   --trials TRIALS       total play-sim trials, split across --reps
   --reps REPS           replicates used to estimate the +/- on each figure
   --seed SEED           base RNG seed; replicate i uses seed+i
+  --jobs JOBS           mana/variants: worker processes for the Monte Carlo
+                        replicates (default: one per CPU); every figure is
+                        identical at any value
   --out OUT
   --decks DECKS         comma-separated Moxfield ids
   --lands LANDS         land count deltas, e.g. -2,0,2 (leading minus needs

@@ -41,14 +41,14 @@ def test_the_sweep_simulates_the_decks_own_library(mm, monkeypatch, capsys,
     cmdr, entries, scry = _deck(mm, deck)
     seen = []
 
-    def fake_replicate_playsim(lands, accels, deck_size, lines, trials, seed,
-                               reps, turns=None, rituals=None):
+    def fake_playsim_report(lands, accels, deck_size, lines, trials, rng,
+                            turns=None, rituals=None):
         seen.append(deck_size)
-        return {side: {"generic": {turns: (0.0, 0.0)},
-                       "lines": {"cmdr": (0.0, turns, 0.0)}}
+        return {side: {"generic": {turns: 0.0},
+                       "lines": {"cmdr": (0.0, turns)}}
                 for side in ("play", "draw")}
 
-    patch_everywhere(monkeypatch, "replicate_playsim", fake_replicate_playsim)
+    patch_everywhere(monkeypatch, "playsim_report", fake_playsim_report)
     mm.report_variants(cmdr, entries, scry, [0], [0], trials=1, reps=1)
     capsys.readouterr()
     assert seen == [library]

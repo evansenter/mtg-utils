@@ -102,7 +102,9 @@ from mtg_utils.analysis import (ARENA_RARITIES, CURVE_TOP, FLOOR_HEADER_STEMS,
                                 display_floor_bound, floor_audit,
                                 land_roster_note, mean_spread,
                                 opening_hand_floor, primer_audit,
-                                replicate_playsim, split_budget, t95,
+                                line_candidates, replicate_playsim,
+                                replicate_playsim_many, split_budget,
+                                sweep_variants, t95,
                                 type_bucket, verify, wildcard_cost,
                                 worst_lines)
 from mtg_utils.sources import UA_BROWSER, UA_TOOL

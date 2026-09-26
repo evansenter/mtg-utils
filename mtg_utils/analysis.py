@@ -10,6 +10,7 @@ from mtg_utils.castability import (PLAYSIM_TURNS, at_least_in_draw, castable_fac
                                    pips_from_cost, playsim_report, probability)
 from mtg_utils.decklist import apply_swaps, as_cmdrs, flat, read_decisions
 from mtg_utils.formats import says_illegal
+from mtg_utils.parallel import pmap
 from mtg_utils.formats import spec as format_spec
 from mtg_utils.primer import parse_primer_links, unclosed_openers
 from mtg_utils.profiles import (build_accel_profiles, build_land_profiles,
@@ -178,6 +179,18 @@ def worst_lines(names, scry, lands, accels, sims, rng, top=5, deck_size=None,
     """
     if deck_size is None:
         deck_size = len(names)
+    return _measure_lines(line_candidates(names, scry, turns), lands, accels,
+                          deck_size, sims, rng, top)
+
+
+def line_candidates(names, scry, turns=PLAYSIM_TURNS):
+    """{(turn, mv, sorted pips): [face labels]} -- the sources-model questions
+    a decklist asks, in the order `_measure_lines` must ask them.
+
+    RNG-free, so it is built once and shared by every replicate. The ORDER is
+    part of the answer: one generator is threaded through the candidates in
+    this order, so reordering them re-deals every row.
+    """
     cand = {}
     for n in names:
         c = scry.get(n.lower())
@@ -197,6 +210,10 @@ def worst_lines(names, scry, lands, accels, sims, rng, top=5, deck_size=None,
             if turn > turns:
                 continue
             cand.setdefault((turn, mv, tuple(sorted(req))), []).append(label)
+    return cand
+
+
+def _measure_lines(cand, lands, accels, deck_size, sims, rng, top=5):
     rows = []
     for (turn, mv, req), cards in cand.items():
         p = probability(lands, accels, deck_size, list(req), mv, turn, sims, rng)
@@ -263,7 +280,7 @@ def mean_spread(values):
 
 
 def replicate_playsim(lands, accels, deck_size, lines, trials, seed, reps,
-                      turns=PLAYSIM_TURNS, rituals=None):
+                      turns=PLAYSIM_TURNS, rituals=None, jobs=1):
     """playsim_report over `reps` replicates, aggregated to (mean, spread).
 
     Shapes deliberately differ from playsim_report's, so a caller cannot read
@@ -280,10 +297,35 @@ def replicate_playsim(lands, accels, deck_size, lines, trials, seed, reps,
     lowers it below a line's own turn drops that line, exactly as asking for
     a line past turn seven has always dropped it.
     """
-    per = [playsim_report(lands, accels, deck_size, lines, t,
-                          random.Random(seed + i), turns=turns,
-                          rituals=rituals)
-           for i, t in enumerate(split_budget(trials, reps))]
+    return replicate_playsim_many([(lands, accels)], deck_size, lines, trials,
+                                  seed, reps, turns, rituals, jobs)[0]
+
+
+def _playsim_rep(lands, accels, deck_size, lines, trials, seed, turns,
+                 rituals):
+    return playsim_report(lands, accels, deck_size, lines, trials,
+                          random.Random(seed), turns=turns, rituals=rituals)
+
+
+def replicate_playsim_many(configs, deck_size, lines, trials, seed, reps,
+                           turns=PLAYSIM_TURNS, rituals=None, jobs=1):
+    """replicate_playsim for each (lands, accels) in `configs`, as one batch.
+
+    One batch rather than a loop of calls so that every replicate of every
+    configuration can be in flight at once when `jobs` > 1 -- the `variants`
+    sweep is six configurations of three replicates, and a loop would never
+    have more than three running.
+    """
+    budget = split_budget(trials, reps)
+    per = pmap(_playsim_rep,
+               [(lands, accels, deck_size, lines, t, seed + i, turns, rituals)
+                for lands, accels in configs
+                for i, t in enumerate(budget)], jobs)
+    return [_aggregate_playsim(per[k * reps:(k + 1) * reps])
+            for k in range(len(configs))]
+
+
+def _aggregate_playsim(per):
     out = {}
     for side in ("play", "draw"):
         generic, labelled = {}, {}
@@ -294,6 +336,11 @@ def replicate_playsim(lands, accels, deck_size, lines, trials, seed, reps,
             labelled[label] = (m, per[0][side]["lines"][label][1], sp)
         out[side] = {"generic": generic, "lines": labelled}
     return out
+
+
+def _worst_lines_rep(cand, lands, accels, deck_size, sims, seed):
+    return _measure_lines(cand, lands, accels, deck_size, sims,
+                          random.Random(seed), top=None)
 
 
 def opening_hand_floor(lands, deck_size, hand=7):
@@ -324,7 +371,7 @@ def opening_hand_floor(lands, deck_size, hand=7):
 
 
 def analyse_mana(cmdr, entries, scry, sims, trials, seed=17, lines=None,
-                 reps=3, turns=PLAYSIM_TURNS):
+                 reps=3, turns=PLAYSIM_TURNS, jobs=1):
     """The whole section 6 measurement, as data. report_mana only prints it.
 
     `sims` and `trials` are totals across `reps` replicates -- see
@@ -359,11 +406,12 @@ def analyse_mana(cmdr, entries, scry, sims, trials, seed=17, lines=None,
     # every replicate returns the identical key set, and no extra work is
     # done: probability() is already called for every candidate before the
     # old top=5 slice threw most of them away.
+    cand = line_candidates(names, scry, turns)
     acc = {}
-    for i, s in enumerate(split_budget(sims, reps)):
-        for p, turn, mv, req, cards in worst_lines(
-                names, scry, lands, accels, s, random.Random(seed + i),
-                top=None, deck_size=deck_size, turns=turns):
+    for rep in pmap(_worst_lines_rep,
+                    [(cand, lands, accels, deck_size, s, seed + i)
+                     for i, s in enumerate(split_budget(sims, reps))], jobs):
+        for p, turn, mv, req, cards in rep:
             acc.setdefault((turn, mv, req), (cards, []))[1].append(p)
     rows = []
     for (turn, mv, req), (cards, ps) in acc.items():
@@ -385,13 +433,109 @@ def analyse_mana(cmdr, entries, scry, sims, trials, seed=17, lines=None,
                           "".join("{%s}" % x for x in req)))
         lines += commander_lines(cmdr, scry)
     res = replicate_playsim(lands, accels, deck_size, lines, trials, seed, reps,
-                            turns=turns, rituals=rituals)
+                            turns=turns, rituals=rituals, jobs=jobs)
     # An MDFC back is a land you can play, so it counts toward keepability.
     floor = opening_hand_floor(v["lands"] + v["mdfc_land_backs"], deck_size)
     return {"verify": v, "lands": lands, "accels": accels, "rituals": rituals,
             "rows": rows, "lines": lines, "sim": res, "floor": floor,
             "sims": sims, "trials": trials, "seed": seed, "reps": reps,
             "turns": turns}
+
+
+def sweep_variants(cmdr, entries, scry, land_deltas, accel_deltas, trials,
+                   seed=17, reps=3, jobs=1):
+    """The `variants` count sweep, as data. report_variants only prints it.
+
+    Returns {"rituals": [...], "rows": [(n lands, n accel, replicate_playsim
+    result with one line, "cmdr"), ...]} in sweep order, land delta outer.
+    """
+    names = flat(cmdr, entries)[len(as_cmdrs(cmdr)):]
+    base_lands = build_land_profiles(names, scry)
+    accels = build_accel_profiles(names, scry)
+    accels = [a for a in accels if not a.get("restricted")]
+    # Held CONSTANT across the sweep, and not counted in the "N accel" label:
+    # --accel varies how many accelerants the deck runs, and a ritual is not
+    # one. Folding them into that count would make the config column disagree
+    # with what the sweep actually varied.
+    rituals = build_ritual_profiles(names, scry)
+    # The LIBRARY, derived exactly as analyse_mana derives it: the deck minus
+    # its commanders. This was a hard-coded 99, so every deck whose library is
+    # not 99 cards was swept against a diluted one -- a 60-card Brawl list was
+    # simulated as though 39 blank cards had been shuffled in, and its figures
+    # came out roughly halved. Invisible on a 99-card list and visible on a
+    # partner pair, whose library is 98; nothing in the sweep's own output
+    # looks wrong either way, and it surfaced only because `mana` and this
+    # table disagreed about the same line on the same deck.
+    deck_size = len(names)
+    basic = next((p for p in base_lands if not p["tapped"] and p["colours"]), None)
+    if basic is None and any(d > 0 for d in land_deltas):
+        # dict(None) raises TypeError several frames later, which reads as a
+        # crash rather than as "this deck has nothing to clone". Guards fail
+        # loudly and by name here.
+        raise SystemExit(
+            "variants: cannot add lands to a deck with no untapped "
+            "colour-producing land to copy. Drop the positive entries from "
+            "--lands, or add one such land to the list first.")
+    generic_rock = {"name": "generic rock", "kind": "accel", "colours": frozenset(),
+                    "filter": None, "omni": None, "amount": 1, "cost": 2,
+                    "tapped": False, "cond_tap": None, "restricted": False,
+                    "creature": False, "mdfc": False}
+    # Both columns of this table are read at the commander's own turn, so the
+    # commander has to resolve and has to land inside the simulation. Neither
+    # was checked: an unresolved name indexed an empty list, and a commander
+    # past the last turn simulated had its line dropped by playsim_report and
+    # then read back by label. Both raised bare -- IndexError and KeyError --
+    # several frames from the cause, which reads as a broken simulator rather
+    # than as a statement about the deck. Guards fail loudly and by name here.
+    _cl = commander_lines(cmdr, scry)
+    if not _cl:
+        raise SystemExit(
+            f"variants: no Scryfall entry for {cmdr!r}, so its curve is "
+            f"unknown and both columns of this table are read at it. Check "
+            f"the commander line of the decklist, or refresh the cache with "
+            f"`fetch`.")
+    _, cmv, _cpips = _cl[0]
+    creq = pips_from_cost(_cpips)
+    _cturn = max(cmv, len(creq), 1)
+    if _cturn > PLAYSIM_TURNS:
+        raise SystemExit(
+            f"variants: {_cl[0][0].removesuffix(' on curve')} comes down on "
+            f"turn {_cturn}, and the play simulation stops at turn "
+            f"{PLAYSIM_TURNS}. Both columns here are read at the commander's "
+            f"own turn, so there is no row left to print -- and quoting the "
+            f"turn-{PLAYSIM_TURNS} figure under a 'commander on curve' "
+            f"heading would be a different question wearing this one's label. "
+            f"`mana` still covers turns one to {PLAYSIM_TURNS} for this deck.")
+    configs = []
+    for dl in land_deltas:
+        for da in accel_deltas:
+            if dl >= 0:
+                lands = base_lands + [dict(basic) for _ in range(dl)]
+            else:
+                lands = list(base_lands)
+                for _ in range(-dl):
+                    drop = next((i for i, p in enumerate(lands)
+                                 if not p["tapped"] and not p["filter"]
+                                 and p.get("amount", 1) == 1
+                                 and len(p["colours"]) == 1), None)
+                    if drop is None:
+                        break
+                    lands.pop(drop)
+            configs.append((lands, accels + [dict(generic_rock)
+                                             for _ in range(da)]))
+    # Comparing configs is the entire purpose of this table, so a figure
+    # without its wobble beside it cannot do the job: the question is always
+    # whether one row differs from another.
+    #
+    # This table reads exactly two figures out of each simulation and both
+    # are at the commander's turn, so playing out to turn seven every time was
+    # five sixths of the turns simulated for nothing on a two-drop.
+    res = replicate_playsim_many(
+        configs, deck_size,
+        [("cmdr", cmv, "".join(f"{{{x}}}" for x in creq))],
+        trials, seed, reps, turns=_cturn, rituals=rituals, jobs=jobs)
+    return {"rituals": rituals,
+            "rows": [(len(l), len(a), r) for (l, a), r in zip(configs, res)]}
 
 
 # Two-sided 95% Student-t multipliers by degrees of freedom. With three
@@ -412,7 +556,8 @@ def t95(df):
     return 1.96
 
 
-def compare_swap(cmdr, entries, scry, swaps, sims, trials, seed=17, reps=3):
+def compare_swap(cmdr, entries, scry, swaps, sims, trials, seed=17, reps=3,
+                 jobs=1):
     """Measure a named swap: the same deck before and after, as data.
 
     `variants` sweeps COUNTS. It could not answer "what does swapping these
@@ -448,10 +593,11 @@ def compare_swap(cmdr, entries, scry, swaps, sims, trials, seed=17, reps=3):
             f"--swap: no Scryfall entry for {missing}. An unresolved swap "
             f"target would be modelled as producing no mana, which reads as a "
             f"catastrophic result rather than as a misspelling.")
-    base = analyse_mana(cmdr, entries, scry, sims, trials, seed, reps=reps)
+    base = analyse_mana(cmdr, entries, scry, sims, trials, seed, reps=reps,
+                        jobs=jobs)
     after_entries = apply_swaps(cmdr, entries, swaps)
     after = analyse_mana(cmdr, after_entries, scry, sims, trials, seed,
-                         lines=base["lines"], reps=reps)
+                         lines=base["lines"], reps=reps, jobs=jobs)
 
     crit = t95(2 * (reps - 1)) if reps > 1 else None
 

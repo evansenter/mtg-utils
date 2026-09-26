@@ -10,6 +10,7 @@ from mtg_utils.castability import PLAYSIM_MAX_TURNS, PLAYSIM_TURNS
 from mtg_utils.decklist import (as_cmdrs, flat, parse_swaps, read_decklist,
                                 split_names, write_arena_deck, write_deck)
 from mtg_utils.formats import DEFAULT_FORMAT, FORMATS, deck_size, spec
+from mtg_utils.parallel import default_jobs
 from mtg_utils.report import (report_arena_wildcards, report_calibrate,
                               report_combos, report_contention,
                               report_ceiling, report_diff, report_floor,
@@ -73,6 +74,12 @@ def main():
                     help="replicates used to estimate the +/- on each figure")
     ap.add_argument("--seed", type=int, default=17,
                     help="base RNG seed; replicate i uses seed+i")
+    # Output is identical at any value: each replicate owns its generator, so
+    # which process runs it cannot change what it draws.
+    ap.add_argument("--jobs", type=int, default=default_jobs(),
+                    help="mana/variants: worker processes for the Monte "
+                         "Carlo replicates (default: one per CPU); every "
+                         "figure is identical at any value")
     ap.add_argument("--out", default=None)
     ap.add_argument("--decks", default="", help="comma-separated Moxfield ids")
     ap.add_argument("--lands", default="-2,0,2",
@@ -220,7 +227,7 @@ def main():
                   f"{size} ***")
     if a.cmd in ("mana", "audit"):
         report_mana(cmdr, entries, scry, a.sims, a.trials, a.seed,
-                    reps=a.reps, turns=a.turns, fmt=a.fmt)
+                    reps=a.reps, turns=a.turns, fmt=a.fmt, jobs=a.jobs)
     if a.cmd == "skeleton":
         report_skeleton(cmdr, entries, scry)
     if a.cmd == "primer":
@@ -244,12 +251,12 @@ def main():
     if a.cmd == "variants":
         if swaps:
             report_swap(cmdr, entries, scry, swaps, a.sims, a.trials,
-                        a.seed, a.reps)
+                        a.seed, a.reps, a.jobs)
         else:
             report_variants(cmdr, entries, scry,
                             [int(x) for x in a.lands.split(",")],
                             [int(x) for x in a.accel.split(",")], a.trials,
-                            a.seed, a.reps)
+                            a.seed, a.reps, a.jobs)
     if a.cmd in ("combos", "audit"):
         # The cache is passed so the names sent to Spellbook are the full
         # `A // B` form it matches on -- see spellbook_name.
