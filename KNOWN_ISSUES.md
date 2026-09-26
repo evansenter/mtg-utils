@@ -1321,7 +1321,7 @@ tapped basic, so the turn you play one you have exactly what an
 unconditionally tapped land gives you: nothing. They were counted as untapped
 any-colour sources.
 
-The second row was not in the report that raised this and is the same bug from
+The third row was not in the report that raised this and is the same bug from
 the other side. Bad River and the rest of the Mirage cycle *do* enter tapped,
 `enters_tapped` says so correctly, and the hard-coded `False` threw that
 verdict away — so the line was wrong in two independent ways at once, and a
