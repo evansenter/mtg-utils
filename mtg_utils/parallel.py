@@ -15,6 +15,10 @@ from concurrent.futures import ProcessPoolExecutor
 
 
 def default_jobs():
+    """The CPUs this process may run on -- under a container limit or
+    `taskset` that is fewer than the host has."""
+    if hasattr(os, "sched_getaffinity"):
+        return len(os.sched_getaffinity(0)) or 1
     return os.cpu_count() or 1
 
 
@@ -27,5 +31,12 @@ def pmap(fn, calls, jobs=1):
     calls = list(calls)
     if jobs <= 1 or len(calls) <= 1:
         return [fn(*args) for args in calls]
-    with ProcessPoolExecutor(max_workers=min(jobs, len(calls))) as ex:
+    try:
+        ex = ProcessPoolExecutor(max_workers=min(jobs, len(calls)))
+    except (OSError, NotImplementedError):
+        # No working POSIX semaphores (no /dev/shm: some sandboxes, Termux).
+        # The serial loop gives the identical answer, so fall back to it
+        # rather than fail a command that ran fine before workers existed.
+        return [fn(*args) for args in calls]
+    with ex:
         return list(ex.map(fn, *zip(*calls)))

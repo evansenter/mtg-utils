@@ -45,3 +45,19 @@ def test_pmap_keeps_submission_order(mm):
     from mtg_utils.parallel import pmap
     assert pmap(divmod, [(n, 3) for n in range(10)], jobs=4) == \
         [divmod(n, 3) for n in range(10)]
+
+
+def test_pmap_falls_back_to_serial_without_a_process_pool(mm, monkeypatch):
+    """parallel/no working semaphores is not a crash
+
+    `--jobs` defaults to every CPU, so a host that cannot build a pool
+    (no /dev/shm) would otherwise fail a command that ran serially before
+    workers existed. The fallback is the same loop, so the answer is too.
+    """
+    import mtg_utils.parallel as par
+
+    def no_pool(*a, **kw):
+        raise OSError("no semaphores here")
+    monkeypatch.setattr(par, "ProcessPoolExecutor", no_pool)
+    assert par.pmap(divmod, [(n, 3) for n in range(5)], jobs=4) == \
+        [divmod(n, 3) for n in range(5)]
