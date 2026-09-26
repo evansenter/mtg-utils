@@ -61,11 +61,12 @@ front face -- so every comparison reduces both sides. See cards.front_name.
 # working for anything that used the single file as a library.
 
 from mtg_utils.cards import (BASIC_TYPE_COLOUR, COLOURS, CONDITIONAL_TAP_MARKERS,
-                             CONDITIONAL_TAP_PATTERNS, MANA_SYMBOLS, ORDINALS,
-                             TURN_TAP, WORDNUM,
+                             CONDITIONAL_TAP_PATTERNS, FETCH_TAPPED, MANA_SYMBOLS,
+                             ORDINALS, TURN_TAP, WORDNUM,
                              enters_tapped, enters_tapped_turn, faces,
-                             fetch_targets, front,
-                             front_name, has_land_back, is_front_land, land_face,
+                             fetch_targets, fetches_tapped, front,
+                             front_name, has_land_back, is_front_land,
+                             is_tapped_fetcher, land_face,
                              mana_amount, tapped_from_turn)
 from mtg_utils.profiles import (ACTIVATION_GATE, ADDITIONAL_COST,
                                 COSTED_ABILITY, FILTER_LANDS, OMNI_TYPE,

@@ -5,7 +5,7 @@ import re
 
 from mtg_utils.cards import (enters_tapped, enters_tapped_turn, front,
                              front_name, has_land_back,
-                             is_front_land, land_face)
+                             is_front_land, is_tapped_fetcher, land_face)
 from mtg_utils.castability import (PLAYSIM_TURNS, at_least_in_draw, castable_faces,
                                    pips_from_cost, playsim_report, probability)
 from mtg_utils.decklist import apply_swaps, as_cmdrs, flat, read_decisions
@@ -53,6 +53,24 @@ def verify(cmdr, entries, scry, fmt=None):
             lands += q
             lf = land_face(c)
             t, cm, tfrom = enters_tapped_turn(lf, c)
+            # Evolving Wilds does not enter tapped -- the basic it fetches
+            # does -- so enters_tapped answers its own question correctly and
+            # still leaves this header saying "untapped" about a land the
+            # models score as tapped. The header exists to explain the models'
+            # tapped-ness to whoever is reading the figures beside it, so the
+            # two have to agree; one predicate, both call sites. A tapped fetcher
+            # carries no turn clause, so `tfrom` stays None and it lands in
+            # the truly-tapped bucket below, not the turn-conditional one.
+            #
+            # They agree on FRONT-FACE lands only, and the limit is this `if`
+            # rather than the predicate: an MDFC land back never reaches here,
+            # so it lands in neither list while build_land_profiles scores it
+            # off the same face. 35 of the 50 commander-legal ones enter
+            # tapped outright. Closing that moves three golden snapshots --
+            # the conditional MDFCs in the fixtures would start printing a
+            # "conditional, not counted" line each -- so it is issue #30 and
+            # its own commit, not a quiet widening of this one.
+            t = t or is_tapped_fetcher(lf, c)
             # The name is listed once; the COUNT is by quantity, so it is in
             # the same units as `lands` beside it in the header. They coincide
             # in singleton Commander -- basics are the only entries above one
