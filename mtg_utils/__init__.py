@@ -1,31 +1,35 @@
 """
-mana_model.py — deck validation and castability for singleton commander decks.
+mana_model.py — manabase and deck checks for Commander (and Brawl) decks.
 
 Commander by default. `--format` selects Brawl or Standard Brawl, which sets
 the deck size, the Scryfall legality key every check reads, and the table size
-the play/draw framing assumes. Everything else is format-independent and was
-already correct on a 60-card list.
+the play/draw framing assumes.
 
-ONE FILE. Do not create a second script beside this one; extend it and
-re-deliver the whole thing (see PROJECT NOTES at the bottom).
+Two models, because they answer different questions -- every figure printed
+says which one produced it:
 
-Two models, because they answer different questions:
-
-  sources model   "can I make these pips"      -> analyse()
-  play simulation "do I have N mana on turn N" -> playsim()
+  sources model   "can I make these pips"       -> castability.probability()
+  play simulation "do I have N mana on turn N"  -> castability.playsim()
 
 Mana sources are LANDS PLUS CHEAP ACCELERANTS (mana value <= 3 that tap for
-mana) plus MDFC land backs. Lands-only understates castability badly: measured
-on Pantlaza, {2}{R}{G}{W} on turn five was 36.4% lands-only and 53.5% once the
-accelerants were counted. The lands-only figure is a statement about land
-count, not about castability, and must not be reported as one.
+mana) plus MDFC land backs. Lands-only understates castability badly -- on one
+measured deck, {2}{R}{G}{W} on turn five was 36.4% lands-only and 53.5% once
+the accelerants were counted -- so a lands-only figure is a statement about
+land count, not about castability.
+
+Offline once `fetch` has built the Scryfall cache: verify, mana, variants,
+skeleton, own, write. roster and primer go to Scryfall on a cache miss, and
+write --arena to Scryfall per card. ceiling, floor, combos, contention,
+moxfield, diff, calibrate and audit (which runs combos) reach the network
+every time. Ownership reads a ManaBox CSV export: --collection.
 
 Subcommands
 -----------
   fetch       build/refresh the Scryfall cache for a decklist
-  verify      count, legality, colour identity, Game Changers, MV, tapped classes
-  mana        sources model + play simulation (the full section 6 pass)
-  roster      section 6 roster walk: every cycle slot, IN / benched / buy
+  verify      count, legality, colour identity, Game Changers, average MV
+  mana        sources model + play simulation, worst lines first, with the
+              tapped-land classes and the mulligan floor
+  roster      land roster walk: every cycle slot, IN / benched / buy
   skeleton    slot budget and curve: total = commanders + lands + non-land
   ceiling     EDHREC (or --cedh edhtop16) inclusion: what is above the bar
               and missing from the list, with ownership and price
@@ -42,11 +46,13 @@ Subcommands
   diff        card-multiset diff of a local list against the LIVE Moxfield deck
   primer      check every [[Card]] link in a primer against the decklist
   audit       verify + mana + roster + combos + own  (full pass, no variants)
-  selftest    offline regression tests; run after ANY edit to this file
+  selftest    run the offline test suite (needs pytest and the repository)
   calibrate   re-measure every live deck into one table (never store the rows)
 
-Decklist format: first non-blank line is the commander, then one entry per
-line as "N Card Name" or bare "Card Name".
+Decklist format: the commander block (one line, or two for a partner or
+background pair), a blank line, then one entry per line as "N Card Name" or
+bare "Card Name". Lines starting with # are ignored. A file with no blank
+line reads its first line as the commander.
 
 Names: a double-faced card may be written either way in a decklist. The three
 external sources disagree with each other -- EDHREC answers in front faces,
@@ -79,7 +85,7 @@ from mtg_utils.castability import (PLAYSIM_MAX_TURNS, PLAYSIM_TURNS, _match,
                                    at_least_in_draw,
                                    castable, castable_faces, pips_from_cost,
                                    playable_set, playsim, playsim_report,
-                                   probability, ritual_burst, tapped_at)
+                                   probability, tapped_at)
 from mtg_utils.decklist import (DECISION, apply_swaps, as_cmdrs, by_front_face,
                                 diff_multiset, flat,
                                 parse_swaps, read_decisions, read_decklist,
@@ -89,20 +95,23 @@ from mtg_utils.formats import (DEFAULT_FORMAT, FORMATS, deck_size, is_legal,
                                legality, says_illegal)
 from mtg_utils.formats import spec as format_spec
 from mtg_utils.primer import LINK_RE, parse_primer_links, unclosed_openers
-from mtg_utils.roster import (ANY_COLOUR, OFF_ROSTER_RANK, PAIR_CYCLES,
-                              TRIPLE_CYCLES, WUBRG, identity_pairs,
-                              pair_from_type_line, pair_key, roster_names,
-                              roster_slot, roster_status)
+from mtg_utils.roster import (ANY_COLOUR, FETCHLANDS, OFF_ROSTER_RANK,
+                              PAIR_CYCLES, PREMIUM_SLOTS, TRIPLE_CYCLES, WUBRG,
+                              identity_pairs, pair_from_type_line, pair_key,
+                              roster_colours, roster_names, roster_slot,
+                              roster_status, roster_walk)
 from mtg_utils.analysis import (ARENA_RARITIES, CURVE_TOP, FLOOR_HEADER_STEMS,
                                 SKELETON_TYPES,
-                                analyse_mana,
+                                BUY_BUCKETS, analyse_mana, buy_list,
                                 ceiling_audit, collapse_temps,
-                                combo_completions, commander_lines,
+                                combo_completions, commander_lines, is_temp,
                                 compare_swap, deck_base_name, deck_skeleton, decisions_audit,
                                 display_floor_bound, floor_audit,
                                 land_roster_note, mean_spread,
                                 opening_hand_floor, primer_audit,
-                                replicate_playsim, split_budget, t95,
+                                line_candidates, replicate_playsim,
+                                replicate_playsim_many, split_budget,
+                                sweep_variants, t95,
                                 type_bucket, verify, wildcard_cost,
                                 worst_lines)
 from mtg_utils.sources import UA_BROWSER, UA_TOOL
@@ -125,7 +134,7 @@ from mtg_utils.report import (report_arena_wildcards, report_calibrate,
                               report_ceiling, report_diff, report_floor,
                               report_mana, report_own, report_primer,
                               report_roster, report_skeleton, report_swap,
-                              report_variants)
+                              report_variants, report_verify)
 
 
 # `hypergeometric` was renamed to `at_least_in_draw`. Everything here is
@@ -135,6 +144,11 @@ from mtg_utils.report import (report_arena_wildcards, report_calibrate,
 # deliberately does NOT alias the old name, because the whole point of the
 # rename is that `hypergeometric` reads like a figure worth quoting.
 def __getattr__(name):
+    if name == "ritual_burst":
+        raise AttributeError(
+            "ritual_burst() was removed: nothing called it. The play "
+            "simulation reads the burst inline in _playsim_core against its "
+            "packed board, and that is the only implementation.")
     if name == "hypergeometric":
         raise AttributeError(
             "hypergeometric() is now at_least_in_draw(k, sources, cards_seen, "

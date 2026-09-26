@@ -43,6 +43,9 @@ def scry_fetch(names, cache_path=None):
         # a real card invisible until someone deleted the cache.
         nf += [x.get("name") for x in d.get("not_found", [])]
         time.sleep(0.2)
-    if cache_path:
-        json.dump(cache, open(cache_path, "w"))
+    # Only when something was asked for. A complete cache is read-only, so a
+    # run over one never rewrites a megabyte of JSON it did not change.
+    if cache_path and want:
+        with open(cache_path, "w") as f:
+            json.dump(cache, f)
     return cache, nf

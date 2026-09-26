@@ -26,6 +26,7 @@ the one thing the golden suite exists to make impossible.
 | `ceiling.combos.json` | A real Commander Spellbook find-my-combos response for `partner.txt`, trimmed to whole combos |
 | `ceiling.lands.rec.json` | An EDHREC-shaped page ranking seven lands: four the roster can rank, three it deliberately cannot |
 | `ceiling.lands.scry.json` | Real Scryfall records for those seven — a **projection**, kept for their type lines |
+| `roster_brg.scry.json` | Whole Scryfall records for Ziatora's Proving Ground and Savage Lands, captured 2026-09-26 — the two BRG cycle members `roster --colours=BRG` looks up that `brawl.scry.json` never held |
 | `fetchland.scry.json` | Whole Scryfall records for the fetch family, captured 2026-08-17 — every way a "search your library for a land" clause can behave |
 
 ## The `fetchland` fixture

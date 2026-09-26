@@ -1,18 +1,19 @@
 """Shared test plumbing.
 
-The golden suite runs two copies of the code -- reference/mana_model_v0.py and
-whatever the repo currently ships -- over the same frozen fixtures, in the same
-process, and compares stdout byte for byte.
+The golden suite runs the CLI in-process over the frozen fixtures and compares
+stdout byte for byte with tests/fixtures/expected/. The snapshots began as the
+output of the original single-file implementation; see test_golden.py.
 
-Same process matters: set iteration order depends on PYTHONHASHSEED, and running
-both copies under one interpreter means any hash-order effect is shared rather
-than showing up as a spurious diff. CI pins the seed as well.
+Nothing here may reach the network: `_no_network` below is autouse, so a
+fixture cache that misses a card fails the test that missed it instead of
+quietly fetching the card live and passing.
 """
 import csv
 import importlib.util
 import io
 import os
 import shutil
+import subprocess
 import sys
 from collections import defaultdict
 from contextlib import redirect_stdout, redirect_stderr
@@ -22,7 +23,6 @@ import pytest
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 FIXTURES = os.path.join(REPO, "tests", "fixtures")
 EXPECTED = os.path.join(FIXTURES, "expected")
-REFERENCE = os.path.join(REPO, "reference", "mana_model_v0.py")
 
 if REPO not in sys.path:
     sys.path.insert(0, REPO)
@@ -40,7 +40,8 @@ DECK_EXTRA = {"brawl": ("--format=standardbrawl",)}
 def pytest_addoption(parser):
     parser.addoption(
         "--regen-golden", action="store_true", default=False,
-        help="rewrite tests/fixtures/expected/ from reference/mana_model_v0.py")
+        help="rewrite tests/fixtures/expected/ from the CURRENT code -- only "
+             "when moving a reported number is the point of the change")
 
 
 def _load(path, name):
@@ -53,19 +54,28 @@ def _load(path, name):
 
 @pytest.fixture(scope="session")
 def candidate():
-    """The copy under test: the root mana_model.py entry point, before and
-    after it becomes a shim over the package. Imported the same way throughout
-    so the harness itself never changes shape mid-refactor."""
+    """The copy the golden suite runs: the root mana_model.py entry point,
+    loaded the way a user runs it."""
     return _load(os.path.join(REPO, "mana_model.py"), "_candidate_mana_model")
 
 
-@pytest.fixture(scope="session")
-def reference():
-    """v0, frozen. Skipped once reference/ is deleted in the final commit --
-    by then the committed snapshots carry the invariant."""
-    if not os.path.exists(REFERENCE):
-        pytest.skip("reference/ has been deleted; snapshots carry the invariant")
-    return _load(REFERENCE, "_reference_mana_model")
+@pytest.fixture(autouse=True)
+def _no_network(monkeypatch):
+    """Every fetch in the package is `subprocess.run(["curl", ...])`, so
+    refusing curl here makes the whole suite offline by construction.
+
+    Five roster tests ran against live Scryfall for months: their walk looked
+    up two cards the brawl cache never held, scry_fetch fetched them, and every
+    assertion passed. A test that wants a canned response patches
+    subprocess.run itself, which overrides this for its own body.
+    """
+    real = subprocess.run
+
+    def guard(cmd, *a, **kw):
+        if cmd and cmd[0] == "curl":
+            raise AssertionError(f"test tried to reach the network: {cmd[-1]}")
+        return real(cmd, *a, **kw)
+    monkeypatch.setattr(subprocess, "run", guard)
 
 
 @pytest.fixture(scope="session")
@@ -99,9 +109,8 @@ def load_fixture_collection(path=os.path.join(FIXTURES, "collection.csv")):
 
     load_collection's signature is `def load_collection(path=COLLECTION)`, so
     the default is bound at import time and patching the module's COLLECTION
-    constant does nothing. The function itself has to be replaced -- and it is
-    replaced identically in both copies, so output equality still measures the
-    thing it claims to.
+    constant did nothing. The function itself is replaced, by name, everywhere
+    it is bound.
 
     This deliberately mirrors the real loader, including the rule that the
     front-face key is only added when it differs from the full name.
@@ -118,32 +127,6 @@ def load_fixture_collection(path=os.path.join(FIXTURES, "collection.csv")):
     return owned
 
 
-def _patch_everywhere(name, replacement):
-    """Rebind `name` on every loaded module that defines a function of that name.
-
-    A module-level function is looked up in the globals of the module that
-    DEFINES it, not the one that calls it. Patching only `mana_model.<name>`
-    works while everything lives in one file and silently stops working the
-    moment the definition moves into a package -- the call would go to the real
-    loader and read /mnt/project. Patching by name across sys.modules covers
-    both shapes, so the reference and the candidate are treated identically.
-
-    Returns the undo list.
-    """
-    undo = []
-    for mod in list(sys.modules.values()):
-        if mod is None:
-            continue
-        try:
-            cur = getattr(mod, name, None)
-        except Exception:            # module with an exotic __getattr__
-            continue
-        if callable(cur) and getattr(cur, "__name__", None) == name:
-            undo.append((mod, cur))
-            setattr(mod, name, replacement)
-    return undo
-
-
 def patch_everywhere(monkeypatch, name, replacement):
     """Rebind `name` on every loaded module that defines a function of it.
 
@@ -155,10 +138,8 @@ def patch_everywhere(monkeypatch, name, replacement):
     Against a network dependency that means a test that quietly starts
     hitting Spellbook and passes anyway.
 
-    This is the same hazard `_patch_everywhere` already handles for
-    `load_collection` inside run_cli, generalised so a test can use it with
-    monkeypatch's automatic undo. Patching by name across sys.modules means a
-    test does not encode where a function currently lives.
+    Patching by name across sys.modules means a test does not encode where a
+    function currently lives.
 
     Asserts it matched something: a patch that binds nothing is not a
     no-op, it is a test that silently talks to the outside world.
@@ -197,11 +178,11 @@ def run_cli(mod, argv, tmpdir):
     old_argv = sys.argv
     # prog is derived from sys.argv[0] and appears in --help output
     sys.argv = ["mana_model.py"] + argv
-    undo = _patch_everywhere("load_collection", load_fixture_collection)
-    assert undo, "load_collection was not found anywhere -- patch target moved"
     buf = io.StringIO()
     try:
-        with redirect_stdout(buf), redirect_stderr(buf):
+        with pytest.MonkeyPatch.context() as mp, \
+                redirect_stdout(buf), redirect_stderr(buf):
+            patch_everywhere(mp, "load_collection", load_fixture_collection)
             try:
                 mod.main()
             except SystemExit as e:
@@ -209,8 +190,6 @@ def run_cli(mod, argv, tmpdir):
                     buf.write(f"\n[exit {e.code}]\n")
     finally:
         sys.argv = old_argv
-        for target, original in undo:
-            setattr(target, "load_collection", original)
     return buf.getvalue()
 
 

@@ -33,10 +33,10 @@ the behaviour was examined and deliberately kept, with the reasoning written
 down; changed meaning a reported number was moved on purpose, with what moved
 written down beside it. Nothing in it is currently outstanding.
 
-#21 and #22 are the newest, and both came out of the first run of this
-toolchain on a deck it had never seen — a 60-card Standard Brawl list. #21
-moved numbers on three fixtures and supersedes one row of #13; #22 is what that
-same run deliberately did NOT change.
+#21 and #22 came out of the first run of this toolchain on a deck it had
+never seen — a 60-card Standard Brawl list. #21 moved numbers on three
+fixtures and supersedes one row of #13; #22 is what that same run deliberately
+did NOT change. #23 (tapped fetchlands) is the newest.
 
 Its job did not end when the list emptied. It exists because "a finding that
 lives only in scrollback is a finding that gets rediscovered", so when you
@@ -44,8 +44,9 @@ decide NOT to do something, record it there rather than in a commit message
 nobody greps. #13 (conditional accelerants), #14 (no mulligan model), #18
 (where the Monte Carlo optimisation stops, and the faster ideas that were
 measured and rejected), #20 (what `floor` can and cannot say about a card
-the ranking page never ranked) and #22 (what the format-awareness pass
-deliberately left alone) are all that shape: deliberate limitations,
+the ranking page never ranked), #22 (what the format-awareness pass
+deliberately left alone) and #24 (what the 2026-09 audit left alone) are all
+that shape: deliberate limitations,
 priced and kept.
 
 Do not quietly "fix" a resolved entry while doing something else — several are
@@ -153,7 +154,8 @@ excluded from generic totals.
 
 ### Compute is separate from printing, and it is load-bearing
 
-`verify`, `analyse_mana`, `worst_lines`, `commander_lines`, `parse_moxfield`,
+`verify`, `analyse_mana`, `sweep_variants`, `compare_swap`, `roster_walk`,
+`buy_list`, `worst_lines`, `commander_lines`, `parse_moxfield`,
 `diff_multiset` and `collapse_temps` return data. The `report_*` wrappers in
 `report/` only format it. This is what lets tests assert on numbers instead of
 scraping stdout — preserve it. New logic goes in `analysis.py` or below, never
@@ -232,16 +234,24 @@ overstate. And batching `getrandbits` into blocks — the obvious next idea —
 was measured **2.7x slower** than calling it per draw, so the per-call version
 is not there for want of trying.
 
+What IS free is the replicates. Each owns its generator (`seed + i`), so
+`parallel.pmap` runs them in worker processes and hands results back in
+submission order; the CLI defaults `--jobs` to one per CPU and the library to
+1. The golden suite goes through the CLI, so it pins the parallel path to the
+committed bytes; `tests/test_parallel.py` compares the two directly. Anything
+that makes a replicate read state another replicate wrote breaks that, and a
+cache that changes an ANSWER (rather than a time) would too.
+
 `tests/test_solver_equivalence.py` keeps the pre-rewrite solver verbatim and
 compares the two over generated hands. If you rewrite the solver again, that
 is the test that will tell you whether you changed the answer, because the
-golden snapshots only exercise the hands four particular decks happen to deal.
+golden snapshots only exercise the hands five particular decks happen to deal.
 
 ### Module map
 
 `cards.py` → `profiles.py` → `castability.py` → `analysis.py` → `report/` →
-`cli.py`, with `decklist.py`, `formats.py`, `roster.py`, `primer.py` and
-`sources/` alongside. `formats.py` sits at the bottom with `cards.py` and
+`cli.py`, with `decklist.py`, `formats.py`, `roster.py`, `primer.py`,
+`parallel.py` and `sources/` alongside. `formats.py` sits at the bottom with `cards.py` and
 imports nothing: it is three facts per format and every layer above reads it. `sources/arena.py` resolves the
 `(SET) NUMBER` an Arena import line needs, and is the one source module whose
 SELECTION rules matter more than its fetch -- `pick_arena_printing` is pure so
@@ -257,7 +267,7 @@ bytes are snapshotted.
 | file | printers |
 |---|---|
 | `report/mana.py` | `mana`, `variants`, the named swap — everything Monte Carlo |
-| `report/deck.py` | `skeleton`, `roster`, `combos`, `primer`, `floor` — what is in the 100 |
+| `report/deck.py` | `verify`, `skeleton`, `roster`, `combos`, `primer`, `floor` — what is in the 100 |
 | `report/own.py` | `own`, `arena_wildcards`, `contention`, `ceiling` — ownership and acquisition |
 | `report/live.py` | `diff`, `calibrate` — the live Moxfield account |
 
@@ -356,9 +366,9 @@ the ceiling path reads, because the full records ran to 1.2 MB to price a dozen
 rows. Values in both are verbatim.
 
 Three traps the harness already handles, which any new test must too.
-`scry_fetch` rewrites its cache file on every run (copy to tmp first), and
-`load_collection(path=COLLECTION)` binds its default at import, so patch the
-function, not the constant.
+`scry_fetch` writes its cache file back whenever it fetched anything (copy to
+tmp first), and `load_collection` reads a real file, so patch the function
+(`load_fixture_collection` in conftest) rather than pointing it at a path.
 
 **Patch a dependency by NAME, not on the module you think owns it.** A
 module-level function resolves in the globals of the module that DEFINES it,
@@ -373,9 +383,11 @@ The third is newer and cost a green-but-meaningless test: **a cache key that
 does not match what the code asks for sends the suite to the network, and
 everything still passes.** `edhtop16_fetch` keys on `edhtop16/{first}/{name}`,
 a fixture built at `first=30` missed at the default `first=100`, and the case
-ran against 100 live entries instead of the 6 committed ones. `_no_network` in
-`tests/test_ceiling.py` patches `subprocess.run` to raise; use it in any test
-that touches a fetching path.
+ran against 100 live entries instead of the 6 committed ones. It happened
+again to five `roster --colours` tests, whose walk looked up two cards the
+brawl cache never held. `_no_network` in `tests/conftest.py` is now autouse and
+refuses `curl` for the whole suite, so a miss fails the test that missed; a
+test that wants a canned response patches `subprocess.run` itself.
 
 ## Rules for tests
 
@@ -389,13 +401,19 @@ that touches a fetching path.
   to test anything. Two cases in this repo's history were decorative: one used a
   basic land as a colour-identity canary (basics have empty colour identity, so
   it could never fail), and one used a substring check that still matched with
-  the code it guarded removed.
+  the code it guarded removed. A later audit found three more: a case that
+  asserted a property of its own fixture dict and called no code, a pair
+  asserting the same value on the same row, and a colour-identity check whose
+  deletion left the whole suite green because every case asserted an EMPTY
+  violation list. Assert the positive case, not only the absence.
 - **Fixture strings are verbatim Scryfall text.** A case for the MDFC land backs
   once used invented wording no printed card uses; it passed while the real
   cards were misclassified.
-- **Cases that look redundant usually are not.**
-  `collection/sums quantities across printings` and `collection/no double count`
-  assert the same value for two different reasons, and both comments say which.
+- **Cases that look redundant usually are not — but make each one able to
+  fail alone.** `collection/sums quantities across printings` and
+  `collection/no double count` guard two different bugs; they used to assert
+  the same value on the same row, so no mutation could fail one without the
+  other. They now assert on different rows.
 - The suite is fully offline and must stay that way. Anything needing Scryfall
   or Moxfield needs a fixture.
 
@@ -488,7 +506,8 @@ that touches a fetching path.
 
 ## Environment
 
-`COLLECTION` in `sources/collection.py` is an absolute path to a ManaBox export
-that does not exist in CI or in most sandboxes. Anything touching ownership
-(`own`, `contention`, `roster`) needs it patched — see `load_fixture_collection`
-in `tests/conftest.py`.
+The ManaBox export is `--collection`, else `$MTG_COLLECTION`, else the
+`COLLECTION` default in `sources/collection.py` — an absolute path that does
+not exist in CI or in most sandboxes, and a missing file is a SystemExit.
+Anything touching ownership (`own`, `contention`, `roster`) needs it patched
+in tests — see `load_fixture_collection` in `tests/conftest.py`.

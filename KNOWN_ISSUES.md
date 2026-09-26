@@ -8,7 +8,7 @@ a reported number was moved on purpose, with what moved written down beside it.
 The file's job does not end when the list empties. It exists because a finding
 that lives only in scrollback gets rediscovered — so a decision NOT to do
 something belongs here too, not in a commit message nobody greps. #13, #14,
-#18 and #20 are that shape, and #15 and #21 are the other one: a limitation that
+#18, #20, #22 and #24 are that shape, and #15 and #21 are the other one: a limitation that
 was priced, kept, and later revisited deliberately, with the earlier entry left
 standing — #21 supersedes one row of #13's table and says so at the top of both.
 #17 carries a residual of the same kind inside an otherwise-fixed entry, with
@@ -552,7 +552,7 @@ unaffected. Admitting it is correct; the expectation was the error.
   firing it on sight would model casting Dark Ritual into an empty hand — and
   it is the one place where "one-shot" is not literally simulated.
 - **The ritual is chosen by net, not by the line being measured.**
-  `ritual_burst` runs once per turn, before any line is evaluated, and takes
+  The burst is read once per turn, before any line is evaluated, and takes
   the largest castable net. On a hand holding two rituals of different colours
   that can pick the one paying nothing toward the pips: Dark Ritual (net 2) and
   Pyretic Ritual (net 1) off Swamp, Mountain, Mountain gives `{B}{R}{R}` plus
@@ -1405,3 +1405,69 @@ suite is blind to a card shape it contains no card of.
   header's own sentence has to answer: whether `truly tapped` counts a class
   the two numbers before it exclude, and whether a face you may simply not
   play should be priced at all. Issue #30 has both, with the fixture it needs.
+
+---
+
+## 24. What the 2026-09 audit deliberately did NOT change — RESOLVED, documented
+
+A whole-repo audit (structure, tests, performance, anything decorative) made
+the changes in its own commits: replicates in worker processes, the suite made
+offline by construction, measurement moved out of three printers, three small
+bugs, the stale `--help` banner. These are what it looked at and left, so the
+next pass does not rediscover them.
+
+### A Battlebond land in a two-player format is read as untapped
+
+`CONDITIONAL_TAP_MARKERS` treats *"unless you have two or more opponents"* as a
+condition you usually meet, which is true at a four-player table and false in
+every 1v1 game: in Brawl and Standard Brawl the land always enters tapped, and
+`formats.py` already knows the table is two players. Not fixed because nothing
+reaches it -- none of the cycle is on Arena, so neither Brawl format can
+register one -- and a fix is a format branch inside the tapped classifier, which
+feeds both models. Overstates, on a deck that cannot exist today. The day one is
+printed on Arena, this becomes a real number.
+
+### The library surface was not trimmed
+
+`mtg_utils/__init__.py` re-exports about seventy names so `import mana_model`
+works as the single file did, and the only known consumer is this test suite.
+Kept, per the rule in CLAUDE.md that the surface only grows. Two leftovers of
+that rule were also kept rather than broken: `enters_tapped(face, card=None)`
+takes a `card` it never reads, and `at_least_in_draw` still defaults `deck=99`,
+though every caller passes the library size. The one removal was
+`ritual_burst`, which nothing called -- the play simulation reads the burst
+inline, so the function could return None with the whole suite green. It went
+the way `hypergeometric` did: `mtg_utils.__getattr__` says why.
+
+### Comments were not thinned wholesale
+
+About half the package is prose. Most of it names the bug a line prevents,
+which is the convention here, and some is changelog narration ("in this
+commit", "used to"). A pass to separate the two would touch every file, bury
+any real diff beside it, and needs a human reading each one against the bug it
+names -- CLAUDE.md asks for exactly that before a why-comment is deleted. Worth
+doing as its own commit, not as a side effect.
+
+### Duplicated parsing that could move numbers
+
+The "Add ..." clause is read four ways (`cards.mana_amount`,
+`profiles.unrestricted_mana`, `profiles.costed_net`, `profiles.ritual_add`), and
+the fetch gate is written twice on purpose (#23). Unifying either is the kind
+of refactor the golden suite exists to police, and on the fixtures they agree
+-- which, as #18 records, proves less than it sounds. Left for a change whose
+point is unifying them, with the snapshots as the check.
+
+### `calibrate` is not parallelised
+
+It fetches each deck from Moxfield and measures it at one replicate, serially.
+The measuring could go through `pmap` like `mana`, but it is interleaved with
+network fetches and a rate-limit sleep, the printer is network-only and has no
+offline test (see "Compute is separate from printing"), and it is run rarely.
+Not worth restructuring code nothing can check.
+
+### `FILTER_LANDS` is a list of names
+
+Ten names, the whole Shadowmoor/Eventide cycle. It could be derived from the
+oracle shape, which would catch a future reprint-style filter, but the list is
+complete for every filter land printed and deriving it is a change to what a
+land profile says. Kept.

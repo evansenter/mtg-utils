@@ -65,17 +65,32 @@ def test_complete_cache_makes_no_request(mm, no_network, tmp_path):
     assert "sol ring" in cache
 
 
-def test_round_trip_is_stable(mm, no_network, tmp_path):
+def _force_a_write(monkeypatch, dst, name):
+    """Drop `name` from the cache at `dst` and serve its real record back
+    through a fake fetch, so the next scry_fetch rewrites the whole file --
+    a complete cache is never written, and these cases are about the write."""
+    import mtg_utils.sources.scryfall as sf
+    with open(dst, encoding="utf-8") as f:
+        cache = json.load(f)
+    rec = cache.pop(name.lower())
+    dst.write_text(json.dumps(cache), encoding="utf-8")
+    monkeypatch.setattr(sf.subprocess, "run", FakeRun(
+        [{"object": "list", "data": [rec], "not_found": []}]))
+    monkeypatch.setattr(sf.time, "sleep", lambda *_: None)
+
+
+def test_round_trip_is_stable(mm, monkeypatch, tmp_path):
     """cache/round-trips unchanged
 
     Read, write, read again: the second read must give the same dict. The
-    cache is rewritten on every run, so a lossy write would degrade the file
-    a little at a time rather than failing outright.
+    cache is rewritten whenever a miss is fetched, so a lossy write would
+    degrade the file a little at a time rather than failing outright.
     """
     src = os.path.join(FIXTURES, "colourless.scry.json")
     dst = tmp_path / "c.json"
     dst.write_text(open(src, encoding="utf-8").read(), encoding="utf-8")
     names = ["Wastes", "Thought-Knot Seer"]
+    _force_a_write(monkeypatch, dst, "Thought-Knot Seer")
     first, _ = mm.scry_fetch(names, str(dst))
     second, _ = mm.scry_fetch(names, str(dst))
     assert first == second
@@ -83,7 +98,7 @@ def test_round_trip_is_stable(mm, no_network, tmp_path):
         assert json.load(f) == first
 
 
-def test_profiles_survive_the_round_trip(mm, no_network, tmp_path):
+def test_profiles_survive_the_round_trip(mm, monkeypatch, tmp_path):
     """cache/profiles are identical after a rewrite
 
     JSON has no frozenset and no tuple. If a rewrite changed a type, the
@@ -95,8 +110,10 @@ def test_profiles_survive_the_round_trip(mm, no_network, tmp_path):
     dst.write_text(open(src, encoding="utf-8").read(), encoding="utf-8")
     cmdr, entries = mm.read_decklist(os.path.join(FIXTURES, "multi.txt"))
     names = mm.flat(cmdr, entries)[1:]
-    a, _ = mm.scry_fetch(mm.flat(cmdr, entries), str(dst))
-    before = mm.build_land_profiles(names, a)
+    with open(src, encoding="utf-8") as f:
+        before = mm.build_land_profiles(names, json.load(f))
+    _force_a_write(monkeypatch, dst, "Golgari Rot Farm")
+    mm.scry_fetch(mm.flat(cmdr, entries), str(dst))
     b, _ = mm.scry_fetch(mm.flat(cmdr, entries), str(dst))
     after = mm.build_land_profiles(names, b)
     assert before == after
@@ -149,21 +166,36 @@ def test_not_found_is_returned_and_not_cached(mm, monkeypatch, tmp_path):
         assert "definitely not a card" not in json.load(f)
 
 
-def test_cache_file_is_written_even_when_nothing_was_fetched(mm, no_network, tmp_path):
-    """cache/written on every run
+def test_a_complete_cache_is_not_rewritten(mm, no_network, tmp_path):
+    """cache/read-only when nothing was fetched
 
-    Why the golden tests copy the fixture cache to a temp directory before
-    running: pointed at the committed file, the suite would rewrite its own
-    frozen input on every invocation.
+    It used to be rewritten on every run, which is why the golden tests copy
+    the fixture cache to a temp directory: pointed at the committed file, the
+    suite rewrote its own frozen input on every invocation. They still copy,
+    because a miss does write.
     """
     dst = tmp_path / "c.json"
     dst.write_text(json.dumps({"sol ring": _card("Sol Ring")}), encoding="utf-8")
-    stamp = dst.stat().st_mtime_ns
-    os.utime(dst, ns=(stamp - 10**9, stamp - 10**9))
-    cache, nf = mm.scry_fetch(["Sol Ring"], str(dst))
-    assert dst.stat().st_mtime_ns > stamp - 10**9, "cache was not rewritten"
+    before = dst.read_bytes()
+    stamp = dst.stat().st_mtime_ns - 10**9
+    os.utime(dst, ns=(stamp, stamp))
+    mm.scry_fetch(["Sol Ring"], str(dst))
+    assert dst.stat().st_mtime_ns == stamp, "a complete cache was rewritten"
+    assert dst.read_bytes() == before
+
+
+def test_a_fetch_is_written_back(mm, monkeypatch, tmp_path):
+    """cache/a miss is fetched once and kept"""
+    import mtg_utils.sources.scryfall as sf
+    fake = FakeRun([{"object": "list", "data": [_card("Brainstorm")],
+                     "not_found": []}])
+    monkeypatch.setattr(sf.subprocess, "run", fake)
+    monkeypatch.setattr(sf.time, "sleep", lambda *_: None)
+    dst = tmp_path / "c.json"
+    dst.write_text(json.dumps({"sol ring": _card("Sol Ring")}), encoding="utf-8")
+    mm.scry_fetch(["Sol Ring", "Brainstorm"], str(dst))
     with open(dst, encoding="utf-8") as f:
-        assert json.load(f) == cache
+        assert set(json.load(f)) == {"sol ring", "brainstorm"}
 
 
 def test_no_cache_path_means_no_file(mm, monkeypatch, tmp_path):

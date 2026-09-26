@@ -10,8 +10,8 @@ the rest of that question. The two share their fetch through
 mtg_utils/sources/ranking.py rather than through this file.
 """
 import time
-from collections import defaultdict
-from mtg_utils.analysis import (ARENA_RARITIES, ceiling_audit, collapse_temps,
+from mtg_utils.analysis import (ARENA_RARITIES, BUY_BUCKETS, buy_list,
+                                ceiling_audit, collapse_temps,
                                 combo_completions, decisions_audit,
                                 wildcard_cost)
 from mtg_utils.cards import front_name
@@ -128,37 +128,10 @@ def report_own(cmdr, entries, scry):
     counts a cost the list carries whether or not you own anything. The CLI
     picks between them, the way report/ is split by question everywhere else.
     """
-    owned = load_collection()
-    buckets = defaultdict(list)
-    tot = 0.0
-    for n in as_cmdrs(cmdr) + list(entries):
-        if owned.get(n.lower(), 0) > 0:
-            continue
-        c = scry.get(n.lower())
-        if not c:
-            continue
-        tl = c["type_line"]
-        if "Basic Land" in tl:
-            continue          # basics are NOT tracked in ManaBox; never a buy line
-        if "Land" in tl.split("//")[0]:
-            b = "Lands"
-        elif "Equipment" in tl:
-            b = "Equipment"
-        elif "Creature" in tl.split("//")[0]:
-            b = "Creatures"
-        elif "Artifact" in tl:
-            b = "Artifacts"
-        elif "Enchantment" in tl:
-            b = "Enchantments"
-        else:
-            b = "Instants / Sorceries"
-        price = c.get("prices", {}).get("usd")
-        buckets[b].append((n, price, c.get("edhrec_rank")))
-        if price:
-            tot += float(price)
+    bl = buy_list(cmdr, entries, scry, load_collection())
+    buckets, tot = bl["buckets"], bl["total_usd"]
     print("\n=== BUY LIST (absent from ManaBox_Collection.csv) ===")
-    for b in ["Creatures", "Equipment", "Artifacts", "Enchantments",
-              "Instants / Sorceries", "Lands"]:
+    for b in BUY_BUCKETS:
         if b not in buckets:
             continue
         print(f"\n{b} ({len(buckets[b])})")

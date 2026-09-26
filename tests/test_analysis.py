@@ -51,11 +51,6 @@ def test_verify_front_face_lands(vv):
     assert vv["lands"] == 90
 
 
-def test_verify_identity_is_the_union_of_both_commanders(vv):
-    """verify/identity is the UNION of both commanders"""
-    assert [n for n, _ in vv["ci_violations"]] == []
-
-
 def test_verify_mdfc_land_backs_separate(vv):
     """verify/mdfc land-backs separate"""
     assert vv["mdfc_land_backs"] == 1
@@ -66,20 +61,29 @@ def test_verify_nonland_excludes_both_commanders(vv):
     assert vv["nonland"] == 8
 
 
-def test_verify_green_card_legal_under_the_union(vscry):
-    """verify/green card legal under the union"""
-    assert ("G" in {c for cn in ("tymna the weaver", "thrasios, triton hero")
-                    for c in vscry[cn]["color_identity"]}) is True
-
-
 def test_verify_arithmetic_closes(vv):
     """verify/arithmetic closes"""
     assert vv["total"] == 2 + vv["lands"] + vv["nonland"]
 
 
 def test_verify_partner_identity_is_the_union(vv):
-    """verify/partner identity is the union"""
+    """verify/partner identity is the union
+
+    Llanowar Elves is green, and only Thrasios contributes G.
+    """
     assert vv["ci_violations"] == []
+
+
+def test_verify_reports_an_off_identity_card(mm, vscry):
+    """verify/an off-identity card is reported
+
+    Every other case here asserts the list is EMPTY, which a verify that never
+    appended to it would satisfy just as well -- deleting the check left the
+    whole suite green. One commander, so the Elves are off-identity.
+    """
+    v = mm.verify(["Tymna the Weaver"], Counter({"Island": 97, "Llanowar Elves": 1,
+                                                 "Sol Ring": 1}), vscry)
+    assert v["ci_violations"] == [("Llanowar Elves", "G")]
 
 
 # --- contention: a Temp is not a separate physical deck ---------------

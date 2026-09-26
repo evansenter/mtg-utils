@@ -680,43 +680,6 @@ def at_least_in_draw(k, sources, cards_seen, deck=99):
 
 
 # ============================================================ play simulation
-def ritual_burst(srcs, cands):
-    """The best single ritual castable off `srcs` this turn, or None.
-
-    `cands` are hand entries -- {"p": profile, "pips": [...]} -- and the
-    profile that comes back IS the burst: `amount` is the net, so appending it
-    to `srcs` leaves the board at total + net, which is what the turn actually
-    has after the ritual resolves.
-
-    The gate is `castable` against the ritual's OWN cost, so a Dark Ritual
-    with no untapped black source contributes nothing. That is the whole
-    difference between this and a flat bonus, and the reason a ritual is worth
-    less in a deck that cannot reliably make its colour -- which is exactly
-    the question the play simulation exists to answer.
-
-    ONE per turn, best first. Two rituals really do chain in play, and the
-    second is paid for out of the first's mana -- a burst funding a burst,
-    which is the shape of every overstatement this model has already had. The
-    cap costs a line that needs two rituals in one hand and can only ever
-    lower a figure, which is the safe direction.
-
-    Ordered by net then name so the choice is deterministic: the same board
-    and the same hand pick the same ritual on every run and every seed. That
-    is determinism, which is NOT the same property as best. The choice is made
-    once per turn, here, before any line is evaluated, so it is blind to the
-    pips the reading will ask for: holding Dark Ritual and Pyretic Ritual on a
-    Swamp-Mountain-Mountain board, the larger net wins and yields two black
-    for a line wanting {R}{R}{R} that the smaller one would have paid. It errs
-    DOWNWARD, which is the safe direction, and picking per line would mean
-    moving this decision into playsim_report and searching inside the trial
-    loop. Priced and kept -- KNOWN_ISSUES.md #15.
-    """
-    for c in sorted(cands, key=lambda c: (-c["p"]["amount"], c["p"]["name"])):
-        if castable(srcs, list(c["pips"]), c["p"]["cost"]):
-            return c["p"]
-    return None
-
-
 #
 # One implementation, two shapes. `playsim` hands back the source profiles in
 # play, which is its published contract and what the unit tests read; the
@@ -794,7 +757,8 @@ def _playsim_core(lands, accels, deck_size, turns, on_draw, trials, rng,
     a_late = [bool(p["tapped"] or p.get("creature")
                    or p.get("trigger") == "phase") for p in accels]
     # A ritual is read out of HAND, once a turn, and never enters play, so it
-    # needs none of the online bookkeeping -- only what `ritual_burst` asks:
+    # needs none of the online bookkeeping -- only what the burst reading
+    # below asks:
     # its own cost, its own pips, its net, and the order to try them in. The
     # pips are solved ONCE here rather than per turn per trial, and the rank
     # is `(-net, name)` so the same board and hand pick the same ritual every
@@ -864,7 +828,7 @@ def _playsim_core(lands, accels, deck_size, turns, on_draw, trials, rng,
                 elif c < nL + nA:
                     insort(hand_a, (a_cost[c - nL], seq, c - nL))
                 else:
-                    # Kept in the order `ritual_burst` tries them, and never
+                    # Kept in the order the burst tries them, and never
                     # removed: a ritual stays in hand across turns, because
                     # each turn asks its own question of it.
                     insort(hand_r, (r_rank[c - nL - nA], seq, c - nL - nA))
@@ -971,8 +935,17 @@ def _playsim_core(lands, accels, deck_size, turns, on_draw, trials, rng,
             # It is added to the READING and never to the board: `turn_total`
             # and `turn_live` are local, so the burst cannot compound into the
             # next turn, and the ritual stays in hand to be re-read there.
-            # This is `ritual_burst` against the packed board -- same order,
-            # same `castable` gate, without rebuilding the source list.
+            #
+            # The best single ritual castable off the board this turn, gated
+            # on its OWN cost and pips: a Dark Ritual with no untapped black
+            # source contributes nothing, which is what makes it worth less
+            # in a deck that cannot reliably make its colour. ONE per turn --
+            # two do chain in play, but a burst funding a burst is the shape
+            # of every overstatement this model has had, and the cap only
+            # ever lowers a figure. Tried in (-net, name) order, so the choice
+            # is deterministic -- and blind to the pips a line will ask for,
+            # which can pick the wrong colour. Errs downward; priced and kept
+            # in KNOWN_ISSUES.md #15.
             turn_total, turn_live = online_total, live
             if hand_r:
                 for _rank, _seq, code in hand_r:

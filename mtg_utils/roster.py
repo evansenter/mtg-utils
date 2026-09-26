@@ -11,6 +11,8 @@
 # mismatch, never as a silently missing row.
 
 from mtg_utils.cards import BASIC_TYPE_COLOUR, front_name
+from mtg_utils.decklist import as_cmdrs
+from mtg_utils.formats import says_illegal
 
 WUBRG = "WUBRG"
 
@@ -113,6 +115,16 @@ ANY_COLOUR = [
 ]
 
 
+# The fetchland table, by name rather than as PAIR_CYCLES[2][1]: the walk
+# reaches it twice more for the off-pair fetches.
+FETCHLANDS = next(t for s, t in PAIR_CYCLES if s == "Fetchland")
+
+# The cycles whose absence is listed at the foot of the walk as a premium slot
+# not in the list -- the untapped, unconditional duals.
+PREMIUM_SLOTS = ("ABUR dual", "Shockland", "Fetchland", "Filter land",
+                 "Painland", "Battlebond land", "Horizon land")
+
+
 def roster_names(identity):
     """Every card the roster walk will look at, for a colour identity."""
     ident = set(identity)
@@ -122,7 +134,7 @@ def roster_names(identity):
             if table.get(pk):
                 out.append(table[pk])
     # fetchlands that reach ONE colour of the identity are still live slots
-    for pk, name in PAIR_CYCLES[2][1].items():
+    for pk, name in FETCHLANDS.items():
         if set(pk) & ident and not set(pk) <= ident:
             out.append(name)
     key = "".join(c for c in WUBRG if c in ident)
@@ -139,6 +151,110 @@ def roster_status(name, deck_names, owned):
         return "IN"
     q = owned.get(low, 0) or owned.get(front_name(low), 0)
     return f"BENCH x{q}" if q else "BUY"
+
+
+def roster_colours(cmdr, scry, colours=None):
+    """(the commander's identity, the colours to walk), both WUBRG-ordered.
+
+    `colours` narrows the walk to the colours the build actually plays -- a
+    five-colour commander built in three is otherwise forty rows of noise.
+    """
+    ci = set()
+    for cn in as_cmdrs(cmdr):
+        if scry.get(cn.lower()):
+            ci |= set(scry[cn.lower()]["color_identity"])
+    ident = "".join(c for c in WUBRG if c in ci)
+    if not colours:
+        return ident, ident
+    # Every character has to BE a colour. Dropping the rest quietly turned a
+    # typo (`--colours BRX`) into a narrower walk and `--colours C` into an
+    # empty one that printed `ROSTER WALK: ... ()` -- a walk of nothing that
+    # looks like a result. Refused by name, as widening is below.
+    bad = sorted({c for c in colours.upper() if c not in WUBRG})
+    if bad:
+        raise SystemExit(
+            f"--colours {colours}: {''.join(bad)} is not a colour. Use "
+            f"the letters W, U, B, R and G, e.g. --colours BRG.")
+    want = set(colours.upper())
+    # Refused rather than silently widened. A roster row outside the
+    # commander's identity is ILLEGAL in the deck, and printing it under a
+    # flag the caller typed would read as a slot they could fill.
+    extra = "".join(c for c in WUBRG if c in want - set(ident))
+    if extra:
+        raise SystemExit(
+            f"--colours {colours}: {extra} is outside the commander's "
+            f"identity ({ident or 'C'}), so every row it adds would be "
+            f"illegal in this deck. The flag narrows the walk; it cannot "
+            f"widen it.")
+    return ident, "".join(c for c in WUBRG if c in want)
+
+
+def roster_walk(cmdr, entries, walk, scry, owned, fmt=None):
+    """Every roster slot for the colours `walk`, as data. report_roster prints.
+
+    `scry` must already hold what it can of roster_names(walk) -- the printer
+    fetches, this only reads. A row is (label, name, status, usd or None);
+    `name` is None for a slot the pair never had (there is no BR Horizon
+    land). Each section carries `emptied`: true when the FORMAT filter left it
+    with nothing, which is a different statement from a section that was
+    always empty for this identity.
+    """
+    names = roster_names(walk)
+    deck_names = ({n.lower() for n in entries}
+                  | {c.lower() for c in as_cmdrs(cmdr)})
+
+    def legal(n):
+        # A name the cache has never seen -- or whose record carries no
+        # `legalities` block -- is WALKED rather than dropped: it is reported
+        # as NOT ON SCRYFALL, and silently removing it as well would turn one
+        # loud failure into a row that simply is not there. Silence is not
+        # evidence; see formats.says_illegal.
+        return not says_illegal(scry.get(n.lower()), fmt)
+
+    def row(label, name):
+        c = scry.get(name.lower()) or {}
+        return (label, name, roster_status(name, deck_names, owned),
+                (c.get("prices") or {}).get("usd"))
+
+    illegal = [n for n in names if not legal(n)]
+    pairs, premium_missing = [], []
+    for pk in identity_pairs(walk):
+        rows = []
+        for slot, table in PAIR_CYCLES:
+            name = table.get(pk)
+            if not name:
+                # Kept, but NOT counted toward `emptied`: a slot the pair
+                # never had cannot stand in for one the format emptied.
+                rows.append((slot, None, None, None))
+                continue
+            if legal(name):
+                rows.append(row(slot, name))
+                if rows[-1][2] != "IN" and slot in PREMIUM_SLOTS:
+                    premium_missing.append((pk,) + rows[-1][:3])
+        walked = [r for r in rows if r[1]]
+        pairs.append((pk, rows, bool(illegal) and not walked))
+    off_pair = [row(pk, name) for pk, name in FETCHLANDS.items()
+                if set(pk) & set(walk) and not set(pk) <= set(walk)
+                and legal(name)]
+    triples = None
+    if walk in TRIPLE_CYCLES:
+        triples = [row("Triome/tri-land", n) for n in TRIPLE_CYCLES[walk]
+                   if legal(n)]
+    any_colour = [row(slot, n) for slot, n in ANY_COLOUR if legal(n)]
+    return {
+        "names": names,
+        "off_identity": [n for n in names if scry.get(n.lower())
+                         and set(scry[n.lower()]["color_identity"]) - set(walk)],
+        "illegal": illegal,
+        "pairs": pairs,
+        # Both of these headings can be legitimately empty -- a two-colour
+        # identity has no off-pair fetch to reach -- so only the FORMAT
+        # emptying one is said.
+        "off_pair": (off_pair, bool(illegal) and not off_pair),
+        "triples": None if triples is None else (triples, not triples),
+        "any_colour": (any_colour, bool(illegal) and not any_colour),
+        "premium_missing": premium_missing,
+    }
 
 
 # PAIR_CYCLES is ordered BEST FIRST, and that ordering is now load-bearing

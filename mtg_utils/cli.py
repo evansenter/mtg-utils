@@ -5,18 +5,19 @@ import sys
 import time
 
 from mtg_utils import __doc__ as _BANNER
-from mtg_utils.analysis import verify
 from mtg_utils.castability import PLAYSIM_MAX_TURNS, PLAYSIM_TURNS
-from mtg_utils.decklist import (as_cmdrs, flat, parse_swaps, read_decklist,
+from mtg_utils.decklist import (flat, parse_swaps, read_decklist,
                                 split_names, write_arena_deck, write_deck)
-from mtg_utils.formats import DEFAULT_FORMAT, FORMATS, deck_size, spec
+from mtg_utils.formats import DEFAULT_FORMAT, FORMATS, deck_size
+from mtg_utils.parallel import default_jobs
 from mtg_utils.report import (report_arena_wildcards, report_calibrate,
                               report_combos, report_contention,
                               report_ceiling, report_diff, report_floor,
                               report_mana,
                               report_own, report_primer, report_roster,
                               report_skeleton,
-                              report_swap, report_variants)
+                              report_swap, report_variants, report_verify)
+from mtg_utils.sources import collection
 from mtg_utils.sources.arena import arena_printings
 from mtg_utils.sources.moxfield import moxfield_deck
 from mtg_utils.sources.scryfall import scry_fetch
@@ -50,6 +51,19 @@ def selftest():
 
 
 # ============================================================ CLI
+def run():
+    """main(), for the two entry points: output piped into `head` or a pager
+    that closes early ends the run quietly instead of with a traceback."""
+    try:
+        main()
+        sys.stdout.flush()
+    except BrokenPipeError:
+        # Python flushes stdout again at exit; point it somewhere that cannot
+        # raise, or the traceback comes back from the interpreter's shutdown.
+        os.dup2(os.open(os.devnull, os.O_WRONLY), sys.stdout.fileno())
+        sys.exit(1)
+
+
 def main():
     ap = argparse.ArgumentParser(description=_BANNER,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -73,6 +87,12 @@ def main():
                     help="replicates used to estimate the +/- on each figure")
     ap.add_argument("--seed", type=int, default=17,
                     help="base RNG seed; replicate i uses seed+i")
+    # Output is identical at any value: each replicate owns its generator, so
+    # which process runs it cannot change what it draws.
+    ap.add_argument("--jobs", type=int, default=default_jobs(),
+                    help="mana/variants: worker processes for the Monte "
+                         "Carlo replicates (default: one per CPU); every "
+                         "figure is identical at any value")
     ap.add_argument("--out", default=None)
     ap.add_argument("--decks", default="", help="comma-separated Moxfield ids")
     ap.add_argument("--lands", default="-2,0,2",
@@ -90,6 +110,10 @@ def main():
     ap.add_argument("--arena-cache", default="arena.json",
                     help="write --arena: on-disk cache of Arena printings, "
                          "one Scryfall search per card on a miss")
+    ap.add_argument("--collection", default=None,
+                    help="ManaBox CSV export read for ownership (own, roster, "
+                         "ceiling, contention, audit); defaults to "
+                         "$MTG_COLLECTION")
     ap.add_argument("--rec-cache", default="edhrec.json",
                     help="ceiling/floor: on-disk cache for EDHREC / edhtop16 pages")
     ap.add_argument("--cedh", action="store_true",
@@ -147,8 +171,9 @@ def main():
         ap.error(f"--turns must be between 1 and {PLAYSIM_MAX_TURNS}, got "
                  f"{a.turns} -- the play simulation packs each hand into "
                  f"six-bit fields and cannot run further")
+    if a.collection:
+        collection.COLLECTION = a.collection
     size = a.size if a.size is not None else deck_size(a.fmt)
-    label = spec(a.fmt)["label"]
 
     if a.cmd == "selftest":
         sys.exit(selftest())
@@ -196,31 +221,10 @@ def main():
         print("SCRYFALL NOT FOUND (front-face names only!):", nf)
 
     if a.cmd in ("verify", "audit"):
-        v = verify(cmdr, entries, scry, a.fmt)
-        # The commander count is len(cmdrs), not 1. A partner or background
-        # pair is TWO, and verify() has always counted both in `total` -- only
-        # this sentence claimed otherwise, so the printed arithmetic came out
-        # one short (100 = 1 + 60 + 38) on exactly the decks whose primer
-        # header is hardest to check by eye.
-        ncmdr = len(as_cmdrs(cmdr))
-        print(f"\n=== VERIFY: {cmdr} ===")
-        print(f"  {v['total']} cards = {ncmdr} commander"
-              f"{'' if ncmdr == 1 else 's'} + {v['nonland']} non-land "
-              f"+ {v['lands']} lands  ({v['mdfc_land_backs']} MDFC land-backs)")
-        print(f"  average non-land MV {v['avg_mv']:.2f}")
-        print(f"  Game Changers ({len(v['game_changers'])}, Scryfall game_changer): "
-              f"{v['game_changers']}")
-        print(f"  illegal: {v['illegal'] or 'none'}")
-        print(f"  colour identity violations: {v['ci_violations'] or 'none'}")
-        # The format's size, not a constant. Everything else in this block
-        # was already right on a 60-card list -- only the warning was wrong,
-        # and a wrong warning makes a correct deck look broken.
-        if v["total"] != size:
-            print(f"  *** DECK IS {v['total']} CARDS, {label.upper()} IS "
-                  f"{size} ***")
+        report_verify(cmdr, entries, scry, a.fmt, size)
     if a.cmd in ("mana", "audit"):
         report_mana(cmdr, entries, scry, a.sims, a.trials, a.seed,
-                    reps=a.reps, turns=a.turns, fmt=a.fmt)
+                    reps=a.reps, turns=a.turns, fmt=a.fmt, jobs=a.jobs)
     if a.cmd == "skeleton":
         report_skeleton(cmdr, entries, scry)
     if a.cmd == "primer":
@@ -244,12 +248,12 @@ def main():
     if a.cmd == "variants":
         if swaps:
             report_swap(cmdr, entries, scry, swaps, a.sims, a.trials,
-                        a.seed, a.reps)
+                        a.seed, a.reps, a.jobs)
         else:
             report_variants(cmdr, entries, scry,
                             [int(x) for x in a.lands.split(",")],
                             [int(x) for x in a.accel.split(",")], a.trials,
-                            a.seed, a.reps)
+                            a.seed, a.reps, a.jobs)
     if a.cmd in ("combos", "audit"):
         # The cache is passed so the names sent to Spellbook are the full
         # `A // B` form it matches on -- see spellbook_name.

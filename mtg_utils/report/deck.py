@@ -10,14 +10,15 @@ stay below them is MEASUREMENT, and floor_audit is where that lives.
 """
 import time
 from collections import defaultdict
-from mtg_utils.analysis import (CURVE_TOP, deck_skeleton, floor_audit,
+from mtg_utils.analysis import (CURVE_TOP, deck_skeleton, floor_audit, verify,
                                 primer_audit)
 from mtg_utils.cards import front_name
 from mtg_utils.decklist import as_cmdrs, flat
-from mtg_utils.formats import says_illegal
+from mtg_utils.formats import deck_size as format_deck_size
 from mtg_utils.formats import spec as format_spec
 from mtg_utils.primer import parse_primer_links
-from mtg_utils.roster import ANY_COLOUR, PAIR_CYCLES, TRIPLE_CYCLES, WUBRG, identity_pairs, roster_names, roster_status
+from mtg_utils.roster import (PAIR_CYCLES, identity_pairs, roster_colours,
+                              roster_names, roster_walk)
 from mtg_utils.sources.collection import load_collection
 from mtg_utils.sources.edhrec import PAGE_CAP
 from mtg_utils.sources.edhtop16 import MIN_ENTRIES
@@ -40,6 +41,39 @@ from mtg_utils.sources.spellbook import spellbook, variant_says_illegal
 # So the width is measured off the rows actually being printed, with a floor
 # so a short-named list still lays out as a table rather than a ragged column.
 FLOOR_NAME_MIN = 44
+
+
+def report_verify(cmdr, entries, scry, fmt=None, size=None):
+    """Counts, legality, colour identity. verify() measures; this formats.
+
+    `size` is the expected total including commanders, defaulting to the
+    format's own -- `--size` overrides it.
+    """
+    v = verify(cmdr, entries, scry, fmt)
+    if size is None:
+        size = format_deck_size(fmt)
+    # The commander count is len(cmdrs), not 1. A partner or background
+    # pair is TWO, and verify() has always counted both in `total` -- only
+    # this sentence claimed otherwise, so the printed arithmetic came out
+    # one short (100 = 1 + 60 + 38) on exactly the decks whose primer
+    # header is hardest to check by eye.
+    ncmdr = len(as_cmdrs(cmdr))
+    print(f"\n=== VERIFY: {cmdr} ===")
+    print(f"  {v['total']} cards = {ncmdr} commander"
+          f"{'' if ncmdr == 1 else 's'} + {v['nonland']} non-land "
+          f"+ {v['lands']} lands  ({v['mdfc_land_backs']} MDFC land-backs)")
+    print(f"  average non-land MV {v['avg_mv']:.2f}")
+    print(f"  Game Changers ({len(v['game_changers'])}, Scryfall game_changer): "
+          f"{v['game_changers']}")
+    print(f"  illegal: {v['illegal'] or 'none'}")
+    print(f"  colour identity violations: {v['ci_violations'] or 'none'}")
+    # The format's size, not a constant. Everything else in this block
+    # was already right on a 60-card list -- only the warning was wrong,
+    # and a wrong warning makes a correct deck look broken.
+    if v["total"] != size:
+        print(f"  *** DECK IS {v['total']} CARDS, "
+              f"{format_spec(fmt)['label'].upper()} IS {size} ***")
+    return v
 
 
 def report_skeleton(cmdr, entries, scry):
@@ -115,39 +149,16 @@ def report_roster(cmdr, entries, scry, cache_path=None, fmt=None, colours=None):
     Both default to what they did before: the commander's identity, and no
     format filter beyond Commander's own, under which nothing here is dropped.
     """
-    ci = set()
-    for cn in as_cmdrs(cmdr):
-        if scry.get(cn.lower()):
-            ci |= set(scry[cn.lower()]["color_identity"])
-    ident = "".join(c for c in WUBRG if c in ci)
-    walk = ident
-    if colours:
-        # Every character has to BE a colour. Dropping the rest quietly turned
-        # a typo (`--colours BRX`) into a narrower walk and `--colours C` into
-        # an empty one that printed `ROSTER WALK: ... ()` -- a walk of nothing
-        # that looks like a result. Refused by name, as widening is below.
-        bad = sorted({c for c in colours.upper() if c not in WUBRG})
-        if bad:
-            raise SystemExit(
-                f"--colours {colours}: {''.join(bad)} is not a colour. Use "
-                f"the letters W, U, B, R and G, e.g. --colours BRG.")
-        want = set(colours.upper())
-        # Refused rather than silently widened. A roster row outside the
-        # commander's identity is ILLEGAL in the deck, and printing it under a
-        # flag the caller typed would read as a slot they could fill.
-        extra = "".join(c for c in WUBRG if c in want - set(ident))
-        if extra:
-            raise SystemExit(
-                f"--colours {colours}: {extra} is outside the commander's "
-                f"identity ({ident or 'C'}), so every row it adds would be "
-                f"illegal in this deck. The flag narrows the walk; it cannot "
-                f"widen it.")
-        walk = "".join(c for c in WUBRG if c in want)
-    deck_names = {n.lower() for n in entries} | {c.lower() for c in as_cmdrs(cmdr)}
+    ident, walk = roster_colours(cmdr, scry, colours)
     owned = load_collection()
     names = roster_names(walk)
     scry2, nf = scry_fetch(names, cache_path)
     scry2.update(scry)
+    w = roster_walk(cmdr, entries, walk, scry2, owned, fmt)
+
+    def line(label, name, st, usd):
+        return (f"  {label:18s} {name:30s} {st}"
+                + ("" if st == "IN" else f"   {'$' + usd if usd else '-'}"))
 
     print(f"\n=== ROSTER WALK: {' + '.join(as_cmdrs(cmdr))} ({walk}) ===")
     if walk != ident:
@@ -155,112 +166,57 @@ def report_roster(cmdr, entries, scry, cache_path=None, fmt=None, colours=None):
               f"{ident or 'C'} -- --colours narrowed it.")
     if nf:
         print(f"  *** ROSTER NAME NOT ON SCRYFALL: {nf} ***")
-    bad = [n for n in names
-           if scry2.get(n.lower())
-           and set(scry2[n.lower()]["color_identity"]) - set(walk)]
-    if bad:
-        print(f"  *** OFF-IDENTITY, ILLEGAL HERE: {bad} ***")
-
-    def legal(n):
-        """Should this roster name be walked in the format being walked?
-
-        A name the cache has never seen -- or whose record carries no
-        `legalities` block -- is WALKED rather than dropped: it has already
-        been reported as NOT ON SCRYFALL above, and silently removing it as
-        well would turn one loud failure into a row that simply is not there.
-        Silence is not evidence; see formats.says_illegal.
-        """
-        return not says_illegal(scry2.get(n.lower()), fmt)
-
-    illegal = [n for n in names if not legal(n)]
-    if illegal:
+    if w["off_identity"]:
+        print(f"  *** OFF-IDENTITY, ILLEGAL HERE: {w['off_identity']} ***")
+    if w["illegal"]:
         # Said ONCE, with a count, rather than as forty rows the reader has to
         # recognise as unbuyable one at a time.
-        print(f"  {len(illegal)} of {len(names)} roster names are not legal in "
-              f"{format_spec(fmt)['label']} and are not walked.")
+        print(f"  {len(w['illegal'])} of {len(names)} roster names are not "
+              f"legal in {format_spec(fmt)['label']} and are not walked.")
 
-    def price(n):
-        c = scry2.get(n.lower()) or {}
-        p = (c.get("prices") or {}).get("usd")
-        return f"${p}" if p else "-"
-
-    empty = []
     if not identity_pairs(walk):
-        # Section 6: in a mono-colour identity the two-colour cycles are
-        # ILLEGAL, not merely unnecessary (Sunbaked Canyon is RW, every filter
-        # land is two-colour). Say so; do not silently omit the rows.
+        # In a mono-colour identity the two-colour cycles are ILLEGAL, not
+        # merely unnecessary (Sunbaked Canyon is RW, every filter land is
+        # two-colour). Say so; do not silently omit the rows.
         print(f"  {len(PAIR_CYCLES)} two-colour cycles "
               f"({', '.join(s for s, _ in PAIR_CYCLES)}) are off-identity "
               f"and ILLEGAL in {walk} -- no pair rows to walk.")
         print("  Fetchlands and any-colour painlands are legal here and "
               "strictly worse than a basic without shuffle payoffs: "
               "walked and skipped.")
-    for pk in identity_pairs(walk):
+    for pk, rows, emptied in w["pairs"]:
         print(f"\n  --- {pk} ---")
-        rows = 0
-        for slot, table in PAIR_CYCLES:
-            name = table.get(pk)
-            if not name:
-                # Printed, but NOT counted as a walked row. It is a slot the
-                # pair never had, so it cannot stand in for one the format
-                # emptied: counted, a pair whose every real member is illegal
-                # printed only "(no such card)" and no note at all.
+        for slot, name, st, usd in rows:
+            if name is None:
                 print(f"  {slot:18s} {'(no such card)':30s}")
-                continue
-            if not legal(name):
-                continue
-            rows += 1
-            st = roster_status(name, deck_names, owned)
-            extra = "" if st == "IN" else f"   {price(name)}"
-            print(f"  {slot:18s} {name:30s} {st}{extra}")
-            if st != "IN" and slot in ("ABUR dual", "Shockland", "Fetchland",
-                                       "Filter land", "Painland",
-                                       "Battlebond land", "Horizon land"):
-                empty.append((pk, slot, name, st))
-        if illegal and not rows:
+            else:
+                print(line(slot, name, st, usd))
+        if emptied:
             _say_empty(fmt)
 
     print("\n  --- off-pair fetchlands (reach one colour of the identity) ---")
-    off_pair = 0
-    for pk, name in PAIR_CYCLES[2][1].items():
-        if (set(pk) & set(walk) and not set(pk) <= set(walk)
-                and legal(name)):
-            off_pair += 1
-            st = roster_status(name, deck_names, owned)
-            print(f"  {pk:18s} {name:30s} {st}"
-                  + ("" if st == "IN" else f"   {price(name)}"))
-    # Only when the FORMAT emptied it. This heading can be legitimately empty
-    # -- a two-colour identity has no off-pair fetch to reach -- and that
-    # case is in the committed snapshots, so a note printed unconditionally
-    # would move four decks' bytes to say nothing new about them.
-    if illegal and not off_pair:
+    rows, emptied = w["off_pair"]
+    for r in rows:
+        print(line(*r))
+    if emptied:
         _say_empty(fmt)
 
-    if walk in TRIPLE_CYCLES:
+    if w["triples"] is not None:
         print("\n  --- three-colour (tapped; only if the rider is real) ---")
-        triples = 0
-        for name in TRIPLE_CYCLES[walk]:
-            if not legal(name):
-                continue
-            triples += 1
-            st = roster_status(name, deck_names, owned)
-            print(f"  {'Triome/tri-land':18s} {name:30s} {st}"
-                  + ("" if st == "IN" else f"   {price(name)}"))
-        if not triples:
+        rows, emptied = w["triples"]
+        for r in rows:
+            print(line(*r))
+        if emptied:
             _say_empty(fmt)
 
     print("\n  --- identity-independent ---")
-    any_colour = 0
-    for slot, name in ANY_COLOUR:
-        if not legal(name):
-            continue
-        any_colour += 1
-        st = roster_status(name, deck_names, owned)
-        print(f"  {slot:18s} {name:30s} {st}"
-              + ("" if st == "IN" else f"   {price(name)}"))
-    if illegal and not any_colour:
+    rows, emptied = w["any_colour"]
+    for r in rows:
+        print(line(*r))
+    if emptied:
         _say_empty(fmt)
 
+    empty = w["premium_missing"]
     print(f"\n  PREMIUM SLOTS NOT IN THE LIST: {len(empty)}")
     for pk, slot, name, st in empty:
         print(f"    {pk} {slot:18s} {name:30s} {st}")

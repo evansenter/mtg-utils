@@ -31,7 +31,15 @@ from mtg_utils.castability import (_sample_hits, _sample_plan, _sample_set,
 
 
 def _deal(rng, deck, m):
-    """The top `m` of `deck`, as playsim deals them, plus the RNG state."""
+    """The top `m` of `deck`, as playsim deals them, plus the RNG state.
+
+    A COPY of the loop `_playsim_core` runs inline, because that loop is not a
+    function it could call. So this file pins `_shuffle_plan` -- the plan the
+    loop follows -- and not the loop itself: deleting the tail drain inside
+    `_playsim_core` leaves every case here green. What catches that is the
+    golden suite, where it moves a dozen snapshots. Keep this copy identical
+    to the production loop, or it stops meaning even that much.
+    """
     n = len(deck)
     head, tail = _shuffle_plan(n, m)
     getrandbits = rng.getrandbits
@@ -57,11 +65,10 @@ def _stdlib_deal(rng, deck, m):
 # 99 and 98 are the real library sizes (one commander, and a partner pair);
 # the rest bracket them, including the powers of two where `getrandbits`
 # never has to reject a draw and the sizes either side where it usually does.
-@pytest.mark.parametrize("n", [2, 3, 8, 16, 17, 31, 32, 33, 64, 98, 99, 100])
-@pytest.mark.parametrize("m", [1, 7, 14])
+@pytest.mark.parametrize("n,m", [
+    (n, m) for m in (1, 7, 14)
+    for n in (2, 3, 8, 16, 17, 31, 32, 33, 64, 98, 99, 100) if m <= n])
 def test_partial_shuffle_deals_what_shuffle_deals(n, m):
-    if m > n:
-        pytest.skip("more cards than deck")
     deck = list(range(n))
     got, got_state = _deal(random.Random(4), deck, m)
     want, want_state = _stdlib_deal(random.Random(4), deck, m)

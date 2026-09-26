@@ -3,12 +3,9 @@
 Everything here formats a Monte Carlo measurement, so everything here prints
 a figure with its noise beside it. analysis.py does the measuring.
 """
-from mtg_utils.analysis import analyse_mana, commander_lines, compare_swap, replicate_playsim
-from mtg_utils.castability import PLAYSIM_TURNS, pips_from_cost
-from mtg_utils.decklist import as_cmdrs, flat
+from mtg_utils.analysis import analyse_mana, compare_swap, sweep_variants
+from mtg_utils.castability import PLAYSIM_TURNS
 from mtg_utils.formats import spec as format_spec
-from mtg_utils.profiles import (build_accel_profiles, build_land_profiles,
-                                build_ritual_profiles)
 
 
 def _burst_note(rituals):
@@ -30,7 +27,7 @@ def _reps(n):
 
 
 def report_mana(cmdr, entries, scry, sims, trials, seed=17, lines=None, reps=3,
-                turns=PLAYSIM_TURNS, fmt=None):
+                turns=PLAYSIM_TURNS, fmt=None, jobs=1):
     """The two models, side by side. analyse_mana measures; this formats.
 
     `turns` is the horizon both models are held to. `fmt` decides nothing that
@@ -38,7 +35,7 @@ def report_mana(cmdr, entries, scry, sims, trials, seed=17, lines=None, reps=3,
     against, which is a fact about the format and not about the deck.
     """
     a = analyse_mana(cmdr, entries, scry, sims, trials, seed, lines, reps,
-                     turns)
+                     turns, jobs)
     # Everything is unpacked HERE, before the play-simulation loop below
     # rebinds `a` to a percentage. Reading a["floor"] after that loop gets a
     # float and a TypeError several lines from the cause.
@@ -148,68 +145,12 @@ def report_mana(cmdr, entries, scry, sims, trials, seed=17, lines=None, reps=3,
 
 
 def report_variants(cmdr, entries, scry, land_deltas, accel_deltas, trials,
-                    seed=17, reps=3):
-    """Sweep land count and accelerant count. Slow; opt-in."""
-    names = flat(cmdr, entries)[len(as_cmdrs(cmdr)):]
-    base_lands = build_land_profiles(names, scry)
-    accels = build_accel_profiles(names, scry)
-    accels = [a for a in accels if not a.get("restricted")]
-    # Held CONSTANT across the sweep, and not counted in the "N accel" label:
-    # --accel varies how many accelerants the deck runs, and a ritual is not
-    # one. Folding them into that count would make the config column disagree
-    # with what the sweep actually varied.
-    rituals = build_ritual_profiles(names, scry)
-    # The LIBRARY, derived exactly as analyse_mana derives it: the deck minus
-    # its commanders. This was a hard-coded 99, so every deck whose library is
-    # not 99 cards was swept against a diluted one -- a 60-card Brawl list was
-    # simulated as though 39 blank cards had been shuffled in, and its figures
-    # came out roughly halved. Invisible on a 99-card list and visible on a
-    # partner pair, whose library is 98; nothing in the sweep's own output
-    # looks wrong either way, and it surfaced only because `mana` and this
-    # table disagreed about the same line on the same deck.
-    deck_size = len(names)
-    basic = next((p for p in base_lands if not p["tapped"] and p["colours"]), None)
-    if basic is None and any(d > 0 for d in land_deltas):
-        # dict(None) raises TypeError several frames later, which reads as a
-        # crash rather than as "this deck has nothing to clone". Guards fail
-        # loudly and by name here.
-        raise SystemExit(
-            "variants: cannot add lands to a deck with no untapped "
-            "colour-producing land to copy. Drop the positive entries from "
-            "--lands, or add one such land to the list first.")
-    generic_rock = {"name": "generic rock", "kind": "accel", "colours": frozenset(),
-                    "filter": None, "omni": None, "amount": 1, "cost": 2,
-                    "tapped": False, "cond_tap": None, "restricted": False,
-                    "creature": False, "mdfc": False}
-    # Both columns of this table are read at the commander's own turn, so the
-    # commander has to resolve and has to land inside the simulation. Neither
-    # was checked: an unresolved name indexed an empty list, and a commander
-    # past the last turn simulated had its line dropped by playsim_report and
-    # then read back by label. Both raised bare -- IndexError and KeyError --
-    # several frames from the cause, which reads as a broken simulator rather
-    # than as a statement about the deck. Guards fail loudly and by name here.
-    _cl = commander_lines(cmdr, scry)
-    if not _cl:
-        raise SystemExit(
-            f"variants: no Scryfall entry for {cmdr!r}, so its curve is "
-            f"unknown and both columns of this table are read at it. Check "
-            f"the commander line of the decklist, or refresh the cache with "
-            f"`fetch`.")
-    _, cmv, _cpips = _cl[0]
-    creq = pips_from_cost(_cpips)
-    _cturn = max(cmv, len(creq), 1)
-    if _cturn > PLAYSIM_TURNS:
-        raise SystemExit(
-            f"variants: {_cl[0][0].removesuffix(' on curve')} comes down on "
-            f"turn {_cturn}, and the play simulation stops at turn "
-            f"{PLAYSIM_TURNS}. Both columns here are read at the commander's "
-            f"own turn, so there is no row left to print -- and quoting the "
-            f"turn-{PLAYSIM_TURNS} figure under a 'commander on curve' "
-            f"heading would be a different question wearing this one's label. "
-            f"`mana` still covers turns one to {PLAYSIM_TURNS} for this deck.")
-    # This table reads exactly two figures out of each simulation and both are
-    # at that turn, so playing out to turn seven every time was five sixths of
-    # the turns simulated for nothing on a two-drop.
+                    seed=17, reps=3, jobs=1):
+    """Sweep land count and accelerant count. Slow; opt-in.
+    sweep_variants measures; this formats."""
+    sw = sweep_variants(cmdr, entries, scry, land_deltas, accel_deltas, trials,
+                        seed, reps, jobs)
+    rituals = sw["rituals"]
     print(f"\n=== VARIANTS SWEEP ({trials} trials over {_reps(reps)}, seed {seed})"
           f" — commander line and generic baseline ===")
     # Named here for the same reason report_mana names it, and it matters more
@@ -221,35 +162,16 @@ def report_variants(cmdr, entries, scry, land_deltas, accel_deltas, trials,
         print(f"  every row includes the ritual burst, held constant and not in "
               f"the accel count: {_burst_note(rituals)}")
     print(f"  {'config':26s} {'cmdr on curve':>20} {'any N on turn N':>22}")
-    for dl in land_deltas:
-        for da in accel_deltas:
-            if dl >= 0:
-                lands = base_lands + [dict(basic) for _ in range(dl)]
-            else:
-                lands = list(base_lands)
-                for _ in range(-dl):
-                    drop = next((i for i, p in enumerate(lands)
-                                 if not p["tapped"] and not p["filter"]
-                                 and p.get("amount", 1) == 1
-                                 and len(p["colours"]) == 1), None)
-                    if drop is None:
-                        break
-                    lands.pop(drop)
-            acc = accels + [dict(generic_rock) for _ in range(da)]
-            # Comparing configs is the entire purpose of this table, so a
-            # figure without its wobble beside it cannot do the job: the
-            # question is always whether one row differs from another.
-            r = replicate_playsim(lands, acc, deck_size,
-                                  [("cmdr", cmv, "".join(f"{{{x}}}" for x in creq))],
-                                  trials, seed, reps, turns=_cturn,
-                                  rituals=rituals)
-            a, turn, sa = r["play"]["lines"]["cmdr"]
-            b, _, sb = r["draw"]["lines"]["cmdr"]
-            g1, s1 = r["play"]["generic"][turn]
-            g2, s2 = r["draw"]["generic"][turn]
-            print(f"  {len(lands)} lands, {len(acc)} accel"
-                  f"{'':<7} {a:6.1f}±{sa:3.1f} / {b:5.1f}±{sb:3.1f}"
-                  f" {g1:8.1f}±{s1:3.1f} / {g2:5.1f}±{s2:3.1f}")
+    # Each cell is two figures, and which is which was never said.
+    print(f"  {'':26s} {'on play /   on draw':>20} {'on play /   on draw':>22}")
+    for nl, na, r in sw["rows"]:
+        a, turn, sa = r["play"]["lines"]["cmdr"]
+        b, _, sb = r["draw"]["lines"]["cmdr"]
+        g1, s1 = r["play"]["generic"][turn]
+        g2, s2 = r["draw"]["generic"][turn]
+        print(f"  {nl} lands, {na} accel"
+              f"{'':<7} {a:6.1f}±{sa:3.1f} / {b:5.1f}±{sb:3.1f}"
+              f" {g1:8.1f}±{s1:3.1f} / {g2:5.1f}±{s2:3.1f}")
 
 
 def _swap_row(r):
@@ -261,9 +183,11 @@ def _swap_row(r):
             f"   {r['delta']:+6.1f} ±{r['noise']:4.1f}   {verdict}")
 
 
-def report_swap(cmdr, entries, scry, swaps, sims, trials, seed=17, reps=3):
+def report_swap(cmdr, entries, scry, swaps, sims, trials, seed=17, reps=3,
+                jobs=1):
     """Print a named swap measured before and after. compare_swap computes it."""
-    c = compare_swap(cmdr, entries, scry, swaps, sims, trials, seed, reps)
+    c = compare_swap(cmdr, entries, scry, swaps, sims, trials, seed, reps,
+                     jobs)
     print(f"\n=== NAMED SWAP ({trials} trials over {_reps(reps)}, seed {seed}) ===")
     for cut, add in swaps:
         print(f"  cut {cut}  ->  add {add}")
