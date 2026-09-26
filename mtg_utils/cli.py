@@ -18,6 +18,7 @@ from mtg_utils.report import (report_arena_wildcards, report_calibrate,
                               report_own, report_primer, report_roster,
                               report_skeleton,
                               report_swap, report_variants)
+from mtg_utils.sources import collection
 from mtg_utils.sources.arena import arena_printings
 from mtg_utils.sources.moxfield import moxfield_deck
 from mtg_utils.sources.scryfall import scry_fetch
@@ -97,6 +98,10 @@ def main():
     ap.add_argument("--arena-cache", default="arena.json",
                     help="write --arena: on-disk cache of Arena printings, "
                          "one Scryfall search per card on a miss")
+    ap.add_argument("--collection", default=None,
+                    help="ManaBox CSV export read for ownership (own, roster, "
+                         "ceiling, contention, audit); defaults to "
+                         "$MTG_COLLECTION")
     ap.add_argument("--rec-cache", default="edhrec.json",
                     help="ceiling/floor: on-disk cache for EDHREC / edhtop16 pages")
     ap.add_argument("--cedh", action="store_true",
@@ -154,6 +159,8 @@ def main():
         ap.error(f"--turns must be between 1 and {PLAYSIM_MAX_TURNS}, got "
                  f"{a.turns} -- the play simulation packs each hand into "
                  f"six-bit fields and cannot run further")
+    if a.collection:
+        collection.COLLECTION = a.collection
     size = a.size if a.size is not None else deck_size(a.fmt)
     label = spec(a.fmt)["label"]
 

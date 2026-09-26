@@ -52,6 +52,11 @@ OWN_SCRY = {
     "rhystic study": _card("Rhystic Study", "Enchantment", "40.00", 2),
     "brainstorm": _card("Brainstorm", "Instant", "0.25", 300),
     "reserved thing": _card("Reserved Thing", "Artifact", None, 5000),
+    "karn, the great creator": _card("Karn, the Great Creator",
+                                     "Legendary Planeswalker — Karn", "20.00", 400),
+    "invasion of ikoria": _card("Invasion of Ikoria // Zilortha, Apex of Ikoria",
+                                "Battle — Siege // Legendary Creature — Dinosaur",
+                                "0.30", 9000),
     "cmdr": _card("Cmdr", "Legendary Creature — Human", "1.00", 10),
 }
 
@@ -87,8 +92,12 @@ def test_own_excludes_what_is_owned(report, owned, capsys):
     ("Skullclamp", "Equipment"),
     ("Rhystic Study", "Enchantments"),
     ("Brainstorm", "Instants / Sorceries"),
+    ("Karn, the Great Creator", "Planeswalkers"),
+    ("Invasion of Ikoria", "Battles"),
 ], ids=["own/creature bucket", "own/equipment before artifact",
-        "own/enchantment bucket", "own/instant bucket"])
+        "own/enchantment bucket", "own/instant bucket",
+        "own/a planeswalker is not an instant",
+        "own/a battle is not an instant"])
 def test_own_buckets_by_type(report, owned, capsys, name, bucket):
     """Equipment is checked before Artifact, so Skullclamp is Equipment and
     not an Artifact -- the branch order is the classification."""
@@ -193,6 +202,19 @@ def test_contention_collapses_a_temp(report, monkeypatch, capsys):
     assert line == ["  Sol Ring                       owned 2 | also in: "
                     "Muldrotha [Bracket 3], Teval [B4]"], line
     assert "Contention is an OUTPUT. It never decides a slot." in out
+
+
+def test_a_deck_named_tempo_is_not_a_temp(mm):
+    """contention/Temp is a TAG, not a substring
+
+    "temp" was matched anywhere in the name, so a main deck called "Tempo
+    ..." was never recognised as a main and its own Temp was never
+    collapsed into it -- every shared card counted twice.
+    """
+    use = {"Tempo Storm [B3]": {"Sol Ring"},
+           "Tempo Storm [B3 Temp]": {"Sol Ring"},
+           "Temporal Loop": {"Sol Ring"}}
+    assert set(mm.collapse_temps(use)) == {"Tempo Storm [B3]", "Temporal Loop"}
 
 
 def test_contention_says_none_when_supply_is_fine(report, monkeypatch, capsys):

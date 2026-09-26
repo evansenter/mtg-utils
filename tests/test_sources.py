@@ -12,6 +12,7 @@ def coll(mm, tmp_path):
     p.write_text("Name,Quantity\n"
                  "Sol Ring,2\n"
                  "Sol Ring,1\n"
+                 "Mana Crypt,1\n"
                  "Agadeem's Awakening // Agadeem the Undercrypt,1\n",
                  encoding="utf-8-sig")
     return mm.load_collection(str(p))
@@ -29,10 +30,18 @@ def test_collection_sums_quantities_across_printings(coll):
 def test_collection_no_double_count(coll):
     """collection/no double count
 
-    Same value, different reason: the front-face key must only be added when
-    it DIFFERS from the full name, or every non-DFC is counted twice.
+    The front-face key must only be added when it DIFFERS from the full
+    name, or every non-DFC is counted twice. Asserted on a card with ONE row,
+    so this fails on its own: on Sol Ring's two rows the sibling case above
+    fails too, and a pair that can only fail together tests one thing.
     """
-    assert coll["sol ring"] == 3
+    assert coll["mana crypt"] == 1
+
+
+def test_a_missing_collection_says_how_to_supply_one(mm, tmp_path):
+    """collection/missing file is a message, not a traceback"""
+    with pytest.raises(SystemExit, match="--collection PATH or set MTG_COLLECTION"):
+        mm.load_collection(str(tmp_path / "nope.csv"))
 
 
 def test_collection_dfc_full_name(coll):

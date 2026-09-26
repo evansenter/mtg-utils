@@ -3,12 +3,12 @@ import math
 import random
 import re
 
-from mtg_utils.cards import (enters_tapped, enters_tapped_turn, front,
+from mtg_utils.cards import (enters_tapped_turn, front,
                              front_name, has_land_back,
                              is_front_land, is_tapped_fetcher, land_face)
 from mtg_utils.castability import (PLAYSIM_TURNS, at_least_in_draw, castable_faces,
                                    pips_from_cost, playsim_report, probability)
-from mtg_utils.decklist import apply_swaps, as_cmdrs, flat, read_decisions
+from mtg_utils.decklist import apply_swaps, as_cmdrs, flat
 from mtg_utils.formats import says_illegal
 from mtg_utils.parallel import pmap
 from mtg_utils.formats import spec as format_spec
@@ -1046,9 +1046,69 @@ def deck_skeleton(cmdr, entries, scry):
             "game_changers": len(v["game_changers"])}
 
 
+# Print order of the `own` buy list. Planeswalker and Battle are buckets of
+# their own: a catch-all "else" once filed every planeswalker under
+# "Instants / Sorceries".
+BUY_BUCKETS = ("Creatures", "Planeswalkers", "Equipment", "Artifacts",
+               "Enchantments", "Instants / Sorceries", "Battles", "Lands",
+               "Other")
+
+
+def buy_list(cmdr, entries, scry, owned):
+    """What the list holds that `owned` does not, bucketed for buying.
+
+    Returns {"buckets": {bucket: [(name, usd or None, edhrec_rank)]},
+    "total_usd": sum of the non-null prices}. Basics are never a buy line --
+    ManaBox does not track them. A name the cache cannot resolve is skipped;
+    the CLI has already printed it as NOT FOUND.
+    """
+    buckets = {}
+    tot = 0.0
+    for n in as_cmdrs(cmdr) + list(entries):
+        if owned.get(n.lower(), 0) > 0:
+            continue
+        c = scry.get(n.lower())
+        if not c:
+            continue
+        tl = c["type_line"]
+        if "Basic Land" in tl:
+            continue
+        front_tl = tl.split("//")[0]
+        if "Land" in front_tl:
+            b = "Lands"
+        elif "Equipment" in tl:
+            b = "Equipment"
+        elif "Creature" in front_tl:
+            b = "Creatures"
+        elif "Planeswalker" in front_tl:
+            b = "Planeswalkers"
+        elif "Artifact" in tl:
+            b = "Artifacts"
+        elif "Enchantment" in tl:
+            b = "Enchantments"
+        elif "Instant" in front_tl or "Sorcery" in front_tl:
+            b = "Instants / Sorceries"
+        elif "Battle" in front_tl:
+            b = "Battles"
+        else:
+            b = "Other"
+        price = c.get("prices", {}).get("usd")
+        buckets.setdefault(b, []).append((n, price, c.get("edhrec_rank")))
+        if price:
+            tot += float(price)
+    return {"buckets": buckets, "total_usd": tot}
+
+
 def deck_base_name(name):
     """Strip a trailing bracketed tag: 'Muldrotha [Bracket 3 Temp]' -> 'muldrotha'."""
     return re.sub(r"[\[\(][^\]\)]*[\]\)]", "", name or "").strip().lower()
+
+
+def is_temp(name):
+    """'Muldrotha [Bracket 3 Temp]' is a Temp; 'Tempo Storm' is not. The word
+    has to sit inside the bracketed tag deck_base_name strips."""
+    return re.search(r"[\[\(][^\]\)]*\btemp\b[^\]\)]*[\]\)]", name or "",
+                     re.IGNORECASE) is not None
 
 
 def collapse_temps(use):
@@ -1058,10 +1118,10 @@ def collapse_temps(use):
     purchase line. Collapse a '[... Temp]' listing into the main it shares a
     base name with; a Temp with no main of its own stands alone.
     """
-    mains = {deck_base_name(n) for n in use if "temp" not in n.lower()}
+    mains = {deck_base_name(n) for n in use if not is_temp(n)}
     out = {}
     for name, cards in use.items():
-        if "temp" in name.lower() and deck_base_name(name) in mains:
+        if is_temp(name) and deck_base_name(name) in mains:
             continue
         out[name] = cards
     return out
